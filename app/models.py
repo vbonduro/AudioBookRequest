@@ -7,5 +7,5 @@ class BaseModel(SQLModel):
 
 
 class User(BaseModel, table=True):
-    username: bytes = Field(primary_key=True)
-    password: bytes
+    username: str = Field(primary_key=True)
+    password: str

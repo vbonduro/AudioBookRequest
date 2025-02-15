@@ -1,24 +1,29 @@
 from typing import Annotated
+
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import secrets
-
 from sqlmodel import Session, select
+
 from app.db import get_session
 from app.models import User
 
 security = HTTPBasic()
+ph = PasswordHasher()
+
+
+def create_user(username: str, password: str) -> User:
+    password_hash = ph.hash(password)
+    return User(username=username, password=password_hash)
 
 
 def get_username(
     session: Annotated[Session, Depends(get_session)],
     credentials: Annotated[HTTPBasicCredentials, Depends(security)],
 ):
-    username_bytes = credentials.username.encode("utf-8")
-    password_bytes = credentials.password.encode("utf-8")
-
     user = session.exec(
-        select(User).where(User.username == username_bytes)
+        select(User).where(User.username == credentials.username)
     ).one_or_none()
 
     if not user:
@@ -28,14 +33,18 @@ def get_username(
             headers={"WWW-Authenticate": "Basic"},
         )
 
-    is_correct_username = secrets.compare_digest(user.username, username_bytes)
-    is_correct_password = secrets.compare_digest(user.password, password_bytes)
-
-    if not (is_correct_username and is_correct_password):
+    try:
+        ph.verify(user.password, credentials.password)
+    except VerifyMismatchError:
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
+
+    if ph.check_needs_rehash(user.password):
+        user.password = ph.hash(credentials.password)
+        session.add(user)
+        session.commit()
 
     return credentials.username

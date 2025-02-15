@@ -1,15 +1,91 @@
+<!-- Admin initialization page -->
 {% extends "base.html" %} {% block head %}
-<title>Initialize user</title>
+<title>Initialize admin user</title>
+<script>
+  const checkEqualPasswords = function () {
+    const first = document.getElementById("password").value;
+    const second = document.getElementById("confirm_password").value;
+    if (first !== second && first.length > 0 && second.length > 0) {
+      document.getElementById("message").style.display = "block";
+      document.getElementById("submit").disabled = true;
+    } else {
+      document.getElementById("message").style.display = "none";
+      if (first.length > 0 && second.length > 0) {
+        document.getElementById("submit").disabled = false;
+      }
+    }
+
+    const rule = /^(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}$/;
+    if (!rule.test(first)) {
+      document.getElementById("password-req").style.display = "block";
+      document.getElementById("submit").disabled = true;
+    } else {
+      document.getElementById("password-req").style.display = "none";
+    }
+  };
+</script>
 {% endblock %} {% block body %}
 <div class="h-screen w-full flex items-center justify-center">
-  <form class="flex flex-col gap-1">
+  <form class="flex flex-col gap-2 max-w-[30rem]" method="post" id="form">
+    <script>
+      // Redirect to the home page after initialization
+      const onSubmit = event => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        console.log(formData);
+        fetch("/init", {
+          method: "POST",
+          body: formData,
+        })
+          .then(response => {
+            if (response.ok) {
+              window.location.href = "/";
+            } else {
+              alert("An error occurred. Please try again.");
+            }
+          })
+          .catch(error => {
+            console.error("Error:", error);
+          });
+      };
+      document.getElementById("form").addEventListener("submit", onSubmit);
+    </script>
+
+    <p>
+      No user was found in the database. Please create an admin user to get set
+      up.
+    </p>
     <label for="username">Username</label>
-    <input id="username" type="text" class="input" />
+    <input id="username" name="username" type="text" class="input" required />
+
     <label for="password">Password</label>
-    <input id="password" type="password" />
-    <label for="password">Confirm password</label>
-    <input id="password" type="password" />
-    <button>Create account</button>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      class="input"
+      onkeyup="checkEqualPasswords();"
+      required
+    />
+
+    <label for="confirm_password">Confirm password</label>
+    <input
+      id="confirm_password"
+      name="confirm_password"
+      type="password"
+      class="input"
+      onkeyup="checkEqualPasswords();"
+      required
+    />
+
+    <span id="message" class="text-red-400 hidden">Passwords do not match</span>
+    <span id="password-req" class="text-red-400 hidden"
+      >Password must be at least 8 characters long and contain at least one
+      uppercase letter, one lowercase letter, and one number</span
+    >
+    <button id="submit" class="btn btn-primary" type="submit" disabled>
+      Create account
+    </button>
   </form>
 </div>
 {% endblock %}

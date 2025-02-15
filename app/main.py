@@ -20,12 +20,18 @@ async def redirect_to_init(request: Request, call_next: Any):
     Initial redirect if no user exists. We force the user to create a new login
     """
     global user_exists
-    if not user_exists and request.url.path not in ["/init", "/globals.css"]:
+    if (
+        not user_exists
+        and request.url.path not in ["/init", "/globals.css"]
+        and request.method == "GET"
+    ):
         session = next(get_session())
         user_count = session.exec(select(func.count()).select_from(User)).one()
         if user_count == 0:
             return RedirectResponse("/init")
         else:
             user_exists = True
+    elif user_exists and request.url.path.startswith("/init"):
+        return RedirectResponse("/")
     response = await call_next(request)
     return response
