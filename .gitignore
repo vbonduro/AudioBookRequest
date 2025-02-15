@@ -1,0 +1,6 @@
+.direnv
+.venv
+.env
+.envrc
+__pycache__
+static
