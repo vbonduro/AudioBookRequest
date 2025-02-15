@@ -1,0 +1,124 @@
+{% extends "base.html" %} {% block head %}
+<title>Search</title>
+<script>
+  const onSearch = () => {
+    const search_term = document.querySelector("input").value;
+    document.getElementById("search").disabled = true;
+    document.getElementById("search-text").style.display = "none";
+    document.getElementById("search-spinner").style.display = "inline-block";
+    window.location.href = `/search?q=${encodeURIComponent(search_term)}`;
+  };
+  const onRequest = (index, guid, indexerId) => {
+    const checkbox = document.getElementById(`checkbox-${index}`);
+    if (checkbox.checked) {
+      fetch(
+        `/search/request?guid=${encodeURIComponent(
+          guid,
+        )}&indexerId=${indexerId}`,
+        {
+          method: "DELETE",
+        },
+      );
+    } else {
+      fetch(
+        `/search/request?guid=${encodeURIComponent(
+          guid,
+        )}&indexerId${indexerId}`,
+        {
+          method: "POST",
+        },
+      );
+    }
+  };
+</script>
+{% endblock %} {% block body %}
+<div class="w-full h-screen flex items-center justify-center py-8">
+  <div class="flex flex-col h-full gap-4">
+    <div class="flex items-start gap-2">
+      <input
+        class="input input-bordered"
+        placeholder="Book name..."
+        value="{{ search_term }}"
+      />
+      <button id="search" class="btn btn-primary" onclick="onSearch();">
+        <span id="search-text">Search</span>
+        <span id="search-spinner" class="loading" style="display: none"></span>
+      </button>
+    </div>
+
+    <div
+      class="max-w-[80vw] overflow-y-scroll outline outline-primary/50 rounded-lg"
+    >
+      <table class="table table-zebra table-pin-rows">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Title</th>
+            <th>Indexer</th>
+            <th>Size (MB)</th>
+            <th>Seed/Leech</th>
+            <th>Age (days)</th>
+            <th>Request</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in search_results %}
+          <tr>
+            <th>{{ loop.index }}</th>
+            <td title="{{ book.title }}">
+              <a class="link" href="{{ book.infoUrl }}">{{ book.title }}</a>
+            </td>
+            <td>{{ book.indexer }}</td>
+            <td>{{ book.size }}</td>
+            <td>{{ book.seeders }}/{{ book.leechers }}</td>
+            <td title="{{ book.publishDate }}">{{ book.age }}</td>
+            <td>
+              <label class="swap swap-flip">
+                <input
+                  id="checkbox-{{ loop.index }}"
+                  type="checkbox"
+                  onclick="onRequest('{{ loop.index }}', '{{ book.guid }}', '{{ book.indexerId }}');"
+                />
+                <svg
+                  class="swap-off"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  width="24"
+                  height="24"
+                  stroke-width="2"
+                  style="--darkreader-inline-stroke: currentColor"
+                  data-darkreader-inline-stroke=""
+                >
+                  <path d="M12 5l0 14"></path>
+                  <path d="M5 12l14 0"></path>
+                </svg>
+                <svg
+                  class="swap-on text-success"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="--darkreader-inline-stroke: currentColor"
+                  data-darkreader-inline-stroke=""
+                  width="24"
+                  height="24"
+                  stroke-width="2"
+                >
+                  <path d="M5 12l5 5l10 -10"></path>
+                </svg>
+              </label>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
