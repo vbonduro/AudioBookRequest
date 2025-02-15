@@ -1,6 +1,31 @@
-from fastapi import FastAPI
+from typing import Any
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy import func
+from sqlmodel import select
+from app.db import get_session
+from app.models import User
 from app.routers import root
 
 app = FastAPI()
 
 app.include_router(root.router)
+
+user_exists = False
+
+
+@app.middleware("http")
+async def redirect_to_init(request: Request, call_next: Any):
+    """
+    Initial redirect if no user exists. We force the user to create a new login
+    """
+    global user_exists
+    if not user_exists and request.url.path not in ["/init", "/globals.css"]:
+        session = next(get_session())
+        user_count = session.exec(select(func.count()).select_from(User)).one()
+        if user_count == 0:
+            return RedirectResponse("/init")
+        else:
+            user_exists = True
+    response = await call_next(request)
+    return response
