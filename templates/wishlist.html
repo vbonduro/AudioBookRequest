@@ -1,0 +1,69 @@
+<table class="table table-zebra table-pin-rows">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Title</th>
+      <th>Indexer</th>
+      <th>Size (MB)</th>
+      <th>Seed/Leech</th>
+      <th>Age (days)</th>
+      <th>Request</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for book in search_results %}
+    <tr>
+      <th>{{ loop.index }}</th>
+      <td title="{{ book.title }}">
+        <a class="link" href="{{ book.infoUrl }}">{{ book.title }}</a>
+      </td>
+      <td>{{ book.indexer }}</td>
+      <td>{{ book.size }}</td>
+      <td>{{ book.seeders }}/{{ book.leechers }}</td>
+      <td title="{{ book.publishDate }}">{{ book.age }}</td>
+      <td>
+        <label class="swap swap-flip">
+          <input
+            id="checkbox-{{ loop.index }}"
+            type="checkbox"
+            onclick="onRequest('{{ loop.index }}', '{{ book.guid }}', '{{ book.indexerId }}');"
+          />
+          <svg
+            class="swap-off"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            width="24"
+            height="24"
+            stroke-width="2"
+            style="--darkreader-inline-stroke: currentColor"
+            data-darkreader-inline-stroke=""
+          >
+            <path d="M12 5l0 14"></path>
+            <path d="M5 12l14 0"></path>
+          </svg>
+          <svg
+            class="swap-on text-success"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="--darkreader-inline-stroke: currentColor"
+            data-darkreader-inline-stroke=""
+            width="24"
+            height="24"
+            stroke-width="2"
+          >
+            <path d="M5 12l5 5l10 -10"></path>
+          </svg>
+        </label>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -1,3 +1,5 @@
+![Search page](media/search_page.png)
+
 # Local Development
 
 ## Installation

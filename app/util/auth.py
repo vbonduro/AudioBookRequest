@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -13,15 +13,19 @@ security = HTTPBasic()
 ph = PasswordHasher()
 
 
-def create_user(username: str, password: str) -> User:
+def create_user(
+    username: str,
+    password: str,
+    group: Literal["admin", "trusted", "untrusted"] = "untrusted",
+) -> User:
     password_hash = ph.hash(password)
-    return User(username=username, password=password_hash)
+    return User(username=username, password=password_hash, group=group)
 
 
-def get_username(
+def get_user(
     session: Annotated[Session, Depends(get_session)],
     credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-):
+) -> User:
     user = session.exec(
         select(User).where(User.username == credentials.username)
     ).one_or_none()
@@ -47,4 +51,4 @@ def get_username(
         session.add(user)
         session.commit()
 
-    return credentials.username
+    return user

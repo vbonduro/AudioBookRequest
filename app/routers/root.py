@@ -7,7 +7,8 @@ from sqlmodel import Session
 
 from app.db import get_session
 
-from app.util.auth import create_user, get_username
+from app.models import User
+from app.util.auth import create_user, get_user
 
 router = APIRouter()
 
@@ -20,9 +21,9 @@ def read_globals_css():
 
 
 @router.get("/")
-def read_root(request: Request, username: Annotated[str, Depends(get_username)]):
+def read_root(request: Request, user: Annotated[User, Depends(get_user)]):
     return templates.TemplateResponse(
-        "root.html", {"request": request, "username": username}
+        "root.html", {"request": request, "username": user.username}
     )
 
 
@@ -46,14 +47,12 @@ def create_init(
     if password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
-    print(username, password, confirm_password, validate_password_regex.match(password))
-
     if not validate_password_regex.match(password):
         raise HTTPException(
             status_code=400,
             detail="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number",
         )
 
-    user = create_user(username, password)
+    user = create_user(username, password, "admin")
     session.add(user)
     session.commit()
