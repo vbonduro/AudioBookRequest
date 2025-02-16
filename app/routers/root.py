@@ -8,7 +8,7 @@ from sqlmodel import Session
 from app.db import get_session
 
 from app.models import User
-from app.util.auth import create_user, get_user
+from app.util.auth import create_user, get_authenticated_user
 
 router = APIRouter()
 
@@ -21,7 +21,10 @@ def read_globals_css():
 
 
 @router.get("/")
-def read_root(request: Request, user: Annotated[User, Depends(get_user)]):
+def read_root(
+    request: Request,
+    user: Annotated[User, Depends(get_authenticated_user())],
+):
     return templates.TemplateResponse(
         "root.html", {"request": request, "username": user.username}
     )

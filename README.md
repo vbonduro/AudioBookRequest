@@ -1,5 +1,13 @@
 ![Search page](media/search_page.png)
 
+# Rough TODO
+
+- [ ] Navbar
+- [ ] Add option to remove requests on wishlist page
+- [ ] Settings page
+- [ ] Fix DaisyUI themes overwriting attributes (text-size, shadows, etc.) and choose theme
+- [ ] Docker
+
 # Local Development
 
 ## Installation

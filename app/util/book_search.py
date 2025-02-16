@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import Literal, Optional
 from urllib.parse import urlencode
 from aiohttp import ClientSession
@@ -13,7 +14,14 @@ class BookResult(pydantic.BaseModel):
     authors: list[str]
     narrators: list[str]
     cover_image: Optional[str]
+    release_date: str
+    runtime_length_hrs: float
+
     already_requested: bool = False
+    """If a book was already requested by a user"""
+
+    amount_requested: int = 0
+    """How many times a book was requested (wishlist page)"""
 
 
 @alru_cache(ttl=300)
@@ -32,6 +40,8 @@ async def get_audnexus_book(session: ClientSession, asin: str) -> Optional[BookR
         authors=[author["name"] for author in book["authors"]],
         narrators=[narrator["name"] for narrator in book["narrators"]],
         cover_image=book.get("image"),
+        release_date=datetime.fromisoformat(book["releaseDate"]).strftime("%B %Y"),
+        runtime_length_hrs=round(book["runtimeLengthMin"] / 60, 1),
     )
 
 

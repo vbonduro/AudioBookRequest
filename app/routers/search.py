@@ -8,7 +8,7 @@ from sqlmodel import Session, col, select
 
 from app.db import get_session
 from app.models import BookRequest, User
-from app.util.auth import get_user
+from app.util.auth import get_authenticated_user
 from app.util.book_search import (
     list_audible_books,
     audible_regions,
@@ -25,7 +25,7 @@ templates = Jinja2Blocks(directory="templates")
 @router.get("")
 async def read_search(
     request: Request,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(get_authenticated_user())],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     session: Annotated[Session, Depends(get_session)],
     q: Optional[str] = None,
@@ -77,7 +77,7 @@ async def read_search(
 @router.post("/request", status_code=201)
 async def add_request(
     asin: str,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
     req = BookRequest(
@@ -94,7 +94,7 @@ async def add_request(
 @router.delete("/request", status_code=204)
 async def delete_request(
     asin: str,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
     book = session.exec(

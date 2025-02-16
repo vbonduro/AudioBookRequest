@@ -22,33 +22,45 @@ def create_user(
     return User(username=username, password=password_hash, group=group)
 
 
-def get_user(
-    session: Annotated[Session, Depends(get_session)],
-    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-) -> User:
-    user = session.exec(
-        select(User).where(User.username == credentials.username)
-    ).one_or_none()
+def get_authenticated_user(
+    lowest_allowed_group: Literal["admin", "trusted", "untrusted"] = "untrusted",
+):
+    def get_user(
+        session: Annotated[Session, Depends(get_session)],
+        credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    ) -> User:
+        user = session.exec(
+            select(User).where(User.username == credentials.username)
+        ).one_or_none()
 
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid credentials",
+                headers={"WWW-Authenticate": "Basic"},
+            )
 
-    try:
-        ph.verify(user.password, credentials.password)
-    except VerifyMismatchError:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+        try:
+            ph.verify(user.password, credentials.password)
+        except VerifyMismatchError:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid credentials",
+                headers={"WWW-Authenticate": "Basic"},
+            )
 
-    if ph.check_needs_rehash(user.password):
-        user.password = ph.hash(credentials.password)
-        session.add(user)
-        session.commit()
+        if ph.check_needs_rehash(user.password):
+            user.password = ph.hash(credentials.password)
+            session.add(user)
+            session.commit()
 
-    return user
+        if lowest_allowed_group == "admin":
+            if user.group != "admin":
+                raise HTTPException(status_code=403, detail="Forbidden")
+        elif lowest_allowed_group == "trusted":
+            if user.group not in ["admin", "trusted"]:
+                raise HTTPException(status_code=403, detail="Forbidden")
+
+        return user
+
+    return get_user
