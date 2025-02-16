@@ -3,7 +3,6 @@
 # Rough TODO
 
 - [ ] Add option to remove requests on wishlist page
-- [ ] Settings page
 - [ ] Docker
 
 # Local Development
