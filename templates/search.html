@@ -24,7 +24,7 @@ const onPageChange = (page) => {
 };
 </script>
 {% endblock %} {% block body %}
-<div class="w-screen min-h-screen flex items-center justify-center p-8 overflow-x-hidden gap-4">
+<div class="w-screen flex items-center justify-center p-8 overflow-x-hidden gap-4">
   <div class="flex flex-col gap-4 justify-start items-center">
     <form class="flex items-start gap-2 w-full" onsubmit="onSearch();">
       <input
@@ -50,16 +50,16 @@ const onPageChange = (page) => {
     </form>
   
     <div
-      class="max-w-[80vw] grid gap-1 sm:gap-2 p-1 grid-flow-row grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
+      class="min-w-[60vw] max-w-[80vw] h-full grid gap-1 gap-y-2 sm:gap-y-4 sm:gap-2 p-1 grid-flow-row grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
     >
       {% for book in search_results %}
       <div class="flex flex-col">
         <div
-          class="relative w-[10rem] h-[10rem] rounded-md overflow-hidden shadow-md shadow-white"
+          class="relative w-[10rem] h-[10rem] rounded-md overflow-hidden shadow shadow-black"
         >
           {% if book.cover_image %}
           <img
-            class="object-cover w-full h-full"
+            class="object-cover w-full h-full hover:scale-110 transition-transform duration-500 ease-in-out"
             src="{{ book.cover_image }}"
             alt="{{ book.title }}"
           />
@@ -75,7 +75,7 @@ const onPageChange = (page) => {
           </div>
           {% endif %}
   
-          <div class="absolute top-0 right-0 bg-black/50 size-6 rounded-bl-md">
+          <div class="absolute top-0 right-0 bg-neutral/70 size-6 rounded-bl-md flex items-center justify-center">
             <label class="swap swap-flip">
               <input
                 id="checkbox-{{ loop.index }}"
@@ -84,7 +84,7 @@ const onPageChange = (page) => {
                 {% if book.already_requested %}checked{% endif %}
               />
               <svg
-                class="swap-off"
+                class="swap-off text-neutral-content"
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="none"
@@ -120,9 +120,9 @@ const onPageChange = (page) => {
           </div>
         </div>
   
-        <div class="text-sm text-white" title="Title">{{ book.title }}</div>
-        {% if book.subtitle %}<div class="text-neutral-content text-xs" title="Subtitle">{{ book.subtitle }}</div>{% endif %}
-        <div class="text-neutral-content text-xs" title="Authors">
+        <div class="text-sm text-primary font-semibold pt-1" title="Title">{{ book.title }}</div>
+        {% if book.subtitle %}<div class="text-neutral text-xs" title="Subtitle">{{ book.subtitle }}</div>{% endif %}
+        <div class="text-neutral text-xs" title="Authors">
           {{ book.authors | join(", ") }}
         </div>
       </div>

@@ -2,10 +2,8 @@
 
 # Rough TODO
 
-- [ ] Navbar
 - [ ] Add option to remove requests on wishlist page
 - [ ] Settings page
-- [ ] Fix DaisyUI themes overwriting attributes (text-size, shadows, etc.) and choose theme
 - [ ] Docker
 
 # Local Development
@@ -34,9 +32,10 @@ Running the application is best done in multiple terminals:
 fastapi dev
 ```
 
-2. Start Tailwindcss watcher:
+2. Install daisyUI and start Tailwindcss watcher:
 
 ```sh
+npm i
 tailwindcss -i styles/globals.css -o static/globals.css --watch --m
 ```
 

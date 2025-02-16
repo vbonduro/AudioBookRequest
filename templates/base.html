@@ -1,18 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="garden">
   <head>
     <meta charset="UTF-8" />
     {% block head %}
     <title>AudioBookRequest</title>
     {% endblock %}
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css"
-      rel="stylesheet"
-      type="text/css"
-    />
     <link rel="stylesheet" href="/globals.css" />
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden">
+    <header class="bg-accent text-primary-content shadow-lg">
+      <nav class="navbar">
+        <div class="flex-1">
+          <a href="/" class="btn btn-ghost text-lg">AudioBookRequest</a>
+
+          <a href="/search" class="btn btn-ghost btn-square" title="Search">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="24"
+              height="24"
+              stroke-width="2"
+              style="--darkreader-inline-stroke: currentColor"
+              data-darkreader-inline-stroke=""
+            >
+              <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path>
+              <path d="M21 21l-6 -6"></path>
+            </svg>
+          </a>
+
+          <a
+            href="/wishlist"
+            class="btn btn-ghost btn-square group relative"
+            title="Wishlist"
+          >
+            <svg
+              class="opacity-0 group-hover:opacity-100 absolute left-2 top-2 transition-opacity duration-500"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              style="--darkreader-inline-fill: currentColor"
+              data-darkreader-inline-fill=""
+              width="24"
+              height="24"
+            >
+              <path
+                d="M11 14v8h-4a3 3 0 0 1 -3 -3v-4a1 1 0 0 1 1 -1h6zm8 0a1 1 0 0 1 1 1v4a3 3 0 0 1 -3 3h-4v-8h6zm-2.5 -12a3.5 3.5 0 0 1 3.163 5h.337a2 2 0 0 1 2 2v1a2 2 0 0 1 -2 2h-7v-5h-2v5h-7a2 2 0 0 1 -2 -2v-1a2 2 0 0 1 2 -2h.337a3.486 3.486 0 0 1 -.337 -1.5c0 -1.933 1.567 -3.5 3.483 -3.5c1.755 -.03 3.312 1.092 4.381 2.934l.136 .243c1.033 -1.914 2.56 -3.114 4.291 -3.175l.209 -.002zm-9 2a1.5 1.5 0 0 0 0 3h3.143c-.741 -1.905 -1.949 -3.02 -3.143 -3zm8.983 0c-1.18 -.02 -2.385 1.096 -3.126 3h3.143a1.5 1.5 0 1 0 -.017 -3z"
+              ></path>
+            </svg>
+            <svg
+              class="opacity-100 group-hover:opacity-0 absolute left-2 top-2 transition-opacity duration-500"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="--darkreader-inline-stroke: currentColor"
+              data-darkreader-inline-stroke=""
+              width="24"
+              height="24"
+              stroke-width="2"
+            >
+              <path
+                d="M3 8m0 1a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z"
+              ></path>
+              <path d="M12 8l0 13"></path>
+              <path d="M19 12v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-7"></path>
+              <path
+                d="M7.5 8a2.5 2.5 0 0 1 0 -5a4.8 8 0 0 1 4.5 5a4.8 8 0 0 1 4.5 -5a2.5 2.5 0 0 1 0 5"
+              ></path>
+            </svg>
+          </a>
+        </div>
+
+        <div class="flex-none pr-4">
+          <a class="btn btn-ghost btn-square group" title="Settings">
+            <svg
+              class="group-hover:rotate-90 transition-all duration-500 ease-in-out"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="24"
+              height="24"
+              stroke-width="2"
+              style="--darkreader-inline-stroke: currentColor"
+              data-darkreader-inline-stroke=""
+            >
+              <path
+                d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"
+              ></path>
+              <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path>
+            </svg>
+          </a>
+        </div>
+      </nav>
+    </header>
     {% block body %} {% endblock %}
   </body>
 </html>

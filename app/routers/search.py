@@ -1,10 +1,10 @@
-from sqlite3 import IntegrityError
 from typing import Annotated, Optional
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session, col, select
+import sqlalchemy as sa
 
 from app.db import get_session
 from app.models import BookRequest, User
@@ -87,7 +87,7 @@ async def add_request(
     try:
         session.add(req)
         session.commit()
-    except IntegrityError:
+    except sa.exc.IntegrityError:
         pass
 
 
