@@ -3,16 +3,23 @@ from typing import Annotated
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from fastapi.responses import RedirectResponse
 from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.db import get_session
-from app.models import BookRequest, Indexer, User
+from app.models import BookRequest, GroupEnum, Indexer, User
 from app.util.auth import get_authenticated_user
 from app.util.book_search import get_audnexus_book
 from app.util.connection import get_connection
-from app.util.prowlarr import get_indexers, query_prowlarr, start_download
+from app.util.prowlarr import (
+    ProwlarrConfig,
+    get_indexers,
+    get_prowlarr_config,
+    query_prowlarr,
+    start_download,
+)
 
 
 router = APIRouter(prefix="/wishlist")
@@ -50,23 +57,21 @@ async def wishlist(
     )
 
 
-@router.post("")
-async def refresh_request(
-    user: Annotated[User, Depends(get_authenticated_user("trusted"))],
-    session: Annotated[Session, Depends(get_session)],
-    client_session: Annotated[ClientSession, Depends(get_connection)],
-):
-    return {"message": "Refreshed"}
-
-
 @router.get("/sources/{asin}")
 async def list_sources(
     request: Request,
     asin: str,
-    admin_user: Annotated[User, Depends(get_authenticated_user("admin"))],
+    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
+    try:
+        prowlarr_config = get_prowlarr_config(session)
+    except HTTPException:
+        return RedirectResponse(
+            "/settings?prowlarr_misconfigured=1#prowlarr-base-url", status_code=302
+        )
+
     book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -76,13 +81,13 @@ async def list_sources(
         raise HTTPException(status_code=500, detail="Book asin error")
 
     query = book.title + " " + " ".join(book.authors)
-    sources = await query_prowlarr(query)
+    sources = await query_prowlarr(prowlarr_config, query)
 
     if len(sources) > 0:
         indexers = session.exec(select(Indexer)).all()
         indexers = {indexer.id: indexer for indexer in indexers}
         if len(indexers) == 0:
-            indexers = await get_indexers(client_session)
+            indexers = await get_indexers(prowlarr_config, client_session)
             for indexer in indexers.values():
                 session.add(indexer)
             session.commit()
@@ -111,11 +116,12 @@ async def download_book(
     asin: str,
     guid: str,
     indexer_id: int,
-    admin_user: Annotated[User, Depends(get_authenticated_user("admin"))],
+    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
+    prowlarr_config: Annotated[ProwlarrConfig, Depends(get_prowlarr_config)],
 ):
-    resp = await start_download(client_session, guid, indexer_id)
+    resp = await start_download(prowlarr_config, client_session, guid, indexer_id)
     if not resp.ok:
         raise HTTPException(status_code=500, detail="Failed to start download")
 

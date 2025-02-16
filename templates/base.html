@@ -6,6 +6,11 @@
     <title>AudioBookRequest</title>
     {% endblock %}
     <link rel="stylesheet" href="/globals.css" />
+    <script
+      src="https://unpkg.com/htmx.org@2.0.4"
+      integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden">
     <header class="bg-accent text-primary-content shadow-lg">
@@ -78,7 +83,11 @@
         </div>
 
         <div class="flex-none pr-4">
-          <a class="btn btn-ghost btn-square group" title="Settings">
+          <a
+            href="/settings"
+            class="btn btn-ghost btn-square group"
+            title="Settings"
+          >
             <svg
               class="group-hover:rotate-90 transition-all duration-500 ease-in-out"
               xmlns="http://www.w3.org/2000/svg"

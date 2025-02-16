@@ -26,31 +26,7 @@
 </script>
 {% endblock %} {% block body %}
 <div class="h-screen w-full flex items-center justify-center">
-  <form class="flex flex-col gap-2 max-w-[30rem]" method="post" id="form">
-    <script>
-      // Redirect to the home page after initialization
-      const onSubmit = event => {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        console.log(formData);
-        fetch("/init", {
-          method: "POST",
-          body: formData,
-        })
-          .then(response => {
-            if (response.ok) {
-              window.location.href = "/";
-            } else {
-              alert("An error occurred. Please try again.");
-            }
-          })
-          .catch(error => {
-            console.error("Error:", error);
-          });
-      };
-      document.getElementById("form").addEventListener("submit", onSubmit);
-    </script>
-
+  <form class="flex flex-col gap-2 max-w-[30rem]" hx-post="/init" id="form">
     <p>
       No user was found in the database. Please create an admin user to get set
       up.

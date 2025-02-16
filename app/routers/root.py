@@ -1,14 +1,17 @@
-import re
 from typing import Annotated
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session
 
 from app.db import get_session
 
-from app.models import User
-from app.util.auth import create_user, get_authenticated_user
+from app.models import User, GroupEnum
+from app.util.auth import (
+    create_user,
+    get_authenticated_user,
+    raise_for_invalid_password,
+)
 
 router = APIRouter()
 
@@ -35,12 +38,7 @@ def read_init(request: Request):
     return templates.TemplateResponse("init.html", {"request": request})
 
 
-validate_password_regex = re.compile(
-    r"^(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}$"
-)
-
-
-@router.post("/init", status_code=201)
+@router.post("/init")
 def create_init(
     username: Annotated[str, Form()],
     password: Annotated[str, Form()],
@@ -50,12 +48,10 @@ def create_init(
     if password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
-    if not validate_password_regex.match(password):
-        raise HTTPException(
-            status_code=400,
-            detail="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number",
-        )
+    raise_for_invalid_password(password)
 
-    user = create_user(username, password, "admin")
+    user = create_user(username, password, GroupEnum.admin)
     session.add(user)
     session.commit()
+
+    return Response(status_code=201, headers={"HX-Redirect": "/"})

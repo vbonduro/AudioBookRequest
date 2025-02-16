@@ -1,5 +1,6 @@
 # pyright: reportUnknownVariableType=false
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 from sqlmodel import Field, SQLModel
 
@@ -8,11 +9,18 @@ class BaseModel(SQLModel):
     pass
 
 
+class GroupEnum(str, Enum):
+    untrusted = "untrusted"
+    trusted = "trusted"
+    admin = "admin"
+
+
 class User(BaseModel, table=True):
     username: str = Field(primary_key=True)
     password: str
-    group: str = Field(
-        default="untrusted", sa_column_kwargs={"server_default": "untrusted"}
+    group: GroupEnum = Field(
+        default=GroupEnum.untrusted,
+        sa_column_kwargs={"server_default": "untrusted"},
     )
     """
     untrusted: Requests need to be manually reviewed
@@ -21,7 +29,7 @@ class User(BaseModel, table=True):
     """
 
     def is_admin(self):
-        return self.group == "admin"
+        return self.group == GroupEnum.admin
 
 
 class BookRequest(BaseModel, table=True):
@@ -54,3 +62,8 @@ class Indexer(BaseModel, table=True):
     name: str
     enabled: bool
     privacy: str
+
+
+class Config(BaseModel, table=True):
+    key: str = Field(primary_key=True)
+    value: str

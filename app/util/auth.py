@@ -1,4 +1,5 @@
-from typing import Annotated, Literal
+import re
+from typing import Annotated
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -7,23 +8,36 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import User
+from app.models import User, GroupEnum
 
 security = HTTPBasic()
 ph = PasswordHasher()
 
 
+validate_password_regex = re.compile(
+    r"^(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}$"
+)
+
+
+def raise_for_invalid_password(password: str):
+    if not validate_password_regex.match(password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number",
+        )
+
+
 def create_user(
     username: str,
     password: str,
-    group: Literal["admin", "trusted", "untrusted"] = "untrusted",
+    group: GroupEnum = GroupEnum.untrusted,
 ) -> User:
     password_hash = ph.hash(password)
     return User(username=username, password=password_hash, group=group)
 
 
 def get_authenticated_user(
-    lowest_allowed_group: Literal["admin", "trusted", "untrusted"] = "untrusted",
+    lowest_allowed_group: GroupEnum = GroupEnum.untrusted,
 ):
     def get_user(
         session: Annotated[Session, Depends(get_session)],
@@ -55,10 +69,10 @@ def get_authenticated_user(
             session.commit()
 
         if lowest_allowed_group == "admin":
-            if user.group != "admin":
+            if user.group != GroupEnum.admin:
                 raise HTTPException(status_code=403, detail="Forbidden")
         elif lowest_allowed_group == "trusted":
-            if user.group not in ["admin", "trusted"]:
+            if user.group not in [GroupEnum.admin, GroupEnum.trusted]:
                 raise HTTPException(status_code=403, detail="Forbidden")
 
         return user

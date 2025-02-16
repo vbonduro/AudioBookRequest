@@ -1,0 +1,251 @@
+{% extends "base.html" %} {% block head %}
+<title>Settings</title>
+<script>
+  const checkEqualPasswords = function (formId) {
+    const form = document.getElementById(formId);
+    const firstPw = form.elements["password"].value;
+    const secondPw = form.elements["confirm_password"].value;
+    const submit = form.elements["submit"];
+    const nonEqualMessage = form.querySelectorAll(
+      "[name='non-equal-message']",
+    )[0];
+    const invalidPwMessage = form.querySelectorAll(
+      "[name='invalid-pw-message']",
+    )[0];
+
+    if (firstPw.length === 0 && secondPw.length === 0) {
+      invalidPwMessage.style.display = "none";
+      nonEqualMessage.style.display = "none";
+      submit.disabled = true;
+      return;
+    }
+
+    if (firstPw !== secondPw && firstPw.length > 0 && secondPw.length > 0) {
+      nonEqualMessage.style.display = "block";
+      submit.disabled = true;
+    } else {
+      nonEqualMessage.style.display = "none";
+      if (firstPw.length > 0 && secondPw.length > 0) {
+        submit.disabled = false;
+      }
+    }
+
+    const rule = /^(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}$/;
+    if (!rule.test(firstPw)) {
+      invalidPwMessage.style.display = "block";
+      submit.disabled = true;
+    } else {
+      invalidPwMessage.style.display = "none";
+    }
+  };
+</script>
+{% endblock %} {% block body %}
+<div class="flex items-start justify-center p-2 md:p-4">
+  <main class="flex flex-col w-[90%] md:w-3/4 max-w-[40rem] gap-4 gap-y-8 pb-[20rem]">
+    <h1 class="text-3xl font-bold">Settings</h1>
+
+    <form
+      id="change-password-form"
+      hx-post="/settings/password"
+      method="post"
+      class="flex flex-col gap-2"
+    >
+      <h2 class="text-lg">Change Password</h2>
+      <label for="change-password-1">Password</label>
+      <input
+        id="change-password-1"
+        name="password"
+        type="password"
+        class="input w-full"
+        onkeyup="checkEqualPasswords('change-password-form');"
+        required
+      />
+      <label for="change-password-2">Confirm password</label>
+      <input
+        id="change-password-2"
+        name="confirm_password"
+        type="password"
+        class="input w-full"
+        onkeyup="checkEqualPasswords('change-password-form');"
+        required
+      />
+
+      <span name="non-equal-message" class="text-red-400 hidden"
+        >Passwords do not match</span
+      >
+      <span name="invalid-pw-message" class="text-red-400 hidden"
+        >Password must be at least 8 characters long and contain at least one
+        uppercase letter, one lowercase letter, and one number</span
+      >
+      <button name="submit" class="btn btn-primary" type="submit" disabled>
+        Change password
+      </button>
+    </form>
+
+    {% if user.is_admin() %}
+
+    <form
+      id="create-user-form"
+      class="flex flex-col gap-2 p-2 pt-4 border-base-200 border-t"
+      hx-post="/settings/user"
+      hx-target="#user-list"
+      hx-on::after-request="if (event.detail.successful) this.reset()"
+    >
+      <h2 class="text-lg">Create user</h2>
+      <label for="username">Username</label>
+      <input
+        id="username"
+        name="username"
+        type="text"
+        class="input w-full"
+        required
+      />
+
+      <label for="confirm-password-1">Confirm password</label>
+      <input
+        id="confirm-password-1"
+        name="confirm_password"
+        type="password"
+        class="input w-full"
+        onkeyup="checkEqualPasswords('create-user-form');"
+        required
+      />
+
+      <label for="confirm-password-2">Password</label>
+      <input
+        id="confirm-password-2"
+        name="password"
+        type="password"
+        class="input w-full"
+        onkeyup="checkEqualPasswords('create-user-form');"
+        required
+      />
+
+      <label for="select-group">Group</label>
+      <select id="select-group" name="group" class="select w-full" required>
+        <option value="untrusted" selected>Untrusted</option>
+        <option value="trusted">Trusted</option>
+        <option value="admin">Admin</option>
+      </select>
+
+      <span name="non-equal-message" class="text-red-400 hidden"
+        >Passwords do not match</span
+      >
+      <span name="invalid-pw-message" class="text-red-400 hidden"
+        >Password must be at least 8 characters long and contain at least one
+        uppercase letter, one lowercase letter, and one number</span
+      >
+      <button id="submit" class="btn btn-primary" type="submit" disabled>
+        Create user
+      </button>
+    </form>
+
+    {% block user_block %}
+    <div class="pt-4 border-t border-base-200">
+      <h2 class="text-lg">Users</h2>
+      <div class="max-h-[30rem] overflow-x-auto">
+        <table id="user-list" class="table table-pin-rows">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Username</th>
+              <th>Group</th>
+              <th>Delete</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <th>{{ loop.index }}</th>
+              <td>{{ u.username }}</td>
+              <td>{{ u.group.value.capitalize() }}</td>
+              <td>
+                <button
+                class="btn btn-square btn-ghost"
+                onclick="delete_modal_{{ loop.index }}.showModal()"
+                {% if u.username==user.username %}disabled{% endif %}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    width="24"
+                    height="24"
+                    stroke-width="2"
+                    style="--darkreader-inline-stroke: currentColor"
+                    data-darkreader-inline-stroke=""
+                  >
+                    <path d="M4 7h16"></path>
+                    <path
+                      d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"
+                    ></path>
+                    <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path>
+                    <path d="M10 12l4 4m0 -4l-4 4"></path>
+                  </svg>
+                </button>
+                <dialog id="delete_modal_{{ loop.index }}" class="modal">
+                  <div class="modal-box">
+                    <h3 class="text-lg font-bold">
+                      Are you sure you want to delete a user?
+                    </h3>
+                    <div class="grid grid-cols-2 py-4">
+                      <span class="font-semibold mr-2">Username</span
+                      ><span class="font-mono">{{ u.username }}</span>
+                      <span class="font-semibold mr-2">Group</span
+                      ><span class="font-mono"
+                        >{{ u.group.value.capitalize() }}</span
+                      >
+                    </div>
+                    <form method="dialog" class="flex justify-between">
+                      <button class="btn">Cancel</button>
+                      <button
+                        class="btn bg-primary"
+                        hx-delete="/settings/user?username={{ u.username|quote_plus }}"
+                        hx-target="#user-list"
+                      >
+                        Delete
+                      </button>
+                    </form>
+                  </div>
+                  <form method="dialog" class="modal-backdrop">
+                    <button>close</button>
+                  </form>
+                </dialog>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endblock %}
+    
+    
+    <div class="pt-4 border-t border-base-200 flex flex-col">
+      <h2 class="text-lg">Prowlarr</h2>
+
+      {% if prowlarr_misconfigured %}
+      <p class="text-red-400">
+        Prowlarr is misconfigured. Please configure it.
+      </p>
+      {% endif %}
+
+      <label for="prowlarr-api-key">API Key</label>
+      <form class="join w-full" hx-put="/settings/prowlarr/api-key">
+        <input id="prowlarr-api-key" name="api_key" type="password" placeholder="●●●●●●●●●●●●●●●●●" class="input join-item w-full" />
+        <button class="join-item btn">Save</button>
+      </form>
+
+      <label for="prowlarr-base-url" class="pt-2">Base URL</label>
+      <form class="join w-full" hx-put="/settings/prowlarr/base-url">
+        <input id="prowlarr-base-url" name="base_url" type="url" value="{{ prowlarr_base_url }}" class="input join-item w-full" />
+        <button class="join-item btn">Save</button>
+      </form>
+    </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

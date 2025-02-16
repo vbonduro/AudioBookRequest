@@ -5,13 +5,14 @@ from sqlalchemy import func
 from sqlmodel import select
 from app.db import get_session
 from app.models import User
-from app.routers import root, search, wishlist
+from app.routers import root, search, settings, wishlist
 
 app = FastAPI()
 
 app.include_router(root.router)
 app.include_router(search.router)
 app.include_router(wishlist.router)
+app.include_router(settings.router)
 
 user_exists = False
 
