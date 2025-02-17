@@ -1,4 +1,3 @@
-import asyncio
 from typing import Annotated
 from urllib.parse import quote_plus
 from aiohttp import ClientSession
@@ -16,10 +15,9 @@ from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
-from app.db import get_session
-from app.models import BookRequest, GroupEnum, User
+from app.db import get_session, open_session
+from app.models import BookRequest, BookWishlistResult, GroupEnum, User
 from app.util.auth import get_authenticated_user
-from app.util.book_search import get_audnexus_book
 from app.util.connection import get_connection
 from app.util.prowlarr import (
     ProwlarrMisconfigured,
@@ -40,24 +38,19 @@ async def wishlist(
     request: Request,
     user: Annotated[User, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
-    client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     book_requests = session.exec(
-        select(
-            BookRequest.asin, func.count(col(BookRequest.user_username)).label("count")
-        )
+        select(BookRequest, func.count(col(BookRequest.user_username)).label("count"))
+        .where(col(BookRequest.user_username).is_not(None))
         .select_from(BookRequest)
         .group_by(BookRequest.asin)
     ).all()
 
-    async def get_book(asin: str, count: int):
-        book = await get_audnexus_book(client_session, asin)
-        if book:
-            book.amount_requested = count
-        return book
-
-    coros = [get_book(asin, count) for (asin, count) in book_requests]
-    books = [b for b in await asyncio.gather(*coros) if b]
+    books: list[BookWishlistResult] = []
+    for book, count in book_requests:
+        b = BookWishlistResult.model_validate(book)
+        b.amount_requested = count
+        books.append(b)
 
     return templates.TemplateResponse(
         "wishlist.html",
@@ -73,7 +66,15 @@ async def refresh_source(
     force_refresh: bool = False,
 ):
     # causes the sources to be placed into cache once they're done
-    background_task.add_task(query_sources, asin, force_refresh=force_refresh)
+    with open_session() as session:
+        async with ClientSession() as client_session:
+            background_task.add_task(
+                query_sources,
+                asin=asin,
+                session=session,
+                client_session=client_session,
+                force_refresh=force_refresh,
+            )
     return Response(status_code=202)
 
 

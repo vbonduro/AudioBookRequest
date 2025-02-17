@@ -2,7 +2,8 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from sqlmodel import Field, SQLModel
+import uuid
+from sqlmodel import Field, SQLModel, JSON, Column, UniqueConstraint, func, DateTime
 
 
 class BaseModel(SQLModel):
@@ -32,28 +33,92 @@ class User(BaseModel, table=True):
         return self.group == GroupEnum.admin
 
 
-class BookRequest(BaseModel, table=True):
-    asin: str = Field(primary_key=True)
-    user_username: str = Field(
-        foreign_key="user.username", nullable=False, ondelete="CASCADE"
+class BaseBook(BaseModel):
+    asin: str
+    title: str
+    subtitle: Optional[str]
+    authors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    narrators: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    cover_image: Optional[str]
+    release_date: datetime
+    runtime_length_min: int
+
+    def __hash__(self):
+        return hash(
+            (
+                self.asin,
+                self.title,
+                self.subtitle,
+                self.authors,
+                self.narrators,
+                self.cover_image,
+                self.release_date,
+                self.runtime_length_min,
+            )
+        )
+
+
+class BookSearchResult(BaseBook):
+    already_requested: bool = False
+
+
+class BookWishlistResult(BaseBook):
+    amount_requested: int = 0
+
+
+class BookRequest(BaseBook, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_username: Optional[str] = Field(
+        default=None, foreign_key="user.username", ondelete="CASCADE"
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            onupdate=func.now(),
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+    """If requested by a user"""
+
+    __table_args__ = (
+        UniqueConstraint("asin", "user_username", name="unique_asin_user"),
     )
 
+    class Config:  # pyright: ignore[reportIncompatibleVariableOverride]
+        arbitrary_types_allowed = True
 
-class ProwlarrSource(BaseModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    @property
+    def runtime_length_hrs(self):
+        return round(self.runtime_length_min / 60, 1)
+
+    def __hash__(self):
+        return hash(
+            (
+                super().__hash__(),
+                self.user_username,
+            )
+        )
+
+
+class ProwlarrSource(BaseModel):
     """
     ProwlarrSources are not unique by their guid. We could have multiple books all in the same source.
     https://sqlmodel.tiangolo.com/tutorial/automatic-id-none-refresh/
     """
+
     guid: str
-    indexer_id: int = Field(
-        foreign_key="indexer.id", nullable=False, ondelete="CASCADE"
-    )
+    indexer_id: int
     title: str
     seeders: int
     leechers: int
     size: int  # in bytes
     publish_date: datetime
+
+    @property
+    def size_MB(self):
+        return round(self.size / 1e6, 1)
 
 
 class Indexer(BaseModel, table=True):

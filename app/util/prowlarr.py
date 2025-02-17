@@ -24,10 +24,6 @@ class ProwlarrConfig:
     _api_key: Optional[str] = None
     _source_ttl: Optional[int] = None
 
-    # TODO: this is not required anymore without async_lru
-    def __hash__(self) -> int:
-        return hash((self._base_url, self._api_key))
-
     def raise_if_invalid(self, session: Session):
         if not self.get_base_url(session):
             raise ProwlarrMisconfigured("Prowlarr base url not set")
@@ -194,7 +190,7 @@ async def query_prowlarr(
                 title=result["title"],
                 seeders=result["seeders"],
                 leechers=result["leechers"],
-                size=round(result["size"] / 1e6, 1),
+                size=result["size"],
                 publish_date=datetime.fromisoformat(result["publishDate"]),
             )
         )

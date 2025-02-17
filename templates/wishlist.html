@@ -61,8 +61,10 @@
 
           <td>{{ book.authors|join(', ') }}</td>
           <td>{{ book.narrators|join(', ') }}</td>
-          <td class="hidden lg:table-cell">{{ book.release_date }}</td>
-          <td class="lg:hidden">{{ book.release_date.split(" ")[1] }}</td>
+          <td class="hidden lg:table-cell">
+            {{ book.release_date.strftime("%B %Y") }}
+          </td>
+          <td class="lg:hidden">{{ book.release_date.strftime("%Y") }}</td>
           <td>{{ book.runtime_length_hrs }}</td>
           <td>{{ book.amount_requested }}</td>
 

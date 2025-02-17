@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
-from app.db import get_session
+from app.db import open_session
 from app.models import User
 from app.routers import root, search, settings, wishlist
 
@@ -28,12 +28,12 @@ async def redirect_to_init(request: Request, call_next: Any):
         and request.url.path not in ["/init", "/globals.css"]
         and request.method == "GET"
     ):
-        session = next(get_session())
-        user_count = session.exec(select(func.count()).select_from(User)).one()
-        if user_count == 0:
-            return RedirectResponse("/init")
-        else:
-            user_exists = True
+        with open_session() as session:
+            user_count = session.exec(select(func.count()).select_from(User)).one()
+            if user_count == 0:
+                return RedirectResponse("/init")
+            else:
+                user_exists = True
     elif user_exists and request.url.path.startswith("/init"):
         return RedirectResponse("/")
     response = await call_next(request)

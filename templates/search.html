@@ -83,7 +83,9 @@ const onPageChange = (page) => {
           </div>
         </div>
   
-        <div class="text-sm text-primary font-bold pt-1" title="Title">{{ book.title }}</div>
+        <div class="text-sm text-primary font-bold pt-1" title="Title">
+          {{ book.title }}
+        </div>
         {% if book.subtitle %}<div class="text-neutral/60 font-semibold text-xs" title="Subtitle">{{ book.subtitle }}</div>{% endif %}
         <div class="text-xs text-neutral font-semibold" title="Authors">
           {{ book.authors | join(", ") }}
