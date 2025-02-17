@@ -39,7 +39,6 @@ class BookRequest(BaseModel, table=True):
     )
 
 
-# TODO: do we even need this?
 class ProwlarrSource(BaseModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     """
@@ -54,7 +53,7 @@ class ProwlarrSource(BaseModel, table=True):
     seeders: int
     leechers: int
     size: int  # in bytes
-    publish_date: datetime = Field(default_factory=datetime.now)
+    publish_date: datetime
 
 
 class Indexer(BaseModel, table=True):
@@ -67,3 +66,11 @@ class Indexer(BaseModel, table=True):
 class Config(BaseModel, table=True):
     key: str = Field(primary_key=True)
     value: str
+
+
+# TODO: add logs
+class Log(BaseModel):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_username: str
+    message: str
+    timestamp: datetime = Field(default_factory=datetime.now)

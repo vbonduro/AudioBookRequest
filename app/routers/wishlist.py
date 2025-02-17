@@ -2,7 +2,14 @@ import asyncio
 from typing import Annotated
 from urllib.parse import quote_plus
 from aiohttp import ClientSession
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+)
 
 from fastapi.responses import RedirectResponse
 from jinja2_fragments.fastapi import Jinja2Blocks
@@ -10,17 +17,16 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.db import get_session
-from app.models import BookRequest, GroupEnum, Indexer, User
+from app.models import BookRequest, GroupEnum, User
 from app.util.auth import get_authenticated_user
 from app.util.book_search import get_audnexus_book
 from app.util.connection import get_connection
 from app.util.prowlarr import (
-    ProwlarrConfig,
-    get_indexers,
-    get_prowlarr_config,
-    query_prowlarr,
+    ProwlarrMisconfigured,
     start_download,
+    prowlarr_config,
 )
+from app.util.query import query_sources
 
 
 router = APIRouter(prefix="/wishlist")
@@ -59,6 +65,18 @@ async def wishlist(
     )
 
 
+@router.post("/refresh/{asin}")
+async def refresh_source(
+    asin: str,
+    user: Annotated[User, Depends(get_authenticated_user())],
+    background_task: BackgroundTasks,
+    force_refresh: bool = False,
+):
+    # causes the sources to be placed into cache once they're done
+    background_task.add_task(query_sources, asin, force_refresh=force_refresh)
+    return Response(status_code=202)
+
+
 @router.get("/sources/{asin}")
 async def list_sources(
     request: Request,
@@ -68,47 +86,21 @@ async def list_sources(
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     try:
-        prowlarr_config = get_prowlarr_config(session)
-    except HTTPException:
+        prowlarr_config.raise_if_invalid(session)
+    except ProwlarrMisconfigured:
         return RedirectResponse(
             "/settings?prowlarr_misconfigured=1#prowlarr-base-url", status_code=302
         )
 
-    book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
-    if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
-
-    book = await get_audnexus_book(client_session, asin)
-    if not book:
-        raise HTTPException(status_code=500, detail="Book asin error")
-
-    query = book.title + " " + " ".join(book.authors)
-    sources = await query_prowlarr(prowlarr_config, query)
-
-    if len(sources) > 0:
-        indexers = session.exec(select(Indexer)).all()
-        indexers = {indexer.id: indexer for indexer in indexers}
-        if len(indexers) == 0:
-            indexers = await get_indexers(prowlarr_config, client_session)
-            for indexer in indexers.values():
-                session.add(indexer)
-            session.commit()
-    else:
-        indexers = {}
-
-    sources = sorted(
-        [s for s in sources if s.indexer_id in indexers],
-        key=lambda x: x.seeders,
-        reverse=True,
-    )
+    result = await query_sources(asin, session=session, client_session=client_session)
 
     return templates.TemplateResponse(
         "sources.html",
         {
             "request": request,
-            "book": book,
-            "sources": sources,
-            "indexers": indexers,
+            "book": result.book,
+            "sources": result.sources,
+            "indexers": result.indexers,
         },
     )
 
@@ -121,9 +113,11 @@ async def download_book(
     admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    prowlarr_config: Annotated[ProwlarrConfig, Depends(get_prowlarr_config)],
 ):
-    resp = await start_download(prowlarr_config, client_session, guid, indexer_id)
+    try:
+        resp = await start_download(session, client_session, guid, indexer_id)
+    except ProwlarrMisconfigured as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if not resp.ok:
         raise HTTPException(status_code=500, detail="Failed to start download")
 

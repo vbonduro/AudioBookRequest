@@ -21,7 +21,7 @@
       </thead>
       <tbody>
         {% for book in books %}
-        <tr class="text-xs lg:text-sm">
+        <tr class="text-xs lg:text-sm" id="{{ book.asin }}">
           <th>{{ loop.index }}</th>
           <td>
             <div class="size-[4rem] lg:size-[6rem]">
@@ -35,29 +35,7 @@
               <div
                 class="flex items-center justify-center w-full h-full bg-neutral text-neutral-content opacity-30"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  width="24"
-                  height="24"
-                  stroke-width="2"
-                  style="--darkreader-inline-stroke: currentColor"
-                  data-darkreader-inline-stroke=""
-                >
-                  <path d="M15 8h.01"></path>
-                  <path
-                    d="M7 3h11a3 3 0 0 1 3 3v11m-.856 3.099a2.991 2.991 0 0 1 -2.144 .901h-12a3 3 0 0 1 -3 -3v-12c0 -.845 .349 -1.608 .91 -2.153"
-                  ></path>
-                  <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5"></path>
-                  <path
-                    d="M16.33 12.338c.574 -.054 1.155 .166 1.67 .662l3 3"
-                  ></path>
-                  <path d="M3 3l18 18"></path>
-                </svg>
+                {% include 'icons/photo-off.html' %}
               </div>
               {% endif %}
             </div>
@@ -65,24 +43,19 @@
 
           <td>
             <div class="flex flex-col">
-              {% if is_admin %}
               <a
-                href="/wishlist/sources/{{ book.asin|quote_plus }}"
+                href="/search?q={{ (book.title+' ' +(book.authors|join(',')))|quote_plus }}"
                 class="font-bold text-primary line-clamp-4"
                 title="{{ book.title }}"
                 >{{ book.title }}</a
               >
-              {% else %}
+              {% if book.subtitle %}
               <span
-                class="font-bold text-primary line-clamp-4"
-                title="{{ book.title }}"
-                >{{ book.title }}</span
-              >
-              {% endif %} {% if book.subtitle %}<span
                 class="font-semibold line-clamp-4"
                 title="{{ book.subtitle }}"
                 >{{ book.subtitle }}</span
-              >{% endif %}
+              >
+              {% endif %}
             </div>
           </td>
 
@@ -93,47 +66,24 @@
           <td>{{ book.runtime_length_hrs }}</td>
           <td>{{ book.amount_requested }}</td>
 
-          <td>
-            <label class="swap swap-flip">
-              <input
-                id="checkbox-{{ loop.index }}"
-                type="checkbox"
-                onclick="onRequest('{{ loop.index }}', '{{ book.guid }}', '{{ book.indexerId }}');"
-              />
-              <svg
-                class="swap-off"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                width="24"
-                height="24"
-                stroke-width="2"
-                style="--darkreader-inline-stroke: currentColor"
-                data-darkreader-inline-stroke=""
-              >
-                <path d="M12 5l0 14"></path>
-                <path d="M5 12l14 0"></path>
-              </svg>
-              <svg
-                class="swap-on text-success"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                style="--darkreader-inline-stroke: currentColor"
-                data-darkreader-inline-stroke=""
-                width="24"
-                height="24"
-                stroke-width="2"
-              >
-                <path d="M5 12l5 5l10 -10"></path>
-              </svg>
-            </label>
+          <td class="grid grid-cols-2 min-w-[8rem] gap-1">
+            {% if is_admin %}
+            <a
+              title="Go to sources"
+              href="/wishlist/sources/{{ book.asin|quote_plus }}"
+              class="btn btn-square"
+              >{% include 'icons/list.html' %}</a
+            >
+            <button title="Automatic Download" class="btn btn-square" disabled>
+              {% include 'icons/download.html' %}
+            </button>
+            <button title="Reject" class="btn btn-square" disabled>
+              {% include 'icons/ban.html' %}
+            </button>
+            {% endif %}
+            <button class="btn btn-square" disabled>
+              {% include 'icons/checkmark.html' %}
+            </button>
           </td>
         </tr>
         {% endfor %}

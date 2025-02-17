@@ -12,6 +12,7 @@ from app.util.auth import (
     get_authenticated_user,
     raise_for_invalid_password,
 )
+from app.util.prowlarr import prowlarr_config
 
 router = APIRouter(prefix="/settings")
 
@@ -169,16 +170,8 @@ def update_prowlarr_api_key(
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
 ):
-    config = session.exec(
-        select(Config).where(Config.key == "prowlarr_api_key")
-    ).one_or_none()
-    if config:
-        config.value = api_key
-    else:
-        config = Config(key="prowlarr_api_key", value=api_key)
-    session.add(config)
+    prowlarr_config.set_api_key(session, api_key)
     session.commit()
-
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -188,17 +181,6 @@ def update_prowlarr_base_url(
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
 ):
-    config = session.exec(
-        select(Config).where(Config.key == "prowlarr_base_url")
-    ).one_or_none()
-
-    base_url = base_url.strip("/")
-
-    if config:
-        config.value = base_url
-    else:
-        config = Config(key="prowlarr_base_url", value=base_url)
-    session.add(config)
+    prowlarr_config.set_base_url(session, base_url)
     session.commit()
-
     return Response(status_code=204, headers={"HX-Refresh": "true"})
