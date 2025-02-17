@@ -57,17 +57,42 @@ def create_new_user(
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
 ):
-    if password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-    if group not in GroupEnum.__members__:
-        raise HTTPException(status_code=400, detail="Invalid group")
-    group = GroupEnum[group]
+    if username.strip() == "":
+        return templates.TemplateResponse(
+            "settings.html",
+            {"request": request, "user": admin_user, "error": "Invalid username"},
+            block_name="create_user_messages",
+        )
 
-    raise_for_invalid_password(password)
+    try:
+        raise_for_invalid_password(password, confirm_password)
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            "settings.html",
+            {"request": request, "user": admin_user, "error": e.detail},
+            block_name="create_user_messages",
+        )
+
+    if group not in GroupEnum.__members__:
+        return templates.TemplateResponse(
+            "settings.html",
+            {"request": request, "user": admin_user, "error": "Invalid group selected"},
+            block_name="create_user_messages",
+        )
+
+    group = GroupEnum[group]
 
     user = session.exec(select(User).where(User.username == username)).first()
     if user:
-        raise HTTPException(status_code=400, detail="Username already exists")
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "user": admin_user,
+                "error": "Username already exists",
+            },
+            block_name="create_user_messages",
+        )
 
     user = create_user(username, password, group)
     session.add(user)
@@ -79,6 +104,7 @@ def create_new_user(
         "settings.html",
         {"request": request, "user": user, "users": users},
         block_name="user_block",
+        headers={"HX-Retarget": "#user-list"},
     )
 
 
@@ -90,14 +116,16 @@ def delete_user(
     admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
 ):
     if username == admin_user.username:
-        raise HTTPException(status_code=400, detail="Cannot delete own user")
+        return templates.TemplateResponse(
+            "settings.html",
+            {"request": request, "user": admin_user, "error": "Cannot delete own user"},
+            block_name="delete_user_messages",
+        )
 
     user = session.exec(select(User).where(User.username == username)).one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    session.delete(user)
-    session.commit()
+    if user:
+        session.delete(user)
+        session.commit()
 
     users = session.exec(select(User)).all()
 
@@ -105,20 +133,26 @@ def delete_user(
         "settings.html",
         {"request": request, "user": user, "users": users},
         block_name="user_block",
+        headers={"HX-Retarget": "#user-list"},
     )
 
 
 @router.post("/password")
 def change_password(
+    request: Request,
     password: Annotated[str, Form()],
     confirm_password: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
     user: Annotated[User, Depends(get_authenticated_user())],
 ):
-    if password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-
-    raise_for_invalid_password(password)
+    try:
+        raise_for_invalid_password(password, confirm_password)
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            "settings.html",
+            {"request": request, "user": user, "error": e.detail},
+            block_name="change_pw_messages",
+        )
 
     new_user = create_user(user.username, password, user.group)
 

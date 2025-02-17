@@ -40,15 +40,27 @@ def read_init(request: Request):
 
 @router.post("/init")
 def create_init(
+    request: Request,
     username: Annotated[str, Form()],
     password: Annotated[str, Form()],
     confirm_password: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
 ):
-    if password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
+    if username.strip() == "":
+        return templates.TemplateResponse(
+            "init.html",
+            {"request": request, "error": "Invalid username"},
+            block_name="init_messages",
+        )
 
-    raise_for_invalid_password(password)
+    try:
+        raise_for_invalid_password(password, confirm_password)
+    except HTTPException as e:
+        return templates.TemplateResponse(
+            "init.html",
+            {"request": request, "error": e.detail},
+            block_name="init_messages",
+        )
 
     user = create_user(username, password, GroupEnum.admin)
     session.add(user)

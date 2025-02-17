@@ -1,44 +1,5 @@
 {% extends "base.html" %} {% block head %}
 <title>Settings</title>
-<script>
-  const checkEqualPasswords = function (formId) {
-    const form = document.getElementById(formId);
-    const firstPw = form.elements["password"].value;
-    const secondPw = form.elements["confirm_password"].value;
-    const submit = form.elements["submit"];
-    const nonEqualMessage = form.querySelectorAll(
-      "[name='non-equal-message']",
-    )[0];
-    const invalidPwMessage = form.querySelectorAll(
-      "[name='invalid-pw-message']",
-    )[0];
-
-    if (firstPw.length === 0 && secondPw.length === 0) {
-      invalidPwMessage.style.display = "none";
-      nonEqualMessage.style.display = "none";
-      submit.disabled = true;
-      return;
-    }
-
-    if (firstPw !== secondPw && firstPw.length > 0 && secondPw.length > 0) {
-      nonEqualMessage.style.display = "block";
-      submit.disabled = true;
-    } else {
-      nonEqualMessage.style.display = "none";
-      if (firstPw.length > 0 && secondPw.length > 0) {
-        submit.disabled = false;
-      }
-    }
-
-    const rule = /^(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}$/;
-    if (!rule.test(firstPw)) {
-      invalidPwMessage.style.display = "block";
-      submit.disabled = true;
-    } else {
-      invalidPwMessage.style.display = "none";
-    }
-  };
-</script>
 {% endblock %} {% block body %}
 <div class="flex items-start justify-center p-2 md:p-4">
   <main class="flex flex-col w-[90%] md:w-3/4 max-w-[40rem] gap-4 gap-y-8 pb-[20rem]">
@@ -46,9 +7,9 @@
 
     <form
       id="change-password-form"
-      hx-post="/settings/password"
-      method="post"
       class="flex flex-col gap-2"
+      hx-post="/settings/password"
+      hx-target="#change-pw-error"
     >
       <h2 class="text-lg">Change Password</h2>
       <label for="change-password-1">Password</label>
@@ -57,7 +18,9 @@
         name="password"
         type="password"
         class="input w-full"
-        onkeyup="checkEqualPasswords('change-password-form');"
+        pattern="(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}"
+        oninvalid="this.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number')"
+        oninput="this.setCustomValidity('')"
         required
       />
       <label for="change-password-2">Confirm password</label>
@@ -66,18 +29,17 @@
         name="confirm_password"
         type="password"
         class="input w-full"
-        onkeyup="checkEqualPasswords('change-password-form');"
+        pattern="(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}"
+        oninvalid="this.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number')"
+        oninput="this.setCustomValidity('')"
         required
       />
 
-      <span name="non-equal-message" class="text-red-400 hidden"
-        >Passwords do not match</span
-      >
-      <span name="invalid-pw-message" class="text-red-400 hidden"
-        >Password must be at least 8 characters long and contain at least one
-        uppercase letter, one lowercase letter, and one number</span
-      >
-      <button name="submit" class="btn btn-primary" type="submit" disabled>
+      {% block change_pw_messages %}
+      <span id="change-pw-error" class="text-red-400">{{ error }}</span>
+      {% endblock %}
+
+      <button name="submit" class="btn btn-primary" type="submit">
         Change password
       </button>
     </form>
@@ -88,7 +50,7 @@
       id="create-user-form"
       class="flex flex-col gap-2 p-2 pt-4 border-base-200 border-t"
       hx-post="/settings/user"
-      hx-target="#user-list"
+      hx-target="#create-user-error"
       hx-on::after-request="if (event.detail.successful) this.reset()"
     >
       <h2 class="text-lg">Create user</h2>
@@ -96,6 +58,7 @@
       <input
         id="username"
         name="username"
+        minlength="1"
         type="text"
         class="input w-full"
         required
@@ -107,7 +70,9 @@
         name="confirm_password"
         type="password"
         class="input w-full"
-        onkeyup="checkEqualPasswords('create-user-form');"
+        pattern="(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}"
+        oninvalid="this.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number')"
+        oninput="this.setCustomValidity('')"
         required
       />
 
@@ -117,7 +82,9 @@
         name="password"
         type="password"
         class="input w-full"
-        onkeyup="checkEqualPasswords('create-user-form');"
+        pattern="(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}"
+        oninvalid="this.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number')"
+        oninput="this.setCustomValidity('')"
         required
       />
 
@@ -128,23 +95,23 @@
         <option value="admin">Admin</option>
       </select>
 
-      <span name="non-equal-message" class="text-red-400 hidden"
-        >Passwords do not match</span
-      >
-      <span name="invalid-pw-message" class="text-red-400 hidden"
-        >Password must be at least 8 characters long and contain at least one
-        uppercase letter, one lowercase letter, and one number</span
-      >
-      <button id="submit" class="btn btn-primary" type="submit" disabled>
+      {% block create_user_messages %}
+      <span id="create-user-error" class="text-red-400">{{ error }}</span>
+      {% endblock %}
+      
+      <button id="submit" class="btn btn-primary" type="submit">
         Create user
       </button>
     </form>
 
     {% block user_block %}
-    <div class="pt-4 border-t border-base-200">
+    <div id="user-list" class="pt-4 border-t border-base-200">
       <h2 class="text-lg">Users</h2>
+      {% block delete_user_messages %}
+      <span id="delete-user-messages" class="text-red-400">{{ error }}</span>
+      {% endblock %}
       <div class="max-h-[30rem] overflow-x-auto">
-        <table id="user-list" class="table table-pin-rows">
+        <table class="table table-pin-rows">
           <thead>
             <tr>
               <th></th>
@@ -204,7 +171,7 @@
                       <button
                         class="btn bg-primary"
                         hx-delete="/settings/user?username={{ u.username|quote_plus }}"
-                        hx-target="#user-list"
+                        hx-target="#delete-user-messages"
                       >
                         Delete
                       </button>

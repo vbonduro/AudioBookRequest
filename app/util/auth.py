@@ -19,7 +19,12 @@ validate_password_regex = re.compile(
 )
 
 
-def raise_for_invalid_password(password: str):
+def raise_for_invalid_password(password: str, confirm_password: str):
+    if password != confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Passwords must be equal",
+        )
     if not validate_password_regex.match(password):
         raise HTTPException(
             status_code=400,

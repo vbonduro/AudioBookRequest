@@ -1,5 +1,6 @@
 import asyncio
 from typing import Annotated
+from urllib.parse import quote_plus
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -25,6 +26,7 @@ from app.util.prowlarr import (
 router = APIRouter(prefix="/wishlist")
 
 templates = Jinja2Blocks(directory="templates")
+templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 
 
 @router.get("")
