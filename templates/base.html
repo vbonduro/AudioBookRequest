@@ -13,6 +13,7 @@
     ></script>
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden">
+    {% if not hide_navbar %}
     <header class="bg-base-100 text-neutral shadow-lg">
       <nav class="navbar">
         <div class="flex-1">
@@ -54,6 +55,6 @@
         </div>
       </nav>
     </header>
-    {% block body %} {% endblock %}
+    {% endif %} {% block body %} {% endblock %}
   </body>
 </html>

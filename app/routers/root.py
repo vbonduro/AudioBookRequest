@@ -29,13 +29,16 @@ def read_root(
     user: Annotated[User, Depends(get_authenticated_user())],
 ):
     return templates.TemplateResponse(
-        "root.html", {"request": request, "username": user.username}
+        "root.html",
+        {"request": request, "username": user.username},
     )
 
 
 @router.get("/init")
 def read_init(request: Request):
-    return templates.TemplateResponse("init.html", {"request": request})
+    return templates.TemplateResponse(
+        "init.html", {"request": request, "hide_navbar": True}
+    )
 
 
 @router.post("/init")
