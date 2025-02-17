@@ -1,7 +1,7 @@
 # AudioBookRequest
 
 > [!CAUTION]
-> This project is in it's very early stages. It's basically a weekend project at this state. There might be some bugs or unfinished parts.
+> This project is in its very early stages. It's basically a weekend project at this state. There might be some bugs or unfinished parts.
 
 Your tool for handling audiobook requests on a Plex/AudioBookShelf/Jellyfin instance.
 
