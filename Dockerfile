@@ -31,6 +31,7 @@ COPY app/ app/
 RUN mkdir static
 RUN /bin/tailwindcss -i styles/globals.css -o static/globals.css -m
 
-CMD alembic upgrade heads && fastapi run
+ENV SERVER_PORT=8000
 
-EXPOSE 8000
+CMD alembic upgrade heads && fastapi run --port $SERVER_PORT
+

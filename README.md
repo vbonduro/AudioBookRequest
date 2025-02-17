@@ -24,7 +24,9 @@ services:
   web:
     build: markbeep/audiobookrequest
     ports:
-      - "8000:8000"
+      - "8000:8765"
+    environment:
+      - SERVER_PORT: 8765 # default: 8000
     volumes:
       - ./data:/app/data
 ```
