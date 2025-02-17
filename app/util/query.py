@@ -6,7 +6,8 @@ import pydantic
 from sqlmodel import Session, select
 
 from app.models import BookRequest, Indexer, ProwlarrSource
-from app.util.prowlarr import get_indexers, query_prowlarr
+from app.util.download_ranking import rank_sources
+from app.util.prowlarr import get_indexers, query_prowlarr, start_download
 from app.util.prowlarr import prowlarr_config
 
 querying: set[str] = set()
@@ -35,6 +36,7 @@ async def query_sources(
     session: Session,
     client_session: ClientSession,
     force_refresh: bool = False,
+    should_download: bool = False,
 ) -> QueryResult:
     with manage_queried(asin):
         prowlarr_config.raise_if_invalid(session)
@@ -67,14 +69,16 @@ async def query_sources(
         else:
             indexers = {}
 
-        sources = sorted(
-            [s for s in sources if s.indexer_id in indexers],
-            key=lambda x: x.seeders,
-            reverse=True,
-        )
+        ranked = rank_sources(sources)
+
+        # start download if requested
+        if should_download and len(ranked) > 0 and ranked[0].download_score > 0:
+            await start_download(
+                session, client_session, ranked[0].guid, ranked[0].indexer_id
+            )
 
         return QueryResult(
-            sources=sources,
+            sources=ranked,
             book=book,
             indexers=indexers,
         )

@@ -29,6 +29,15 @@ class User(BaseModel, table=True):
     admin: Can approve or deny requests, change settings, etc.
     """
 
+    def is_above(self, group: GroupEnum) -> bool:
+        if group == "admin":
+            if self.group != GroupEnum.admin:
+                return False
+        elif group == "trusted":
+            if self.group not in [GroupEnum.admin, GroupEnum.trusted]:
+                return False
+        return True
+
     def is_admin(self):
         return self.group == GroupEnum.admin
 
@@ -93,6 +102,7 @@ class BookRequest(BaseBook, table=True):
     def runtime_length_hrs(self):
         return round(self.runtime_length_min / 60, 1)
 
+    # Used so that only BookRequests with new information are updated in the DB
     def __hash__(self):
         return hash(
             (
@@ -115,6 +125,9 @@ class ProwlarrSource(BaseModel):
     leechers: int
     size: int  # in bytes
     publish_date: datetime
+    info_url: str
+
+    download_score: int = 0
 
     @property
     def size_MB(self):

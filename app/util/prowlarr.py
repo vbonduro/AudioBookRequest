@@ -191,6 +191,7 @@ async def query_prowlarr(
                 seeders=result["seeders"],
                 leechers=result["leechers"],
                 size=result["size"],
+                info_url=result["infoUrl"],
                 publish_date=datetime.fromisoformat(result["publishDate"]),
             )
         )

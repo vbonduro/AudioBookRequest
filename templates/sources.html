@@ -46,10 +46,14 @@
       </thead>
       <tbody>
         {% for source in sources %}
-        <tr class="text-xs lg:text-sm">
+        <tr
+          class="text-xs lg:text-sm {% if loop.index==1 %}bg-success{% endif %}"
+        >
           <th>{{ loop.index }}</th>
 
-          <td>{{ source.title }}</td>
+          <td>
+            <a href="{{ source.info_url }}" class="link">{{ source.title }}</a>
+          </td>
           <td>{{ indexers[source.indexer_id].name }}</td>
 
           <td>{{ source.seeders }} / {{ source.leechers }}</td>

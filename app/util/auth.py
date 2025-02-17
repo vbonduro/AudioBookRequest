@@ -73,12 +73,8 @@ def get_authenticated_user(
             session.add(user)
             session.commit()
 
-        if lowest_allowed_group == "admin":
-            if user.group != GroupEnum.admin:
-                raise HTTPException(status_code=403, detail="Forbidden")
-        elif lowest_allowed_group == "trusted":
-            if user.group not in [GroupEnum.admin, GroupEnum.trusted]:
-                raise HTTPException(status_code=403, detail="Forbidden")
+        if not user.is_above(lowest_allowed_group):
+            raise HTTPException(status_code=403, detail="Forbidden")
 
         return user
 
