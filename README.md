@@ -1,11 +1,41 @@
-![Search page](media/search_page.png)
+# AudioBookRequest
 
-# Rough TODO
+> [!CAUTION]
+> This project is in it's very early stages. It's basically a weekend project at this state. There might be some bugs or unfinished parts.
 
-- [ ] Add option to remove requests on wishlist page
-- [ ] Docker
+Your tool for handling audiobook requests on a Plex/AudioBookShelf/Jellyfin instance.
+
+If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <ins>but for audiobooks</ins>.
+
+![Search Page](/media/search_page.png)
+
+# Workflow
+
+1. Admin creates user accounts for their friends. Each account's group is one of: `Admin`, `Trusted`, and `Untrusted`. All groups can request/remove book requests. Trusted and above can have downloads automatically start when they select a book in the search tab. This requires the download client to be set up correctly in Prowlarr.
+2. The requests/wishlist page shows a list of all books that have been requested. An admin can directly view the torrent sources gotten from Prowlarr and start any download.
+3. Settings page allows for admins to create new accounts and set the required Prowlarr configs.
+
+# Docker
+
+Using Docker, this website can be run with minimal setup:
+
+```dockerfile
+services:
+  web:
+    build: markbeep/audiobookrequest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+```
+
+Inward port is `:8000` and the database (used for config and caching) is located at `/app/data`.
 
 # Local Development
+
+Pull requests are always welcome. Do note though, that because this project is in its very early stages a lot might change.
+
+AudioBookRequest depends on [Prowlarr](https://wiki.servarr.com/prowlarr). Prowlarr handles the part of managing all indexers and download clients. AudioBookRequest is solely responsible for creating wishlists/request pages and starting downloads automatically if possible.
 
 ## Installation
 
