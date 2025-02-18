@@ -1,5 +1,5 @@
 import re
-from typing import Annotated
+from typing import Annotated, Optional
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -19,8 +19,10 @@ validate_password_regex = re.compile(
 )
 
 
-def raise_for_invalid_password(password: str, confirm_password: str):
-    if password != confirm_password:
+def raise_for_invalid_password(
+    password: str, confirm_password: Optional[str] = None, ignore_confirm: bool = False
+):
+    if not ignore_confirm and password != confirm_password:
         raise HTTPException(
             status_code=400,
             detail="Passwords must be equal",
@@ -32,13 +34,21 @@ def raise_for_invalid_password(password: str, confirm_password: str):
         )
 
 
+def is_correct_password(user: User, password: str) -> bool:
+    try:
+        return ph.verify(user.password, password)
+    except VerifyMismatchError:
+        return False
+
+
 def create_user(
     username: str,
     password: str,
     group: GroupEnum = GroupEnum.untrusted,
+    root: bool = False,
 ) -> User:
     password_hash = ph.hash(password)
-    return User(username=username, password=password_hash, group=group)
+    return User(username=username, password=password_hash, group=group, root=root)
 
 
 def get_authenticated_user(

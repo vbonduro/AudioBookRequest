@@ -65,7 +65,7 @@ def create_init(
             block_name="init_messages",
         )
 
-    user = create_user(username, password, GroupEnum.admin)
+    user = create_user(username, password, GroupEnum.admin, root=True)
     session.add(user)
     session.commit()
 

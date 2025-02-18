@@ -23,6 +23,7 @@ class User(BaseModel, table=True):
         default=GroupEnum.untrusted,
         sa_column_kwargs={"server_default": "untrusted"},
     )
+    root: bool = False
     """
     untrusted: Requests need to be manually reviewed
     trusted: Requests are automatically downloaded if possible

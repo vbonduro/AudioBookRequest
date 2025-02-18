@@ -90,7 +90,7 @@ async def list_sources(
         prowlarr_config.raise_if_invalid(session)
     except ProwlarrMisconfigured:
         return RedirectResponse(
-            "/settings?prowlarr_misconfigured=1#prowlarr-base-url", status_code=302
+            "/settings/prowlarr?prowlarr_misconfigured=1", status_code=302
         )
 
     result = await query_sources(asin, session=session, client_session=client_session)
