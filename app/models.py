@@ -39,8 +39,15 @@ class User(BaseModel, table=True):
                 return False
         return True
 
+    def can_download(self):
+        return self.is_above(GroupEnum.trusted)
+
     def is_admin(self):
         return self.group == GroupEnum.admin
+
+    def is_self(self, username: str):
+        # To prevent '==' in Jinja2, since that breaks formatting
+        return self.username == username
 
 
 class BaseBook(BaseModel):
@@ -52,6 +59,7 @@ class BaseBook(BaseModel):
     cover_image: Optional[str]
     release_date: datetime
     runtime_length_min: int
+    downloaded: bool = False
 
     def __hash__(self):
         return hash(
@@ -74,6 +82,7 @@ class BookSearchResult(BaseBook):
 
 class BookWishlistResult(BaseBook):
     amount_requested: int = 0
+    download_error: Optional[str] = None
 
 
 class BookRequest(BaseBook, table=True):
@@ -90,7 +99,6 @@ class BookRequest(BaseBook, table=True):
             nullable=False,
         ),
     )
-    """If requested by a user"""
 
     __table_args__ = (
         UniqueConstraint("asin", "user_username", name="unique_asin_user"),

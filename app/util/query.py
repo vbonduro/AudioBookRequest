@@ -36,7 +36,7 @@ async def query_sources(
     session: Session,
     client_session: ClientSession,
     force_refresh: bool = False,
-    should_download: bool = False,
+    start_auto_download: bool = False,
 ) -> QueryResult:
     with manage_queried(asin):
         prowlarr_config.raise_if_invalid(session)
@@ -72,10 +72,25 @@ async def query_sources(
         ranked = rank_sources(sources)
 
         # start download if requested
-        if should_download and len(ranked) > 0 and ranked[0].download_score > 0:
-            await start_download(
+        if (
+            start_auto_download
+            and not book.downloaded
+            and len(ranked) > 0
+            and ranked[0].download_score > 0
+        ):
+            resp = await start_download(
                 session, client_session, ranked[0].guid, ranked[0].indexer_id
             )
+            if resp.ok:
+                same_books = session.exec(
+                    select(BookRequest).where(BookRequest.asin == asin)
+                ).all()
+                for b in same_books:
+                    b.downloaded = True
+                    session.add(b)
+                session.commit()
+            else:
+                raise HTTPException(status_code=500, detail="Failed to start download")
 
         return QueryResult(
             sources=ranked,

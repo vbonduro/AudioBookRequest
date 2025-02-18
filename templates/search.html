@@ -10,12 +10,24 @@
   };
   const onRequest = (index, asin) => {
     const checkbox = document.getElementById(`checkbox-${index}`);
+    const startAutomaticDownload = checkbox.checked && window.confirm("Do you want to start the automatic download?");
     fetch(
-      `/search/request?asin=${encodeURIComponent(asin)}`,
+      `/search/request/${encodeURIComponent(asin)}`,
       {
         method: checkbox.checked ? "POST" : "DELETE",
       },
-    );
+    ).then(resp => {
+      if (resp.ok && startAutomaticDownload) {
+        fetch(
+          `/wishlist/auto-download/${encodeURIComponent(asin)}`,
+          {
+            method: "POST",
+          },
+        );
+      }
+    });
+    
+
   };
 const onPageChange = (page) => {
   const url = new URL(window.location);

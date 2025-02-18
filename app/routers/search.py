@@ -1,13 +1,13 @@
 from typing import Annotated, Optional
 from aiohttp import ClientSession
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session, col, select
 import sqlalchemy as sa
 
-from app.db import get_session, open_session
-from app.models import BookRequest, BookSearchResult, GroupEnum, User
+from app.db import get_session
+from app.models import BookRequest, BookSearchResult, Config, GroupEnum, User
 from app.util.auth import get_authenticated_user
 from app.util.book_search import (
     get_audnexus_book,
@@ -16,7 +16,6 @@ from app.util.book_search import (
     audible_region_type,
 )
 from app.util.connection import get_connection
-from app.util.query import query_sources
 
 
 router = APIRouter(prefix="/search")
@@ -68,6 +67,10 @@ async def read_search(
                 book_search.already_requested = True
             books.append(book_search)
 
+    auto_start_download = session.exec(
+        select(Config.value).where(Config.key == "auto_start_download")
+    ).one_or_none()
+
     return templates.TemplateResponse(
         "search.html",
         {
@@ -78,28 +81,18 @@ async def read_search(
             "selected_region": region,
             "page": page,
             "num_results": num_results,
+            "auto_start_download": auto_start_download
+            and user.is_above(GroupEnum.trusted),
         },
     )
 
 
-async def background_start_download(asin: str, should_download: bool):
-    with open_session() as session:
-        async with ClientSession() as client_session:
-            await query_sources(
-                asin=asin,
-                should_download=should_download,
-                session=session,
-                client_session=client_session,
-            )
-
-
-@router.post("/request", status_code=201)
+@router.post("/request/{asin}", status_code=201)
 async def add_request(
     asin: str,
     user: Annotated[User, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    background_task: BackgroundTasks,
 ):
     book = await get_audnexus_book(client_session, asin)
     if not book:
@@ -112,14 +105,8 @@ async def add_request(
     except sa.exc.IntegrityError:
         pass  # ignore if already exists
 
-    background_task.add_task(
-        background_start_download,
-        asin=asin,
-        should_download=user.is_above(GroupEnum.trusted),
-    )
 
-
-@router.delete("/request", status_code=204)
+@router.delete("/request/{asin}", status_code=204)
 async def delete_request(
     asin: str,
     user: Annotated[User, Depends(get_authenticated_user())],

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from urllib.parse import quote_plus
 from aiohttp import ClientSession
 from fastapi import (
@@ -33,28 +33,45 @@ templates = Jinja2Blocks(directory="templates")
 templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 
 
+def get_wishlist_books(
+    session: Session, username: Optional[str] = None
+) -> list[BookWishlistResult]:
+    query = select(
+        BookRequest, func.count(col(BookRequest.user_username)).label("count")
+    )
+    if username:
+        query = query.where(BookRequest.user_username == username)
+    else:
+        query = query.where(col(BookRequest.user_username).is_not(None))
+
+    book_requests = session.exec(
+        query.select_from(BookRequest).group_by(BookRequest.asin)
+    ).all()
+
+    books: list[BookWishlistResult] = []
+    downloaded: list[BookWishlistResult] = []
+    for book, count in book_requests:
+        b = BookWishlistResult.model_validate(book)
+        b.amount_requested = count
+        if b.downloaded:
+            downloaded.append(b)
+        else:
+            books.append(b)
+
+    return books + downloaded
+
+
 @router.get("")
 async def wishlist(
     request: Request,
     user: Annotated[User, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
-    book_requests = session.exec(
-        select(BookRequest, func.count(col(BookRequest.user_username)).label("count"))
-        .where(col(BookRequest.user_username).is_not(None))
-        .select_from(BookRequest)
-        .group_by(BookRequest.asin)
-    ).all()
-
-    books: list[BookWishlistResult] = []
-    for book, count in book_requests:
-        b = BookWishlistResult.model_validate(book)
-        b.amount_requested = count
-        books.append(b)
-
+    username = None if user.is_admin() else user.username
+    books = get_wishlist_books(session, username)
     return templates.TemplateResponse(
         "wishlist.html",
-        {"request": request, "books": books, "is_admin": user.is_admin()},
+        {"request": request, "books": books, "user": user},
     )
 
 
@@ -124,6 +141,60 @@ async def download_book(
 
     book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).all()
     for b in book:
-        session.delete(b)
+        b.downloaded = True
+        session.add(b)
 
     session.commit()
+
+
+async def background_start_download(asin: str, start_auto_download: bool):
+    with open_session() as session:
+        async with ClientSession() as client_session:
+            await query_sources(
+                asin=asin,
+                start_auto_download=start_auto_download,
+                session=session,
+                client_session=client_session,
+            )
+
+
+@router.post("/auto-download/{asin}")
+async def start_auto_download(
+    request: Request,
+    asin: str,
+    user: Annotated[User, Depends(get_authenticated_user(GroupEnum.trusted))],
+    background_task: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    background: bool = True,
+):
+    if background:
+        background_task.add_task(
+            background_start_download,
+            asin=asin,
+            start_auto_download=user.is_above(GroupEnum.trusted),
+        )
+        return Response(status_code=204)
+
+    download_error: Optional[str] = None
+    try:
+        await query_sources(
+            asin=asin,
+            start_auto_download=user.is_above(GroupEnum.trusted),
+            session=session,
+            client_session=client_session,
+        )
+    except HTTPException as e:
+        download_error = e.detail
+
+    username = None if user.is_admin() else user.username
+    books = get_wishlist_books(session, username)
+    if download_error:
+        errored_book = [b for b in books if b.asin == asin][0]
+        errored_book.download_error = download_error
+
+    return templates.TemplateResponse(
+        "wishlist.html",
+        {"request": request, "books": books, "user": user},
+        block_name="book_wishlist",
+    )
