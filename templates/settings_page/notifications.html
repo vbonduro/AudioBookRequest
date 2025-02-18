@@ -5,10 +5,140 @@
 <div class="flex flex-col">
   <h2 class="text-lg">Notications</h2>
 
-  Upcoming...
-  <p class="text-xs text-base-300">
-    Options to send out notifcations using
-    <a class="link" href="https://github.com/caronc/apprise">Apprise</a>.
-  </p>
+  <form
+    id="add-notification-form"
+    class="flex flex-col gap-2"
+    hx-post="/settings/notification"
+    hx-target="#error-message"
+    hx-swap="outerHTML"
+    hx-on::after-request="if (event.detail.successful) this.reset()"
+  >
+    {% block form_error %}
+    <span id="error-message" class="text-red-400">{{ error }}</span>
+    {% endblock %}
+
+    <label for="name">Name</label>
+    <input
+      id="name"
+      name="name"
+      minlength="1"
+      type="text"
+      class="input w-full"
+      required
+    />
+
+    <label for="event">Event</label>
+    <select id="event" name="event" class="select w-full" required>
+      <option value="onNewRequest" selected>onNewRequest</option>
+    </select>
+
+    <label for="apprise_url"
+      >Apprise Notify URL
+      <span class="text-neutral text-xs font-mono"
+        >(http://.../notify/c2h3fg...)</span
+      ></label
+    >
+    <input
+      id="apprise_url"
+      name="apprise_url"
+      minlength="1"
+      type="text"
+      class="input w-full"
+      required
+    />
+
+    <label for="headers"
+      >Headers
+      <span class="text-neutral text-xs font-mono">(JSON format)</span></label
+    >
+    <!-- prettier-ignore -->
+    <input
+      id="headers"
+      name="headers"
+      type="text"
+      class="input w-full"
+      placeholder="{&quot;username&quot;: &quot;admin&quot;, &quot;password&quot;: &quot;password123&quot;}"
+      pattern="{{'^\{\s*(?:"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*(?:,\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*)*)?\}$'}}"
+    />
+
+    <label for="title_template">Title Template</label>
+    <input
+      id="title_template"
+      placeholder="New Book: {bookTitle}"
+      name="title_template"
+      minlength="1"
+      type="text"
+      class="input w-full"
+      required
+    />
+
+    <label for="body_template">Body Template</label>
+    <textarea
+      id="body_template"
+      placeholder="New book {bookTitle} by {bookAuthors} narrated by {bookNarrators}. `Requested by {eventUser}`"
+      name="body_template"
+      class="textarea w-full"
+      required
+    ></textarea>
+
+    <p class="text-xs">
+      Possible event types:
+      <span class="font-mono text-neutral"
+        >eventUser, bookTitle, bookAuthors, bookNarrators</span
+      >
+    </p>
+
+    <button type="submit" class="btn">Add</button>
+  </form>
 </div>
-{% endblock %}
+
+{% block notfications_block %}
+<div id="notification-list" class="pt-4 border-t border-base-200">
+  <h2 class="text-lg">Apprise Notifications</h2>
+
+  <div class="max-h-[30rem] overflow-x-auto">
+    <table class="table table-pin-rows">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Name</th>
+          <th>Event</th>
+          <th>URL</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n in notifications %}
+        <tr>
+          <th>{{ loop.index }}</th>
+          <td>{{ n.name }}</td>
+          <td>{{ n.event.value }}</td>
+          <td>{{ n.apprise_url }}</td>
+          <td class="flex gap-1">
+            <button
+              title="Delete notification"
+              class="btn btn-error btn-square"
+              hx-delete="/settings/notification/{{n.id}}"
+              hx-target="#notification-list"
+              hx-swap="outerHTML"
+              hx-confirm="Are you sure you want to delete this notification?"
+            >
+              {% include 'icons/trash.html' %}
+            </button>
+            <button
+              title="Test notification"
+              class="btn btn-square"
+              hx-post="/settings/notification/{{n.id}}"
+              hx-disabled-elt="this"
+            >
+              {% include 'icons/test-pipe.html' %}
+            </button>
+          </td>
+          <td></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %} {% endblock %}

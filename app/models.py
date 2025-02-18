@@ -157,7 +157,22 @@ class Config(BaseModel, table=True):
 
 # TODO: add logs
 class Log(BaseModel):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_username: str
     message: str
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class EventEnum(str, Enum):
+    on_new_request = "onNewRequest"
+
+
+class Notification(BaseModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str
+    apprise_url: str
+    headers: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    event: EventEnum
+    title_template: str
+    body_template: str
+    enabled: bool

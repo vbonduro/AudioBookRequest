@@ -7,7 +7,15 @@ from sqlmodel import Session, col, select
 import sqlalchemy as sa
 
 from app.db import get_session
-from app.models import BookRequest, BookSearchResult, Config, GroupEnum, User
+from app.models import (
+    BookRequest,
+    BookSearchResult,
+    Config,
+    EventEnum,
+    GroupEnum,
+    Notification,
+    User,
+)
 from app.util.auth import get_authenticated_user
 from app.util.book_search import (
     get_audnexus_book,
@@ -16,6 +24,7 @@ from app.util.book_search import (
     audible_region_type,
 )
 from app.util.connection import get_connection
+from app.util.notifications import send_notification
 
 
 router = APIRouter(prefix="/search")
@@ -104,6 +113,18 @@ async def add_request(
         session.commit()
     except sa.exc.IntegrityError:
         pass  # ignore if already exists
+
+    notifications = session.exec(
+        select(Notification).where(Notification.event == EventEnum.on_new_request)
+    ).all()
+    for notif in notifications:
+        await send_notification(
+            session=session,
+            client_session=client_session,
+            notification=notif,
+            requester_username=user.username,
+            book_asin=asin,
+        )
 
 
 @router.delete("/request/{asin}", status_code=204)

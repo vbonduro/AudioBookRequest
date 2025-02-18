@@ -1,18 +1,23 @@
-from typing import Annotated, Any, Optional
+import json
+from typing import Annotated, Any, Optional, cast
 from urllib.parse import quote_plus
+import uuid
+from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session, select
 
 from app.db import get_session
 
-from app.models import User, GroupEnum
+from app.models import EventEnum, Notification, User, GroupEnum
 from app.util.auth import (
     create_user,
     get_authenticated_user,
     is_correct_password,
     raise_for_invalid_password,
 )
+from app.util.connection import get_connection
+from app.util.notifications import send_notification
 from app.util.prowlarr import prowlarr_config
 
 router = APIRouter(prefix="/settings")
@@ -243,8 +248,138 @@ def read_download(
 def read_notifications(
     request: Request,
     admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    session: Annotated[Session, Depends(get_session)],
 ):
+    notifications = session.exec(select(Notification)).all()
     return templates.TemplateResponse(
         "settings_page/notifications.html",
-        {"request": request, "user": admin_user, "page": "notifications"},
+        {
+            "request": request,
+            "user": admin_user,
+            "page": "notifications",
+            "notifications": notifications,
+        },
     )
+
+
+@router.post("/notification")
+def add_notification(
+    request: Request,
+    name: Annotated[str, Form()],
+    apprise_url: Annotated[str, Form()],
+    title_template: Annotated[str, Form()],
+    body_template: Annotated[str, Form()],
+    event: Annotated[str, Form()],
+    headers: Annotated[str, Form()],
+    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    session: Annotated[Session, Depends(get_session)],
+):
+    if not headers:
+        headers = "{}"
+    try:
+        headers_json = json.loads(headers)
+        if not isinstance(headers_json, dict) or any(
+            not isinstance(v, str) for v in cast(dict[str, Any], headers_json).values()
+        ):
+            raise ValueError()
+        headers_json = cast(dict[str, str], headers_json)
+    except (json.JSONDecodeError, ValueError):
+        return templates.TemplateResponse(
+            "settings_page/notifications.html",
+            {
+                "request": request,
+                "user": admin_user,
+                "page": "notifications",
+                "error": "Invalid headers JSON",
+            },
+            block_name="form_error",
+        )
+
+    try:
+        event_enum = EventEnum(event)
+    except ValueError:
+        return templates.TemplateResponse(
+            "settings_page/notifications.html",
+            {
+                "request": request,
+                "user": admin_user,
+                "page": "notifications",
+                "error": "Invalid event type",
+            },
+            block_name="form_error",
+        )
+
+    notification = Notification(
+        name=name,
+        apprise_url=apprise_url,
+        event=event_enum,
+        title_template=title_template,
+        body_template=body_template,
+        headers=headers_json,
+        enabled=True,
+    )
+    session.add(notification)
+    session.commit()
+
+    notifications = session.exec(select(Notification)).all()
+
+    return templates.TemplateResponse(
+        "settings_page/notifications.html",
+        {
+            "request": request,
+            "user": admin_user,
+            "page": "notifications",
+            "notifications": notifications,
+        },
+        block_name="notfications_block",
+        headers={"HX-Retarget": "#notification-list"},
+    )
+
+
+@router.delete("/notification/{notification_id}")
+def delete_notification(
+    request: Request,
+    notification_id: uuid.UUID,
+    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    session: Annotated[Session, Depends(get_session)],
+):
+    notifications = session.exec(select(Notification)).all()
+    for notif in notifications:
+        if notif.id == notification_id:
+            print("DELETED")
+            session.delete(notif)
+            session.commit()
+            break
+    notifications = session.exec(select(Notification)).all()
+
+    return templates.TemplateResponse(
+        "settings_page/notifications.html",
+        {
+            "request": request,
+            "user": admin_user,
+            "page": "notifications",
+            "notifications": notifications,
+        },
+        block_name="notfications_block",
+    )
+
+
+@router.post("/notification/{notification_id}")
+async def execute_notification(
+    notification_id: uuid.UUID,
+    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+):
+    notification = session.exec(
+        select(Notification).where(Notification.id == notification_id)
+    ).one_or_none()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    try:
+        await send_notification(session, client_session, notification)
+    except ClientResponseError:
+        raise HTTPException(status_code=500, detail="Failed to send notification")
+
+    return Response(status_code=204)
