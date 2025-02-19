@@ -13,6 +13,16 @@
       No user was found in the database. Please create an admin user to get set
       up.
     </p>
+
+    <label for="login-type">Login Type</label>
+    <select id="login-type" name="login_type" class="select w-full">
+      <option value="basic">Basic Auth (Dialog)</option>
+      <option value="forms" selected>Forms Login</option>
+      <option value="none">None (Insecure)</option>
+    </select>
+
+    </select>
+
     <label for="username">Username</label>
     <input
       id="username"

@@ -1,17 +1,29 @@
+from enum import Enum
+import os
 import re
 from typing import Annotated, Optional
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPBasic
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import User, GroupEnum
+from app.models import Config, User, GroupEnum
+
+SECRET_KEY = os.getenv("AUTH_SECRET")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 security = HTTPBasic()
 ph = PasswordHasher()
+
+
+class LoginTypeEnum(str, Enum):
+    basic = "basic"
+    forms = "forms"
+    none = "none"
 
 
 validate_password_regex = re.compile(
@@ -51,41 +63,82 @@ def create_user(
     return User(username=username, password=password_hash, group=group, root=root)
 
 
-def get_authenticated_user(
-    lowest_allowed_group: GroupEnum = GroupEnum.untrusted,
-):
-    def get_user(
+def get_authenticated_user(lowest_allowed_group: GroupEnum = GroupEnum.untrusted):
+    async def get_user(
+        request: Request,
         session: Annotated[Session, Depends(get_session)],
-        credentials: Annotated[HTTPBasicCredentials, Depends(security)],
     ) -> User:
-        user = session.exec(
-            select(User).where(User.username == credentials.username)
-        ).one_or_none()
+        login_type = session.get(Config, "login_type")
+        if login_type:
+            login_type = LoginTypeEnum(login_type)
+        else:
+            login_type = LoginTypeEnum.basic
 
-        if not user:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials",
-                headers={"WWW-Authenticate": "Basic"},
-            )
+        if login_type == LoginTypeEnum.forms:
+            return await _get_forms_auth(request, session, lowest_allowed_group)
+        if login_type == LoginTypeEnum.none:
+            return await _get_none_auth(request, session, lowest_allowed_group)
 
-        try:
-            ph.verify(user.password, credentials.password)
-        except VerifyMismatchError:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-
-        if ph.check_needs_rehash(user.password):
-            user.password = ph.hash(credentials.password)
-            session.add(user)
-            session.commit()
-
-        if not user.is_above(lowest_allowed_group):
-            raise HTTPException(status_code=403, detail="Forbidden")
-
-        return user
+        return await _get_basic_auth(request, session, lowest_allowed_group)
 
     return get_user
+
+
+async def _get_basic_auth(
+    request: Request,
+    session: Session,
+    lowest_allowed_group: GroupEnum,
+) -> User:
+    credentials = await security(request)
+
+    if not credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    user = session.exec(
+        select(User).where(User.username == credentials.username)
+    ).one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    try:
+        ph.verify(user.password, credentials.password)
+    except VerifyMismatchError:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    if ph.check_needs_rehash(user.password):
+        user.password = ph.hash(credentials.password)
+        session.add(user)
+        session.commit()
+
+    if not user.is_above(lowest_allowed_group):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    return user
+
+
+async def _get_forms_auth(
+    request: Request,
+    session: Session,
+    lowest_allowed_group: GroupEnum,
+) -> User:
+    print(request.form)
+
+
+async def _get_none_auth(
+    request: Request,
+    session: Session,
+    lowest_allowed_group: GroupEnum,
+) -> User: ...

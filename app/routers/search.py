@@ -76,9 +76,9 @@ async def read_search(
                 book_search.already_requested = True
             books.append(book_search)
 
-    auto_start_download = session.exec(
-        select(Config.value).where(Config.key == "auto_start_download")
-    ).one_or_none()
+    auto_start_download = session.get(Config, "auto_start_download")
+    if auto_start_download:
+        auto_start_download = auto_start_download.value
 
     return templates.TemplateResponse(
         "search.html",
