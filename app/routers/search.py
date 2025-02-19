@@ -1,10 +1,9 @@
 from typing import Annotated, Optional
+
+import sqlalchemy as sa
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, HTTPException, Request
-
-from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session, col, select
-import sqlalchemy as sa
 
 from app.db import get_session
 from app.models import (
@@ -17,18 +16,16 @@ from app.models import (
 )
 from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.book_search import (
+    audible_region_type,
+    audible_regions,
     get_audnexus_book,
     list_audible_books,
-    audible_regions,
-    audible_region_type,
 )
 from app.util.connection import get_connection
 from app.util.notifications import send_notification
-
+from app.util.templates import template_response
 
 router = APIRouter(prefix="/search")
-
-templates = Jinja2Blocks(directory="templates")
 
 
 @router.get("")
@@ -79,10 +76,11 @@ async def read_search(
     if auto_start_download:
         auto_start_download = auto_start_download.value
 
-    return templates.TemplateResponse(
+    return template_response(
         "search.html",
+        request,
+        user,
         {
-            "request": request,
             "search_term": q or "",
             "search_results": books,
             "regions": list(audible_regions.keys()),

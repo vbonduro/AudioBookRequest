@@ -36,6 +36,14 @@
   --noise: 0;
 }
 
-danger-alert {
+.error-alert {
   @apply !bg-error;
+}
+
+.success-alert {
+  @apply !bg-success;
+}
+
+.info-alert {
+  @apply !bg-info;
 }

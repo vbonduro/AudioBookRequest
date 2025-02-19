@@ -1,29 +1,27 @@
 from datetime import timedelta
 from typing import Annotated, Optional
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session
 
 from app.db import get_session
-
 from app.models import GroupEnum
 from app.util.auth import (
     DetailedUser,
     LoginTypeEnum,
     RequiresLoginException,
+    auth_config,
     authenticate_user,
     create_access_token,
     create_user,
     get_authenticated_user,
     raise_for_invalid_password,
-    auth_config,
 )
+from app.util.templates import templates
 
 router = APIRouter()
-
-templates = Jinja2Blocks(directory="templates")
 
 
 @router.get("/globals.css")
@@ -36,10 +34,12 @@ def read_root(
     request: Request,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
-    return templates.TemplateResponse(
-        "root.html",
-        {"request": request, "user": user},
-    )
+    return RedirectResponse("/search")
+    # TODO: create a root page
+    # return templates.TemplateResponse(
+    #     "root.html",
+    #     {"request": request, "user": user},
+    # )
 
 
 @router.get("/init")

@@ -1,10 +1,8 @@
 import json
 from typing import Annotated, Any, Optional, cast
-from urllib.parse import quote_plus
 import uuid
 from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
-from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -20,11 +18,9 @@ from app.util.auth import (
 from app.util.connection import get_connection
 from app.util.notifications import send_notification
 from app.util.prowlarr import prowlarr_config
+from app.util.templates import template_response
 
 router = APIRouter(prefix="/settings")
-
-templates = Jinja2Blocks(directory="templates")
-templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 
 
 @router.get("/account")
@@ -32,9 +28,8 @@ def read_account(
     request: Request,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
-    return templates.TemplateResponse(
-        "settings_page/account.html",
-        {"request": request, "user": user, "page": "account"},
+    return template_response(
+        "settings_page/account.html", request, user, {"page": "account"}
     )
 
 
@@ -48,11 +43,11 @@ def change_password(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     if not is_correct_password(user, old_password):
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/account.html",
+            request,
+            user,
             {
-                "request": request,
-                "user": user,
                 "page": "account",
                 "error": "Old password is wrong",
             },
@@ -61,9 +56,11 @@ def change_password(
     try:
         raise_for_invalid_password(password, confirm_password)
     except HTTPException as e:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/account.html",
-            {"request": request, "user": user, "page": "account", "error": e.detail},
+            request,
+            user,
+            {"page": "account", "error": e.detail},
             block_name="change_pw_messages",
         )
 
@@ -85,9 +82,11 @@ def read_users(
     session: Annotated[Session, Depends(get_session)],
 ):
     users = session.exec(select(User)).all()
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/users.html",
-        {"request": request, "user": admin_user, "page": "users", "users": users},
+        request,
+        admin_user,
+        {"page": "users", "users": users},
     )
 
 
@@ -103,25 +102,31 @@ def create_new_user(
     ],
 ):
     if username.strip() == "":
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": "Invalid username"},
+            request,
+            admin_user,
+            {"error": "Invalid username"},
             block_name="create_user_messages",
         )
 
     try:
         raise_for_invalid_password(password, ignore_confirm=True)
     except HTTPException as e:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": e.detail},
+            request,
+            admin_user,
+            {"error": e.detail},
             block_name="create_user_messages",
         )
 
     if group not in GroupEnum.__members__:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": "Invalid group selected"},
+            request,
+            admin_user,
+            {"error": "Invalid group selected"},
             block_name="create_user_messages",
         )
 
@@ -129,13 +134,11 @@ def create_new_user(
 
     user = session.exec(select(User).where(User.username == username)).first()
     if user:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "error": "Username already exists",
-            },
+            request,
+            admin_user,
+            {"error": "Username already exists"},
             block_name="create_user_messages",
         )
 
@@ -145,9 +148,11 @@ def create_new_user(
 
     users = session.exec(select(User)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/users.html",
-        {"request": request, "user": admin_user, "users": users},
+        request,
+        admin_user,
+        {"users": users},
         block_name="user_block",
         headers={"HX-Retarget": "#user-list"},
     )
@@ -163,21 +168,21 @@ def delete_user(
     ],
 ):
     if username == admin_user.username:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": "Cannot delete own user"},
+            request,
+            admin_user,
+            {"error": "Cannot delete own user"},
             block_name="delete_user_messages",
         )
 
     user = session.exec(select(User).where(User.username == username)).one_or_none()
     if user and user.root:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "error": "Cannot delete root user",
-            },
+            request,
+            admin_user,
+            {"error": "Cannot delete root user"},
             block_name="delete_user_messages",
         )
 
@@ -187,9 +192,11 @@ def delete_user(
 
     users = session.exec(select(User)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/users.html",
-        {"request": request, "user": admin_user, "users": users},
+        request,
+        admin_user,
+        {"users": users},
         block_name="user_block",
         headers={"HX-Retarget": "#user-list"},
     )
@@ -207,11 +214,11 @@ def read_prowlarr(
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/prowlarr.html",
+        request,
+        admin_user,
         {
-            "request": request,
-            "user": admin_user,
             "page": "prowlarr",
             "prowlarr_base_url": prowlarr_base_url or "",
             "prowlarr_api_key": prowlarr_api_key,
@@ -253,9 +260,8 @@ def read_download(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
 ):
-    return templates.TemplateResponse(
-        "settings_page/download.html",
-        {"request": request, "user": admin_user, "page": "download"},
+    return template_response(
+        "settings_page/download.html", request, admin_user, {"page": "download"}
     )
 
 
@@ -268,14 +274,11 @@ def read_notifications(
     session: Annotated[Session, Depends(get_session)],
 ):
     notifications = session.exec(select(Notification)).all()
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/notifications.html",
-        {
-            "request": request,
-            "user": admin_user,
-            "page": "notifications",
-            "notifications": notifications,
-        },
+        request,
+        admin_user,
+        {"page": "notifications", "notifications": notifications},
     )
 
 
@@ -303,28 +306,22 @@ def add_notification(
             raise ValueError()
         headers_json = cast(dict[str, str], headers_json)
     except (json.JSONDecodeError, ValueError):
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/notifications.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "page": "notifications",
-                "error": "Invalid headers JSON",
-            },
+            request,
+            admin_user,
+            {"page": "notifications", "error": "Invalid headers JSON"},
             block_name="form_error",
         )
 
     try:
         event_enum = EventEnum(event)
     except ValueError:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/notifications.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "page": "notifications",
-                "error": "Invalid event type",
-            },
+            request,
+            admin_user,
+            {"page": "notifications", "error": "Invalid event type"},
             block_name="form_error",
         )
 
@@ -342,14 +339,11 @@ def add_notification(
 
     notifications = session.exec(select(Notification)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/notifications.html",
-        {
-            "request": request,
-            "user": admin_user,
-            "page": "notifications",
-            "notifications": notifications,
-        },
+        request,
+        admin_user,
+        {"page": "notifications", "notifications": notifications},
         block_name="notfications_block",
         headers={"HX-Retarget": "#notification-list"},
     )
@@ -373,14 +367,11 @@ def delete_notification(
             break
     notifications = session.exec(select(Notification)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/notifications.html",
-        {
-            "request": request,
-            "user": admin_user,
-            "page": "notifications",
-            "notifications": notifications,
-        },
+        request,
+        admin_user,
+        {"page": "notifications", "notifications": notifications},
         block_name="notfications_block",
     )
 
