@@ -40,7 +40,16 @@
           </a>
         </div>
 
-        <div class="flex-none pr-4">
+        <div class="flex-none flex pr-4">
+          {% if user.can_logout() %}
+          <btn
+            hx-post="/auth/logout"
+            class="btn btn-ghost btn-square"
+            title="Logout"
+          >
+            {% include 'icons/door-exit.html' %}
+          </btn>
+          {% endif %}
           <a
             href="/settings/account"
             class="btn btn-ghost btn-square group"

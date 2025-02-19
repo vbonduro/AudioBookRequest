@@ -4,6 +4,7 @@ MIN_SEEDERS = 5
 MIN_SEED_RATIO = 2.0
 
 
+# TODO: This could be replaced with Readarr's quality/ranking system if that works well
 def rank_sources(sources: list[ProwlarrSource]) -> list[ProwlarrSource]:
     sorted_seeders = sorted(sources, key=lambda x: x.seeders, reverse=True)
     for i, source in enumerate(sorted_seeders):

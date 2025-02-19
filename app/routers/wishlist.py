@@ -1,5 +1,5 @@
 from typing import Annotated, Optional
-from urllib.parse import quote_plus
+
 from aiohttp import ClientSession
 from fastapi import (
     APIRouter,
@@ -9,28 +9,23 @@ from fastapi import (
     Request,
     Response,
 )
-
 from fastapi.responses import RedirectResponse
-from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.db import get_session, open_session
-from app.models import BookRequest, BookWishlistResult, GroupEnum, User
-from app.util.auth import get_authenticated_user
+from app.models import BookRequest, BookWishlistResult, GroupEnum
+from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.prowlarr import (
     ProwlarrMisconfigured,
-    start_download,
     prowlarr_config,
+    start_download,
 )
 from app.util.query import query_sources
-
+from app.util.templates import template_response
 
 router = APIRouter(prefix="/wishlist")
-
-templates = Jinja2Blocks(directory="templates")
-templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 
 
 def get_wishlist_books(
@@ -64,21 +59,18 @@ def get_wishlist_books(
 @router.get("")
 async def wishlist(
     request: Request,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
     username = None if user.is_admin() else user.username
     books = get_wishlist_books(session, username)
-    return templates.TemplateResponse(
-        "wishlist.html",
-        {"request": request, "books": books, "user": user},
-    )
+    return template_response("wishlist.html", request, user, {"books": books})
 
 
 @router.post("/refresh/{asin}")
 async def refresh_source(
     asin: str,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     background_task: BackgroundTasks,
     force_refresh: bool = False,
 ):
@@ -99,7 +91,9 @@ async def refresh_source(
 async def list_sources(
     request: Request,
     asin: str,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
@@ -112,10 +106,11 @@ async def list_sources(
 
     result = await query_sources(asin, session=session, client_session=client_session)
 
-    return templates.TemplateResponse(
+    return template_response(
         "sources.html",
+        request,
+        admin_user,
         {
-            "request": request,
             "book": result.book,
             "sources": result.sources,
             "indexers": result.indexers,
@@ -128,7 +123,9 @@ async def download_book(
     asin: str,
     guid: str,
     indexer_id: int,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
@@ -162,7 +159,7 @@ async def background_start_download(asin: str, start_auto_download: bool):
 async def start_auto_download(
     request: Request,
     asin: str,
-    user: Annotated[User, Depends(get_authenticated_user(GroupEnum.trusted))],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user(GroupEnum.trusted))],
     background_task: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
@@ -193,8 +190,6 @@ async def start_auto_download(
         errored_book = [b for b in books if b.asin == asin][0]
         errored_book.download_error = download_error
 
-    return templates.TemplateResponse(
-        "wishlist.html",
-        {"request": request, "books": books, "user": user},
-        block_name="book_wishlist",
+    return template_response(
+        "wishlist.html", request, user, {"books": books}, block_name="book_wishlist"
     )

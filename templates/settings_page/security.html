@@ -1,0 +1,69 @@
+{% extends "settings_page/base.html" %} {% block head %}
+<title>Settings - Security</title>
+{% include 'scripts/toast.html' %} {% endblock %} {% block content %}
+<div class="flex flex-col">
+  {% block error_toast %}
+  <div id="message" class="hidden">
+    {% if error %}
+    <script>
+      toast("{{error|safe}}", "error");
+    </script>
+    {% endif %}
+  </div>
+  {% endblock %} {% block form %}
+  <form
+    class="flex flex-col gap-2"
+    hx-post="/settings/security"
+    hx-target="this"
+  >
+    {% if success %}
+    <script>
+      toast("{{success|safe}}", "success");
+    </script>
+    {% endif %}
+
+    <h2 class="text-lg">Login/Security</h2>
+
+    <label for="login-type">Login Type</label>
+    <select id="login-type" name="login_type" class="select w-full">
+      <option value="basic" {% if login_type.is_basic() %}selected{% endif %}>
+        Basic Auth (Dialog)
+      </option>
+      <option value="forms" {% if login_type.is_forms() %}selected{% endif %}>
+        Forms Login
+      </option>
+      <option value="none" {% if login_type.is_none() %}selected{% endif %}>
+        None (Insecure)
+      </option>
+    </select>
+
+    <label for="expiry-input">Access Token Expiry (minutes)</label>
+    <input
+      id="expiry-input"
+      type="number"
+      name="access_token_expiry"
+      class="input w-full"
+      value="{{ access_token_expiry }}"
+    />
+
+    <button name="submit" class="btn btn-primary" type="submit">Save</button>
+  </form>
+  {% endblock %}
+
+  <hr class="my-8 border-base-200" />
+
+  <div class="flex flex-col gap-2">
+    <h2 class="text-lg text-error">Danger Zone</h2>
+    <button
+      type="button"
+      class="btn btn-primary"
+      hx-post="/settings/security/reset-auth"
+      hx-confirm="Are you sure you want to reset the authentication secret? This will invalidate everyone's login session forcing them to log in again."
+      hx-target="this"
+    >
+      Reset Authentication Secret (invalidates all logins)
+    </button>
+  </div>
+</div>
+
+{% endblock %}

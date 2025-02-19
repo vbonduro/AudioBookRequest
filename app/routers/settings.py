@@ -1,39 +1,37 @@
 import json
 from typing import Annotated, Any, Optional, cast
-from urllib.parse import quote_plus
 import uuid
 from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
-from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlmodel import Session, select
 
 from app.db import get_session
 
 from app.models import EventEnum, Notification, User, GroupEnum
 from app.util.auth import (
+    DetailedUser,
+    LoginTypeEnum,
     create_user,
     get_authenticated_user,
     is_correct_password,
     raise_for_invalid_password,
+    auth_config,
 )
 from app.util.connection import get_connection
 from app.util.notifications import send_notification
 from app.util.prowlarr import prowlarr_config
+from app.util.templates import template_response
 
 router = APIRouter(prefix="/settings")
-
-templates = Jinja2Blocks(directory="templates")
-templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 
 
 @router.get("/account")
 def read_account(
     request: Request,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
-    return templates.TemplateResponse(
-        "settings_page/account.html",
-        {"request": request, "user": user, "page": "account"},
+    return template_response(
+        "settings_page/account.html", request, user, {"page": "account"}
     )
 
 
@@ -44,14 +42,14 @@ def change_password(
     password: Annotated[str, Form()],
     confirm_password: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     if not is_correct_password(user, old_password):
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/account.html",
+            request,
+            user,
             {
-                "request": request,
-                "user": user,
                 "page": "account",
                 "error": "Old password is wrong",
             },
@@ -60,9 +58,11 @@ def change_password(
     try:
         raise_for_invalid_password(password, confirm_password)
     except HTTPException as e:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/account.html",
-            {"request": request, "user": user, "page": "account", "error": e.detail},
+            request,
+            user,
+            {"page": "account", "error": e.detail},
             block_name="change_pw_messages",
         )
 
@@ -78,13 +78,17 @@ def change_password(
 @router.get("/users")
 def read_users(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     users = session.exec(select(User)).all()
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/users.html",
-        {"request": request, "user": admin_user, "page": "users", "users": users},
+        request,
+        admin_user,
+        {"page": "users", "users": users},
     )
 
 
@@ -95,28 +99,36 @@ def create_new_user(
     password: Annotated[str, Form()],
     group: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     if username.strip() == "":
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": "Invalid username"},
+            request,
+            admin_user,
+            {"error": "Invalid username"},
             block_name="create_user_messages",
         )
 
     try:
         raise_for_invalid_password(password, ignore_confirm=True)
     except HTTPException as e:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": e.detail},
+            request,
+            admin_user,
+            {"error": e.detail},
             block_name="create_user_messages",
         )
 
     if group not in GroupEnum.__members__:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": "Invalid group selected"},
+            request,
+            admin_user,
+            {"error": "Invalid group selected"},
             block_name="create_user_messages",
         )
 
@@ -124,13 +136,11 @@ def create_new_user(
 
     user = session.exec(select(User).where(User.username == username)).first()
     if user:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "error": "Username already exists",
-            },
+            request,
+            admin_user,
+            {"error": "Username already exists"},
             block_name="create_user_messages",
         )
 
@@ -140,9 +150,11 @@ def create_new_user(
 
     users = session.exec(select(User)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/users.html",
-        {"request": request, "user": admin_user, "users": users},
+        request,
+        admin_user,
+        {"users": users},
         block_name="user_block",
         headers={"HX-Retarget": "#user-list"},
     )
@@ -153,24 +165,26 @@ def delete_user(
     request: Request,
     username: str,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     if username == admin_user.username:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {"request": request, "user": admin_user, "error": "Cannot delete own user"},
+            request,
+            admin_user,
+            {"error": "Cannot delete own user"},
             block_name="delete_user_messages",
         )
 
     user = session.exec(select(User).where(User.username == username)).one_or_none()
     if user and user.root:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/users.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "error": "Cannot delete root user",
-            },
+            request,
+            admin_user,
+            {"error": "Cannot delete root user"},
             block_name="delete_user_messages",
         )
 
@@ -180,9 +194,11 @@ def delete_user(
 
     users = session.exec(select(User)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/users.html",
-        {"request": request, "user": admin_user, "users": users},
+        request,
+        admin_user,
+        {"users": users},
         block_name="user_block",
         headers={"HX-Retarget": "#user-list"},
     )
@@ -191,18 +207,20 @@ def delete_user(
 @router.get("/prowlarr")
 def read_prowlarr(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     prowlarr_misconfigured: Optional[Any] = None,
 ):
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/prowlarr.html",
+        request,
+        admin_user,
         {
-            "request": request,
-            "user": admin_user,
             "page": "prowlarr",
             "prowlarr_base_url": prowlarr_base_url or "",
             "prowlarr_api_key": prowlarr_api_key,
@@ -215,7 +233,9 @@ def read_prowlarr(
 def update_prowlarr_api_key(
     api_key: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     prowlarr_config.set_api_key(session, api_key)
     session.commit()
@@ -226,7 +246,9 @@ def update_prowlarr_api_key(
 def update_prowlarr_base_url(
     base_url: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     prowlarr_config.set_base_url(session, base_url)
     session.commit()
@@ -236,29 +258,29 @@ def update_prowlarr_base_url(
 @router.get("/download")
 def read_download(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
-    return templates.TemplateResponse(
-        "settings_page/download.html",
-        {"request": request, "user": admin_user, "page": "download"},
+    return template_response(
+        "settings_page/download.html", request, admin_user, {"page": "download"}
     )
 
 
 @router.get("/notifications")
 def read_notifications(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     notifications = session.exec(select(Notification)).all()
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/notifications.html",
-        {
-            "request": request,
-            "user": admin_user,
-            "page": "notifications",
-            "notifications": notifications,
-        },
+        request,
+        admin_user,
+        {"page": "notifications", "notifications": notifications},
     )
 
 
@@ -271,7 +293,9 @@ def add_notification(
     body_template: Annotated[str, Form()],
     event: Annotated[str, Form()],
     headers: Annotated[str, Form()],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     if not headers:
@@ -284,28 +308,22 @@ def add_notification(
             raise ValueError()
         headers_json = cast(dict[str, str], headers_json)
     except (json.JSONDecodeError, ValueError):
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/notifications.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "page": "notifications",
-                "error": "Invalid headers JSON",
-            },
+            request,
+            admin_user,
+            {"page": "notifications", "error": "Invalid headers JSON"},
             block_name="form_error",
         )
 
     try:
         event_enum = EventEnum(event)
     except ValueError:
-        return templates.TemplateResponse(
+        return template_response(
             "settings_page/notifications.html",
-            {
-                "request": request,
-                "user": admin_user,
-                "page": "notifications",
-                "error": "Invalid event type",
-            },
+            request,
+            admin_user,
+            {"page": "notifications", "error": "Invalid event type"},
             block_name="form_error",
         )
 
@@ -323,14 +341,11 @@ def add_notification(
 
     notifications = session.exec(select(Notification)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/notifications.html",
-        {
-            "request": request,
-            "user": admin_user,
-            "page": "notifications",
-            "notifications": notifications,
-        },
+        request,
+        admin_user,
+        {"page": "notifications", "notifications": notifications},
         block_name="notfications_block",
         headers={"HX-Retarget": "#notification-list"},
     )
@@ -340,7 +355,9 @@ def add_notification(
 def delete_notification(
     request: Request,
     notification_id: uuid.UUID,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     notifications = session.exec(select(Notification)).all()
@@ -352,14 +369,11 @@ def delete_notification(
             break
     notifications = session.exec(select(Notification)).all()
 
-    return templates.TemplateResponse(
+    return template_response(
         "settings_page/notifications.html",
-        {
-            "request": request,
-            "user": admin_user,
-            "page": "notifications",
-            "notifications": notifications,
-        },
+        request,
+        admin_user,
+        {"page": "notifications", "notifications": notifications},
         block_name="notfications_block",
     )
 
@@ -367,7 +381,9 @@ def delete_notification(
 @router.post("/notification/{notification_id}")
 async def execute_notification(
     notification_id: uuid.UUID,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
@@ -383,3 +399,71 @@ async def execute_notification(
         raise HTTPException(status_code=500, detail="Failed to send notification")
 
     return Response(status_code=204)
+
+
+@router.get("/security")
+def read_security(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    return template_response(
+        "settings_page/security.html",
+        request,
+        admin_user,
+        {
+            "page": "security",
+            "login_type": auth_config.get_login_type(session),
+            "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+        },
+    )
+
+
+@router.post("/security/reset-auth")
+def reset_auth_secret(
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    auth_config.reset_auth_secret(session)
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.post("/security")
+def update_security(
+    login_type: Annotated[LoginTypeEnum, Form()],
+    access_token_expiry: Annotated[int, Form()],
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    if access_token_expiry < 1:
+        return template_response(
+            "settings_page/security.html",
+            request,
+            admin_user,
+            {"error": "Access token expiry can't be negative"},
+            block_name="error_toast",
+            headers={"HX-Retarget": "#message"},
+        )
+    old = auth_config.get_login_type(session)
+    auth_config.set_login_type(session, login_type)
+    auth_config.set_access_token_expiry_minutes(session, access_token_expiry)
+    return template_response(
+        "settings_page/security.html",
+        request,
+        admin_user,
+        {
+            "page": "security",
+            "login_type": auth_config.get_login_type(session),
+            "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+            "success": "Settings updated",
+        },
+        block_name="form",
+        headers={} if old == login_type else {"HX-Refresh": "true"},
+    )

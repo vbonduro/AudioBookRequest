@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
 @plugin "daisyui";
 
 @plugin "daisyui/theme" {
@@ -35,4 +34,16 @@
   --border: 1px;
   --depth: 0;
   --noise: 0;
+}
+
+.error-alert {
+  @apply !bg-error;
+}
+
+.success-alert {
+  @apply !bg-success;
+}
+
+.info-alert {
+  @apply !bg-info;
 }
