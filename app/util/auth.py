@@ -24,6 +24,15 @@ class LoginTypeEnum(str, Enum):
     forms = "forms"
     none = "none"
 
+    def is_basic(self):
+        return self == LoginTypeEnum.basic
+
+    def is_forms(self):
+        return self == LoginTypeEnum.forms
+
+    def is_none(self):
+        return self == LoginTypeEnum.none
+
 
 AuthConfigKeys = Literal["login_type", "access_token_expiry_minutes", "auth_secret"]
 
@@ -37,6 +46,10 @@ class AuthConfig(StringConfigCache[AuthConfigKeys]):
 
     def set_login_type(self, session: Session, login_Type: LoginTypeEnum):
         self.set(session, "login_type", login_Type.value)
+
+    def reset_auth_secret(self, session: Session):
+        auth_secret = base64.encodebytes(secrets.token_bytes(64)).decode("utf-8")
+        self.set(session, "auth_secret", auth_secret)
 
     def get_auth_secret(self, session: Session) -> str:
         auth_secret = self.get(session, "auth_secret")

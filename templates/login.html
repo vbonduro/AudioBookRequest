@@ -3,6 +3,16 @@
 <title>Login</title>
 {% include 'scripts/toast.html' %} {% endblock %} {% block body %}
 <div class="h-screen w-full flex items-center justify-center">
+  {% block error_toast %}
+  <div id="message" class="hidden">
+    {% if error %}
+    <script>
+      toast("{{error|safe}}", "error");
+    </script>
+    {% endif %}
+  </div>
+  {% endblock %}
+
   <form
     class="flex flex-col gap-2 max-w-[30rem]"
     hx-post="/auth/token"
@@ -27,16 +37,6 @@
       class="input w-full"
       required
     />
-
-    {% block error_message %}
-    <div id="message" class="hidden">
-      {% if error %}
-      <script>
-        toast("{{error}}", "error");
-      </script>
-      {% endif %}
-    </div>
-    {% endblock %}
 
     <button id="submit" class="btn btn-primary" type="submit">Login</button>
   </form>

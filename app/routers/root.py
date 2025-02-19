@@ -127,7 +127,7 @@ def login_access_token(
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "hide_navbar": True, "error": "Invalid login"},
-            block_name="error_message",
+            block_name="error_toast",
         )
 
     access_token_expires_minues = auth_config.get_access_token_expiry_minutes(session)

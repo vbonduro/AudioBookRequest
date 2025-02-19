@@ -10,10 +10,12 @@ from app.db import get_session
 from app.models import EventEnum, Notification, User, GroupEnum
 from app.util.auth import (
     DetailedUser,
+    LoginTypeEnum,
     create_user,
     get_authenticated_user,
     is_correct_password,
     raise_for_invalid_password,
+    auth_config,
 )
 from app.util.connection import get_connection
 from app.util.notifications import send_notification
@@ -397,3 +399,71 @@ async def execute_notification(
         raise HTTPException(status_code=500, detail="Failed to send notification")
 
     return Response(status_code=204)
+
+
+@router.get("/security")
+def read_security(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    return template_response(
+        "settings_page/security.html",
+        request,
+        admin_user,
+        {
+            "page": "security",
+            "login_type": auth_config.get_login_type(session),
+            "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+        },
+    )
+
+
+@router.post("/security/reset-auth")
+def reset_auth_secret(
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    auth_config.reset_auth_secret(session)
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.post("/security")
+def update_security(
+    login_type: Annotated[LoginTypeEnum, Form()],
+    access_token_expiry: Annotated[int, Form()],
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    if access_token_expiry < 1:
+        return template_response(
+            "settings_page/security.html",
+            request,
+            admin_user,
+            {"error": "Access token expiry can't be negative"},
+            block_name="error_toast",
+            headers={"HX-Retarget": "#message"},
+        )
+    old = auth_config.get_login_type(session)
+    auth_config.set_login_type(session, login_type)
+    auth_config.set_access_token_expiry_minutes(session, access_token_expiry)
+    return template_response(
+        "settings_page/security.html",
+        request,
+        admin_user,
+        {
+            "page": "security",
+            "login_type": auth_config.get_login_type(session),
+            "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+            "success": "Settings updated",
+        },
+        block_name="form",
+        headers={} if old == login_type else {"HX-Refresh": "true"},
+    )
