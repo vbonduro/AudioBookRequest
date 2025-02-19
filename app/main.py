@@ -1,5 +1,6 @@
 from typing import Any
-from fastapi import FastAPI, Request
+from urllib.parse import quote_plus
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
@@ -20,7 +21,16 @@ user_exists = False
 
 @app.exception_handler(RequiresLoginException)
 async def redirect_to_login(request: Request, exc: RequiresLoginException):
-    return RedirectResponse("/login")
+    if request.method == "GET":
+        if exc.detail:
+            return RedirectResponse(f"/login?error={quote_plus(exc.detail)}")
+        return RedirectResponse("/login")
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @app.middleware("http")

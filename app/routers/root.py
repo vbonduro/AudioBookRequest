@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -83,7 +83,11 @@ def create_init(
 
 
 @router.get("/login")
-async def login(request: Request, session: Annotated[Session, Depends(get_session)]):
+async def login(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    error: Optional[str] = None,
+):
     login_type = auth_config.get(session, "login_type")
     if login_type != LoginTypeEnum.forms:
         return RedirectResponse("/")
@@ -97,7 +101,7 @@ async def login(request: Request, session: Annotated[Session, Depends(get_sessio
 
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "hide_navbar": True},
+        {"request": request, "hide_navbar": True, "error": error},
     )
 
 

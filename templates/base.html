@@ -5,12 +5,36 @@
     {% block head %}
     <title>AudioBookRequest</title>
     {% endblock %}
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
     <link rel="stylesheet" href="/globals.css" />
     <script
       src="https://unpkg.com/htmx.org@2.0.4"
       integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
       crossorigin="anonymous"
     ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/toastify-js"
+    ></script>
+    <script>
+      const toast = (message, type = "success") => {
+        Toastify({
+          text: "{{error}}",
+          duration: 30000,
+          close: true,
+          gravity: "top", // `top` or `bottom`
+          position: "right", // `left`, `center` or `right`
+          stopOnFocus: true, // Prevents dismissing of toast on hover
+          style: {
+            background: "unset",
+          },
+        }).showToast();
+      };
+    </script>
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden">
     {% if not hide_navbar %}

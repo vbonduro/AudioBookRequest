@@ -47,7 +47,7 @@ class AuthConfig(StringConfigCache[AuthConfigKeys]):
         return auth_secret
 
     def get_access_token_expiry_minutes(self, session: Session):
-        return self.get_int(session, "access_token_expiry_minutes", 30)
+        return self.get_int(session, "access_token_expiry_minutes", 60 * 24 * 7)
 
     def set_access_token_expiry_minutes(self, session: Session, expiry: int):
         self.set_int(session, "access_token_expiry_minutes", expiry)
@@ -180,44 +180,36 @@ async def _get_basic_auth(
 
 
 class RequiresLoginException(Exception):
-    pass
+    def __init__(self, detail: Optional[str] = None, **kwargs: object):
+        super().__init__(**kwargs)
+        self.detail = detail
 
 
 async def _get_forms_auth(
     request: Request,
     session: Session,
 ) -> User:
-    invalid_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        # Authentication is either through Authorization header or cookie
-        token = await oauth2_scheme(request)
+    # Authentication is either through Authorization header or cookie
+    token = await oauth2_scheme(request)
+    if not token:
+        token = request.cookies.get("audio_sess")
         if not token:
-            token = request.cookies.get("audio_sess")
-            if not token:
-                raise invalid_exception
-    except HTTPException:
-        if request.method.lower() == "get":
             raise RequiresLoginException()
-        raise
 
     try:
         payload = jwt.decode(  # pyright: ignore[reportUnknownMemberType]
             token, auth_config.get_auth_secret(session), algorithms=[JWT_ALGORITHM]
         )
     except jwt.InvalidTokenError:
-        raise invalid_exception
+        raise RequiresLoginException("Token is expired/invalid")
 
     username = payload.get("sub")
     if username is None:
-        raise invalid_exception
+        raise RequiresLoginException("Token is invalid")
+
     user = session.get(User, username)
     if not user:
-        raise invalid_exception
+        raise RequiresLoginException("User does not exist")
 
     return user
 

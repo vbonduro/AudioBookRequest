@@ -29,7 +29,13 @@
     />
 
     {% block error_message %}
-    <span id="message" class="text-red-400">{{error}}</span>
+    <div id="message" class="hidden bg-error">
+      {% if error %}
+      <script>
+        toast("{{error}}");
+      </script>
+      {% endif %}
+    </div>
     {% endblock %}
 
     <button id="submit" class="btn btn-primary" type="submit">Login</button>
