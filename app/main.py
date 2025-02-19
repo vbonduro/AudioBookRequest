@@ -6,6 +6,7 @@ from sqlmodel import select
 from app.db import open_session
 from app.models import User
 from app.routers import root, search, settings, wishlist
+from app.util.auth import RequiresLoginException
 
 app = FastAPI()
 
@@ -15,6 +16,11 @@ app.include_router(wishlist.router)
 app.include_router(settings.router)
 
 user_exists = False
+
+
+@app.exception_handler(RequiresLoginException)
+async def redirect_to_login(request: Request, exc: RequiresLoginException):
+    return RedirectResponse("/login")
 
 
 @app.middleware("http")

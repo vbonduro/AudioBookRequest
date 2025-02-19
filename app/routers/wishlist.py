@@ -16,8 +16,8 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.db import get_session, open_session
-from app.models import BookRequest, BookWishlistResult, GroupEnum, User
-from app.util.auth import get_authenticated_user
+from app.models import BookRequest, BookWishlistResult, GroupEnum
+from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.prowlarr import (
     ProwlarrMisconfigured,
@@ -64,7 +64,7 @@ def get_wishlist_books(
 @router.get("")
 async def wishlist(
     request: Request,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
     username = None if user.is_admin() else user.username
@@ -78,7 +78,7 @@ async def wishlist(
 @router.post("/refresh/{asin}")
 async def refresh_source(
     asin: str,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     background_task: BackgroundTasks,
     force_refresh: bool = False,
 ):
@@ -99,7 +99,9 @@ async def refresh_source(
 async def list_sources(
     request: Request,
     asin: str,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
@@ -128,7 +130,9 @@ async def download_book(
     asin: str,
     guid: str,
     indexer_id: int,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
@@ -162,7 +166,7 @@ async def background_start_download(asin: str, start_auto_download: bool):
 async def start_auto_download(
     request: Request,
     asin: str,
-    user: Annotated[User, Depends(get_authenticated_user(GroupEnum.trusted))],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user(GroupEnum.trusted))],
     background_task: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],

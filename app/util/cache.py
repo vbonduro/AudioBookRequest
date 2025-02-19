@@ -1,5 +1,10 @@
+from abc import ABC
 import time
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Optional, TypeVar, overload
+
+from sqlmodel import Session, select
+
+from app.models import Config
 
 
 T = TypeVar("T")
@@ -20,3 +25,44 @@ class SimpleCache(Generic[T]):
 
     def set(self, sources: T, *query: str):
         self._cache[query] = (int(time.time()), sources)
+
+
+L = TypeVar("L", bound=str)
+
+
+class StringConfigCache(Generic[L], ABC):
+    _cache: dict[L, str] = {}
+
+    def get(self, session: Session, key: L) -> Optional[str]:
+        if key in self._cache:
+            return self._cache[key]
+        return session.exec(select(Config.value).where(Config.key == key)).one_or_none()
+
+    def set(self, session: Session, key: L, value: str):
+        old = session.exec(select(Config).where(Config.key == key)).one_or_none()
+        if old:
+            old.value = value
+        else:
+            old = Config(key=key, value=value)
+        session.add(old)
+        session.commit()
+        self._cache[key] = value
+
+    @overload
+    def get_int(self, session: Session, key: L, default: None = None) -> Optional[int]:
+        pass
+
+    @overload
+    def get_int(self, session: Session, key: L, default: int) -> int:
+        pass
+
+    def get_int(
+        self, session: Session, key: L, default: Optional[int] = None
+    ) -> Optional[int]:
+        val = self.get(session, key)
+        if val:
+            return int(val)
+        return default
+
+    def set_int(self, session: Session, key: L, value: int):
+        self.set(session, key, str(value))

@@ -1,0 +1,38 @@
+<!-- Admin initialization page -->
+{% extends "base.html" %} {% block head %}
+<title>Login</title>
+{% endblock %} {% block body %}
+<div class="h-screen w-full flex items-center justify-center">
+  <form
+    class="flex flex-col gap-2 max-w-[30rem]"
+    hx-post="/auth/token"
+    id="form"
+    hx-target="#message"
+  >
+    <h1 class="text-3xl">Login</h1>
+    <label for="username">Username</label>
+    <input
+      id="username"
+      name="username"
+      type="text"
+      class="input w-full"
+      required
+    />
+
+    <label for="password">Password</label>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      class="input w-full"
+      required
+    />
+
+    {% block error_message %}
+    <span id="message" class="text-red-400">{{error}}</span>
+    {% endblock %}
+
+    <button id="submit" class="btn btn-primary" type="submit">Login</button>
+  </form>
+</div>
+{% endblock %}

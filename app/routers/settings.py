@@ -11,6 +11,7 @@ from app.db import get_session
 
 from app.models import EventEnum, Notification, User, GroupEnum
 from app.util.auth import (
+    DetailedUser,
     create_user,
     get_authenticated_user,
     is_correct_password,
@@ -29,7 +30,7 @@ templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore
 @router.get("/account")
 def read_account(
     request: Request,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     return templates.TemplateResponse(
         "settings_page/account.html",
@@ -44,7 +45,7 @@ def change_password(
     password: Annotated[str, Form()],
     confirm_password: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     if not is_correct_password(user, old_password):
         return templates.TemplateResponse(
@@ -78,7 +79,9 @@ def change_password(
 @router.get("/users")
 def read_users(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     users = session.exec(select(User)).all()
@@ -95,7 +98,9 @@ def create_new_user(
     password: Annotated[str, Form()],
     group: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     if username.strip() == "":
         return templates.TemplateResponse(
@@ -153,7 +158,9 @@ def delete_user(
     request: Request,
     username: str,
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     if username == admin_user.username:
         return templates.TemplateResponse(
@@ -191,7 +198,9 @@ def delete_user(
 @router.get("/prowlarr")
 def read_prowlarr(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     prowlarr_misconfigured: Optional[Any] = None,
 ):
@@ -215,7 +224,9 @@ def read_prowlarr(
 def update_prowlarr_api_key(
     api_key: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     prowlarr_config.set_api_key(session, api_key)
     session.commit()
@@ -226,7 +237,9 @@ def update_prowlarr_api_key(
 def update_prowlarr_base_url(
     base_url: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     prowlarr_config.set_base_url(session, base_url)
     session.commit()
@@ -236,7 +249,9 @@ def update_prowlarr_base_url(
 @router.get("/download")
 def read_download(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
 ):
     return templates.TemplateResponse(
         "settings_page/download.html",
@@ -247,7 +262,9 @@ def read_download(
 @router.get("/notifications")
 def read_notifications(
     request: Request,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     notifications = session.exec(select(Notification)).all()
@@ -271,7 +288,9 @@ def add_notification(
     body_template: Annotated[str, Form()],
     event: Annotated[str, Form()],
     headers: Annotated[str, Form()],
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     if not headers:
@@ -340,7 +359,9 @@ def add_notification(
 def delete_notification(
     request: Request,
     notification_id: uuid.UUID,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
     notifications = session.exec(select(Notification)).all()
@@ -367,7 +388,9 @@ def delete_notification(
 @router.post("/notification/{notification_id}")
 async def execute_notification(
     notification_id: uuid.UUID,
-    admin_user: Annotated[User, Depends(get_authenticated_user(GroupEnum.admin))],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):

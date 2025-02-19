@@ -14,9 +14,8 @@ from app.models import (
     EventEnum,
     GroupEnum,
     Notification,
-    User,
 )
-from app.util.auth import get_authenticated_user
+from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.book_search import (
     get_audnexus_book,
     list_audible_books,
@@ -35,7 +34,7 @@ templates = Jinja2Blocks(directory="templates")
 @router.get("")
 async def read_search(
     request: Request,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     session: Annotated[Session, Depends(get_session)],
     q: Optional[str] = None,
@@ -99,7 +98,7 @@ async def read_search(
 @router.post("/request/{asin}", status_code=201)
 async def add_request(
     asin: str,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
@@ -130,7 +129,7 @@ async def add_request(
 @router.delete("/request/{asin}", status_code=204)
 async def delete_request(
     asin: str,
-    user: Annotated[User, Depends(get_authenticated_user())],
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
     book = session.exec(
