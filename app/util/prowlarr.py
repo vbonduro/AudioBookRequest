@@ -162,6 +162,9 @@ async def query_prowlarr(
                 leechers=result["leechers"],
                 size=result["size"],
                 info_url=result["infoUrl"],
+                indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
+                download_url=result.get("downloadUrl"),
+                magnet_url=result.get("magnetUrl"),
                 publish_date=datetime.fromisoformat(result["publishDate"]),
             )
         )
