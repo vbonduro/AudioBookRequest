@@ -48,6 +48,14 @@ class StringConfigCache(Generic[L], ABC):
         session.commit()
         self._cache[key] = value
 
+    def delete(self, session: Session, key: L):
+        old = session.exec(select(Config).where(Config.key == key)).one_or_none()
+        if old:
+            session.delete(old)
+            session.commit()
+        if key in self._cache:
+            del self._cache[key]
+
     @overload
     def get_int(self, session: Session, key: L, default: None = None) -> Optional[int]:
         pass

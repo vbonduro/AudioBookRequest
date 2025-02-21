@@ -16,12 +16,12 @@ class ProwlarrMisconfigured(ValueError):
     pass
 
 
-ProwlarrConfigKeys = Literal[
+ProwlarrConfigKey = Literal[
     "prowlarr_api_key", "prowlarr_base_url", "prowlarr_source_ttl"
 ]
 
 
-class ProwlarrConfig(StringConfigCache[ProwlarrConfigKeys]):
+class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
     def raise_if_invalid(self, session: Session):
         if not self.get_base_url(session):
             raise ProwlarrMisconfigured("Prowlarr base url not set")

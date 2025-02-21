@@ -47,3 +47,15 @@
 .info-alert {
   @apply !bg-info;
 }
+
+.slider-round {
+  height: 10px;
+}
+
+.slider-round .noUi-handle {
+  height: 18px;
+  width: 18px;
+  top: -5px;
+  right: -9px; /* half the width */
+  border-radius: 9px;
+}

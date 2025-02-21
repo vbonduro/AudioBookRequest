@@ -8,35 +8,16 @@
     document.getElementById("search-spinner").style.display = "inline-block";
     window.location.href = `/search?q=${encodeURIComponent(search_term)}`;
   };
-  const onRequest = (index, asin) => {
-    const checkbox = document.getElementById(`checkbox-${index}`);
-    const startAutomaticDownload = checkbox.checked && window.confirm("Do you want to start the automatic download?");
-    fetch(
-      `/search/request/${encodeURIComponent(asin)}`,
-      {
-        method: checkbox.checked ? "POST" : "DELETE",
-      },
-    ).then(resp => {
-      if (resp.ok && startAutomaticDownload) {
-        fetch(
-          `/wishlist/auto-download/${encodeURIComponent(asin)}`,
-          {
-            method: "POST",
-          },
-        );
-      }
-    });
-    
-
+  const onPageChange = page => {
+    const url = new URL(window.location);
+    url.searchParams.set("page", page);
+    window.location = url;
   };
-const onPageChange = (page) => {
-  const url = new URL(window.location);
-  url.searchParams.set("page", page);
-  window.location = url;
-};
 </script>
 {% endblock %} {% block body %}
-<div class="w-screen flex flex-col items-center justify-center p-8 overflow-x-hidden gap-4">
+<div
+  class="w-screen flex flex-col items-center justify-center p-8 overflow-x-hidden gap-4"
+>
   <h1 class="text-3xl font-bold w-full text-left">Search</h1>
 
   <div class="flex flex-col gap-4 justify-start items-center">
@@ -49,9 +30,10 @@ const onPageChange = (page) => {
       />
       <select class="select join-item max-w-[5rem]" name="region">
         {% for region in regions %}
+        <!-- prettier-ignore -->
         <option
           value="{{ region }}"
-          {% if region == selected_region %}selected="selected"{% endif %}
+          {% if region.__eq__(selected_region) %}selected="selected"{% endif %}
         >
           {{ region }}
         </option>
@@ -62,14 +44,16 @@ const onPageChange = (page) => {
         <span id="search-spinner" class="loading" style="display: none"></span>
       </button>
     </form>
-  
+
+    {% block book_results %}
     <div
+      id="book-results"
       class="min-w-[60vw] max-w-[80vw] h-full grid gap-1 gap-y-2 sm:gap-y-4 sm:gap-2 p-1 grid-flow-row grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
     >
       {% for book in search_results %}
       <div class="flex flex-col">
         <div
-          class="relative w-[10rem] h-[10rem] rounded-md overflow-hidden shadow shadow-black"
+          class="relative w-[10rem] h-[10rem] rounded-md overflow-hidden shadow shadow-black items-center justify-center flex"
         >
           {% if book.cover_image %}
           <img
@@ -77,49 +61,62 @@ const onPageChange = (page) => {
             src="{{ book.cover_image }}"
             alt="{{ book.title }}"
           />
-          {% else %}
-          {% include 'icons/photo-off.html' %}
-          {% endif %}
-  
-          <div class="absolute top-0 right-0 bg-neutral/70 size-6 rounded-bl-md flex items-center justify-center">
-            <label class="swap swap-flip">
-              <input
-                id="checkbox-{{ loop.index }}"
-                type="checkbox"
-                onclick="onRequest('{{ loop.index }}','{{ book.asin }}');"
-                {% if book.already_requested %}checked{% endif %}
-              />
-              <span class="swap-off text-neutral-content">{% include 'icons/plus.html' %}</span>
-              <span class="swap-on text-success">{% include 'icons/checkmark.html' %}</span>
-            </label>
-          </div>
+          {% else %} {% include 'icons/photo-off.html' %} {% endif %}
+          <!-- prettier-ignore -->
+          <button
+            class="absolute top-0 right-0 rounded-none btn-sm rounded-bl-md btn btn-square items-center justify-center flex {% if book.downloaded or book.already_requested %}btn-ghost bg-success{% else %}btn-info{% endif %}"
+            hx-post="/search/request/{{ book.asin }}"
+            hx-disabled-elt="this"
+            hx-target="this"
+            hx-on:click="this.disabled = true;"
+            {% if book.downloaded or book.already_requested %}disabled{% endif %}
+          >
+            {% if book.downloaded or book.already_requested %}
+            <span>{% include 'icons/checkmark.html' %}</span>
+            {% else %} {% if auto_start_download and user.can_download() %}
+            <span>{% include 'icons/download.html' %}</span>
+            {% else %}
+            <span>{% include 'icons/plus.html' %}</span>
+            {% endif %} {% endif %}
+          </button>
         </div>
-  
+
         <div class="text-sm text-primary font-bold pt-1" title="Title">
           {{ book.title }}
         </div>
-        {% if book.subtitle %}<div class="text-neutral/60 font-semibold text-xs" title="Subtitle">{{ book.subtitle }}</div>{% endif %}
+        {% if book.subtitle %}
+        <div class="text-neutral/60 font-semibold text-xs" title="Subtitle">
+          {{ book.subtitle }}
+        </div>
+        {% endif %}
         <div class="text-xs text-neutral font-semibold" title="Authors">
           {{ book.authors | join(", ") }}
         </div>
       </div>
       {% endfor %}
     </div>
-    
-    {% if search_results or page > 0 %}
+    {% endblock %} {% if search_results or page > 0 %}
     <div class="join">
-      <button class="join-item btn" onclick="onPageChange('{{ page-1 }}')" {% if page==0 %}disabled{% endif %}>«</button>
-      <button class="join-item btn flex flex-col" onclick="onPageChange('{{ 0 }}')" {% if page==0 %}disabled{% endif %} style="gap: 0;">
+      <!-- prettier-ignore -->
+      <button
+        class="join-item btn"
+        onclick="onPageChange('{{ page-1 }}')"
+        {% if page.__eq__(0) %}disabled{% endif %}
+      >«</button>
+      <!-- prettier-ignore -->
+      <button class="join-item btn flex flex-col" onclick="onPageChange('{{ 0 }}')" {% if page.__eq__(0) %}disabled{% endif %} style="gap: 0;">
         Page {{ page+1 }}
         <span class="text-[0.5rem]">back to first</span>
-      </button>  
-      <button class="join-item btn" onclick="onPageChange('{{ page+1 }}')">»</button>
+      </button>
+      <button class="join-item btn" onclick="onPageChange('{{ page+1 }}')">
+        »
+      </button>
     </div>
-    {% endif %}
-  
-    {% if not search_results %}
+    {% endif %} {% if not search_results %}
     <div role="alert" class="alert">
-      <span class="stroke-info h-6 w-6 shrink-0">{% include 'icons/info-circle.html' %}</span>
+      <span class="stroke-info h-6 w-6 shrink-0"
+        >{% include 'icons/info-circle.html' %}</span
+      >
       {% if search_term %}
       <span>No results found for "{{ search_term }}"</span>
       {% else %}

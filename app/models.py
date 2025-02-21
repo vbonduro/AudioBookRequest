@@ -139,8 +139,6 @@ class ProwlarrSource(BaseModel):
     download_url: Optional[str] = None
     magnet_url: Optional[str] = None
 
-    download_score: int = 0
-
     @property
     def size_MB(self):
         return round(self.size / 1e6, 1)

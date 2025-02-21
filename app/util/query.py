@@ -72,12 +72,7 @@ async def query_sources(
         ranked = await rank_sources(session, client_session, sources, book)
 
         # start download if requested
-        if (
-            start_auto_download
-            and not book.downloaded
-            and len(ranked) > 0
-            and ranked[0].download_score > 0
-        ):
+        if start_auto_download and not book.downloaded and len(ranked) > 0:
             resp = await start_download(
                 session, client_session, ranked[0].guid, ranked[0].indexer_id
             )

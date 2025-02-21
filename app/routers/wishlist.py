@@ -144,7 +144,7 @@ async def download_book(
     session.commit()
 
 
-async def background_start_download(asin: str, start_auto_download: bool):
+async def background_start_query(asin: str, start_auto_download: bool):
     with open_session() as session:
         async with ClientSession() as client_session:
             await query_sources(
@@ -167,7 +167,7 @@ async def start_auto_download(
 ):
     if background:
         background_task.add_task(
-            background_start_download,
+            background_start_query,
             asin=asin,
             start_auto_download=user.is_above(GroupEnum.trusted),
         )
