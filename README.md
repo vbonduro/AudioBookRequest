@@ -73,7 +73,7 @@ tailwindcss -i styles/globals.css -o static/globals.css --watch --m
 3. Start browser-sync. This hot reloads the website when the html template files are modified:
 
 ```sh
-browser-sync http://localhost:8000 --files templates/**
+browser-sync http://localhost:8000 --files templates/** --files app/**
 ```
 
 **NOTE**: Website has to be visited at http://localhost:3000 instead.

@@ -1,31 +1,32 @@
-import math
 from typing import Literal
 import pydantic
 
-FileFormat = Literal["flac", "m4b", "mp3", "unknown"]
+
+FileFormat = Literal["flac", "m4b", "mp3", "unknown-audio", "unknown"]
 
 
 class QualityProfile(pydantic.BaseModel):
-    FLAC: tuple[float, float] = (0, math.inf)
-    M4B: tuple[float, float] = (0, math.inf)
-    MP3: tuple[float, float] = (0, math.inf)
-    UNKNOWN: tuple[float, float] = (0, math.inf)
+    FLAC: tuple[float, float] = (20.0, 400.0)
+    M4B: tuple[float, float] = (20.0, 400.0)
+    MP3: tuple[float, float] = (20.0, 400.0)
+    UNKNOWN_AUDIO: tuple[float, float] = (20.0, 400.0)
+    UNKNOWN: tuple[float, float] = (20.0, 400.0)
 
-    flags: list[tuple[str, int]] = []
-
-    format_order: list[FileFormat] = ["flac", "m4b", "mp3", "unknown"]
+    indexer_flags: list[tuple[str, int]] = []
+    format_order: list[FileFormat] = ["flac", "m4b", "mp3", "unknown-audio", "unknown"]
     """Order of file formats from highest to lowest quality"""
-
     indexer_order: list[int] = []
     """Order of indexers from highest to lowest quality"""
+    name_exists_ratio: int = 75
+    title_exists_ratio: int = 90
 
-    def get_quality_rank(self, file_format: FileFormat) -> int:
+    def calculate_quality_rank(self, file_format: FileFormat) -> int:
         try:
             return self.format_order.index(file_format)
         except ValueError:
             return len(self.format_order)
 
-    def get_indexer_rank(self, indexer_id: int) -> int:
+    def calculate_indexer_rank(self, indexer_id: int) -> int:
         try:
             return self.indexer_order.index(indexer_id)
         except ValueError:

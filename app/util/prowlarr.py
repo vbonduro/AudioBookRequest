@@ -133,7 +133,7 @@ async def query_prowlarr(
 
     params: dict[str, Any] = {
         "query": query,
-        "categories": 3000,
+        "categories": 3030,  # Audio/Audiobook
         "type": "search",
         "limit": 100,
         "offset": 0,
