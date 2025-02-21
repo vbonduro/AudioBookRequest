@@ -16,12 +16,12 @@ class ProwlarrMisconfigured(ValueError):
     pass
 
 
-ProwlarrConfigKeys = Literal[
+ProwlarrConfigKey = Literal[
     "prowlarr_api_key", "prowlarr_base_url", "prowlarr_source_ttl"
 ]
 
 
-class ProwlarrConfig(StringConfigCache[ProwlarrConfigKeys]):
+class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
     def raise_if_invalid(self, session: Session):
         if not self.get_base_url(session):
             raise ProwlarrMisconfigured("Prowlarr base url not set")
@@ -133,7 +133,7 @@ async def query_prowlarr(
 
     params: dict[str, Any] = {
         "query": query,
-        "categories": 3000,
+        "categories": 3030,  # Audio/Audiobook
         "type": "search",
         "limit": 100,
         "offset": 0,
@@ -162,6 +162,9 @@ async def query_prowlarr(
                 leechers=result["leechers"],
                 size=result["size"],
                 info_url=result["infoUrl"],
+                indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
+                download_url=result.get("downloadUrl"),
+                magnet_url=result.get("magnetUrl"),
                 publish_date=datetime.fromisoformat(result["publishDate"]),
             )
         )

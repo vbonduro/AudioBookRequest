@@ -14,6 +14,7 @@
   <form
     class="flex flex-col gap-2"
     hx-post="/settings/security"
+    hx-disabled-elt="#save-button"
     hx-target="this"
   >
     {% if success %}
@@ -46,7 +47,14 @@
       value="{{ access_token_expiry }}"
     />
 
-    <button name="submit" class="btn btn-primary" type="submit">Save</button>
+    <button
+      id="save-button"
+      name="submit"
+      class="btn btn-primary"
+      type="submit"
+    >
+      Save
+    </button>
   </form>
   {% endblock %}
 

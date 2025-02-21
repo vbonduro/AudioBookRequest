@@ -3,6 +3,6 @@
 .env
 .envrc
 __pycache__
-static
+static/globals.css
 data
 node_modules

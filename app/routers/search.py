@@ -2,18 +2,25 @@ from typing import Annotated, Optional
 
 import sqlalchemy as sa
 from aiohttp import ClientSession
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+)
 from sqlmodel import Session, col, select
 
 from app.db import get_session
 from app.models import (
     BookRequest,
     BookSearchResult,
-    Config,
     EventEnum,
     GroupEnum,
     Notification,
 )
+from app.routers.wishlist import background_start_query, get_wishlist_books
 from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.book_search import (
     audible_region_type,
@@ -23,9 +30,32 @@ from app.util.book_search import (
 )
 from app.util.connection import get_connection
 from app.util.notifications import send_notification
+from app.util.ranking.quality import quality_config
 from app.util.templates import template_response
 
 router = APIRouter(prefix="/search")
+
+
+def get_already_requested(session: Session, results: list[BookRequest], username: str):
+    books: list[BookSearchResult] = []
+    if len(results) > 0:
+        # check what books are already requested by the user
+        asins = {book.asin for book in results}
+        requested_books = set(
+            session.exec(
+                select(BookRequest.asin).where(
+                    col(BookRequest.asin).in_(asins),
+                    BookRequest.user_username == username,
+                )
+            ).all()
+        )
+
+        for book in results:
+            book_search = BookSearchResult.model_validate(book)
+            if book.asin in requested_books:
+                book_search.already_requested = True
+            books.append(book_search)
+    return books
 
 
 @router.get("")
@@ -55,26 +85,7 @@ async def read_search(
 
     books: list[BookSearchResult] = []
     if len(results) > 0:
-        # check what books are already requested by the user
-        asins = {book.asin for book in results}
-        requested_books = set(
-            session.exec(
-                select(BookRequest.asin).where(
-                    col(BookRequest.asin).in_(asins),
-                    BookRequest.user_username == user.username,
-                )
-            ).all()
-        )
-
-        for book in results:
-            book_search = BookSearchResult.model_validate(book)
-            if book.asin in requested_books:
-                book_search.already_requested = True
-            books.append(book_search)
-
-    auto_start_download = session.get(Config, "auto_start_download")
-    if auto_start_download:
-        auto_start_download = auto_start_download.value
+        books = get_already_requested(session, results, user.username)
 
     return template_response(
         "search.html",
@@ -87,18 +98,20 @@ async def read_search(
             "selected_region": region,
             "page": page,
             "num_results": num_results,
-            "auto_start_download": auto_start_download
+            "auto_start_download": quality_config.get_auto_download(session)
             and user.is_above(GroupEnum.trusted),
         },
     )
 
 
-@router.post("/request/{asin}", status_code=201)
+@router.post("/request/{asin}")
 async def add_request(
+    request: Request,
     asin: str,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
+    background_task: BackgroundTasks,
 ):
     book = await get_audnexus_book(client_session, asin)
     if not book:
@@ -111,31 +124,47 @@ async def add_request(
     except sa.exc.IntegrityError:
         pass  # ignore if already exists
 
+    if quality_config.get_auto_download(session):
+        background_task.add_task(
+            background_start_query,
+            asin=asin,
+            start_auto_download=user.is_above(GroupEnum.trusted),
+        )
+
     notifications = session.exec(
         select(Notification).where(Notification.event == EventEnum.on_new_request)
     ).all()
     for notif in notifications:
-        await send_notification(
-            session=session,
-            client_session=client_session,
+        background_task.add_task(
+            send_notification,
             notification=notif,
             requester_username=user.username,
             book_asin=asin,
         )
 
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
 
-@router.delete("/request/{asin}", status_code=204)
+
+@router.delete("/request/{asin}")
 async def delete_request(
+    request: Request,
     asin: str,
-    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
     session: Annotated[Session, Depends(get_session)],
 ):
-    book = session.exec(
-        select(BookRequest).where(
-            BookRequest.asin == asin, BookRequest.user_username == user.username
-        )
-    ).one_or_none()
-
-    if book:
-        session.delete(book)
+    books = session.exec(select(BookRequest).where(BookRequest.asin == asin)).all()
+    if books:
+        [session.delete(b) for b in books]
         session.commit()
+
+    books = get_wishlist_books(session, None)
+
+    return template_response(
+        "wishlist.html",
+        request,
+        admin_user,
+        {"books": books},
+        block_name="book_wishlist",
+    )

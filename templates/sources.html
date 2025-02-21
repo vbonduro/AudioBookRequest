@@ -38,6 +38,7 @@
           <th></th>
           <th>title</th>
           <th>indexer</th>
+          <th>flags</th>
           <th>seed / leech</th>
           <th>size (MB)</th>
           <th>publish date</th>
@@ -55,7 +56,7 @@
             <a href="{{ source.info_url }}" class="link">{{ source.title }}</a>
           </td>
           <td>{{ indexers[source.indexer_id].name }}</td>
-
+          <td>{{ source.indexer_flags|join(', ') }}</td>
           <td>{{ source.seeders }} / {{ source.leechers }}</td>
           <td>{{ source.size_MB }}</td>
           <td>{{ source.publish_date.strftime("%d. %b %Y") }}</td>

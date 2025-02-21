@@ -34,10 +34,10 @@ class LoginTypeEnum(str, Enum):
         return self == LoginTypeEnum.none
 
 
-AuthConfigKeys = Literal["login_type", "access_token_expiry_minutes", "auth_secret"]
+AuthConfigKey = Literal["login_type", "access_token_expiry_minutes", "auth_secret"]
 
 
-class AuthConfig(StringConfigCache[AuthConfigKeys]):
+class AuthConfig(StringConfigCache[AuthConfigKey]):
     def get_login_type(self, session: Session) -> LoginTypeEnum:
         login_type = self.get(session, "login_type")
         if login_type:

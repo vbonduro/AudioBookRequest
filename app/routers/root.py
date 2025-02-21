@@ -29,6 +29,16 @@ def read_globals_css():
     return FileResponse("static/globals.css", media_type="text/css")
 
 
+@router.get("/nouislider.css")
+def read_nouislider_css():
+    return FileResponse("static/nouislider.min.css", media_type="text/css")
+
+
+@router.get("/nouislider.js")
+def read_nouislider_js():
+    return FileResponse("static/nouislider.min.js", media_type="text/javascript")
+
+
 @router.get("/")
 def read_root(
     request: Request,

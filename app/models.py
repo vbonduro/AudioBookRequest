@@ -135,8 +135,9 @@ class ProwlarrSource(BaseModel):
     size: int  # in bytes
     publish_date: datetime
     info_url: str
-
-    download_score: int = 0
+    indexer_flags: list[str]
+    download_url: Optional[str] = None
+    magnet_url: Optional[str] = None
 
     @property
     def size_MB(self):
