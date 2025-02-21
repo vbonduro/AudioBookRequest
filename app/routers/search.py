@@ -155,19 +155,22 @@ async def delete_request(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    downloaded: Optional[bool] = None,
 ):
     books = session.exec(select(BookRequest).where(BookRequest.asin == asin)).all()
     if books:
         [session.delete(b) for b in books]
         session.commit()
 
-    books = get_wishlist_books(session, None)
+    books = get_wishlist_books(
+        session, None, "downloaded" if downloaded else "not_downloaded"
+    )
 
     return template_response(
-        "wishlist.html",
+        "wishlist_page/wishlist.html",
         request,
         admin_user,
-        {"books": books},
+        {"books": books, "page": "downloaded" if downloaded else "wishlist"},
         block_name="book_wishlist",
     )
 

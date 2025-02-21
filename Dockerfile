@@ -25,10 +25,10 @@ COPY --from=0 /app/node_modules/ node_modules/
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
 COPY styles/ styles/
+COPY static/ static/
 COPY templates/ templates/
 COPY app/ app/
 
-RUN mkdir static
 RUN /bin/tailwindcss -i styles/globals.css -o static/globals.css -m
 
 ENV SERVER_PORT=8000
