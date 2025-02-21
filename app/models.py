@@ -121,6 +121,29 @@ class BookRequest(BaseBook, table=True):
         )
 
 
+class ManualBookRequest(BaseModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_username: str = Field(foreign_key="user.username", ondelete="CASCADE")
+    title: str
+    subtitle: Optional[str] = None
+    authors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    narrators: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    publish_date: Optional[str] = None
+    additional_info: Optional[str] = None
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            onupdate=func.now(),
+            server_default=func.now(),
+            type_=DateTime,
+            nullable=False,
+        ),
+    )
+
+    class Config:  # pyright: ignore[reportIncompatibleVariableOverride]
+        arbitrary_types_allowed = True
+
+
 class ProwlarrSource(BaseModel):
     """
     ProwlarrSources are not unique by their guid. We could have multiple books all in the same source.

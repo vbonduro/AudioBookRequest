@@ -1,4 +1,5 @@
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
+import uuid
 
 from aiohttp import ClientSession
 from fastapi import (
@@ -14,7 +15,7 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.db import get_session, open_session
-from app.models import BookRequest, BookWishlistResult, GroupEnum
+from app.models import BookRequest, BookWishlistResult, GroupEnum, ManualBookRequest
 from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.prowlarr import (
@@ -29,7 +30,9 @@ router = APIRouter(prefix="/wishlist")
 
 
 def get_wishlist_books(
-    session: Session, username: Optional[str] = None
+    session: Session,
+    username: Optional[str] = None,
+    response_type: Literal["all", "downloaded", "not_downloaded"] = "all",
 ) -> list[BookWishlistResult]:
     query = select(
         BookRequest, func.count(col(BookRequest.user_username)).label("count")
@@ -53,6 +56,10 @@ def get_wishlist_books(
         else:
             books.append(b)
 
+    if response_type == "downloaded":
+        return downloaded
+    if response_type == "not_downloaded":
+        return books
     return books + downloaded
 
 
@@ -63,8 +70,65 @@ async def wishlist(
     session: Annotated[Session, Depends(get_session)],
 ):
     username = None if user.is_admin() else user.username
-    books = get_wishlist_books(session, username)
-    return template_response("wishlist.html", request, user, {"books": books})
+    books = get_wishlist_books(session, username, "not_downloaded")
+    return template_response(
+        "wishlist_page/wishlist.html",
+        request,
+        user,
+        {"books": books, "page": "wishlist"},
+    )
+
+
+@router.get("/downloaded")
+async def downloaded(
+    request: Request,
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    session: Annotated[Session, Depends(get_session)],
+):
+    username = None if user.is_admin() else user.username
+    books = get_wishlist_books(session, username, "downloaded")
+    return template_response(
+        "wishlist_page/wishlist.html",
+        request,
+        user,
+        {"books": books, "page": "downloaded"},
+    )
+
+
+@router.get("/manual")
+async def manual(
+    request: Request,
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    session: Annotated[Session, Depends(get_session)],
+):
+    books = session.exec(select(ManualBookRequest)).all()
+    return template_response(
+        "wishlist_page/manual.html", request, user, {"books": books, "page": "manual"}
+    )
+
+
+@router.delete("/manual/{id}")
+async def delete_manual(
+    request: Request,
+    id: uuid.UUID,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    book = session.get(ManualBookRequest, id)
+    if book:
+        session.delete(book)
+        session.commit()
+
+    books = session.exec(select(ManualBookRequest)).all()
+    return template_response(
+        "wishlist_page/manual.html",
+        request,
+        admin_user,
+        {"books": books, "page": "manual"},
+        block_name="book_wishlist",
+    )
 
 
 @router.post("/refresh/{asin}")
@@ -107,7 +171,7 @@ async def list_sources(
     result = await query_sources(asin, session=session, client_session=client_session)
 
     return template_response(
-        "sources.html",
+        "wishlist_page/sources.html",
         request,
         admin_user,
         {
@@ -191,5 +255,9 @@ async def start_auto_download(
         errored_book.download_error = download_error
 
     return template_response(
-        "wishlist.html", request, user, {"books": books}, block_name="book_wishlist"
+        "wishlist_page/wishlist.html",
+        request,
+        user,
+        {"books": books},
+        block_name="book_wishlist",
     )

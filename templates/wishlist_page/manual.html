@@ -1,0 +1,60 @@
+{% extends "wishlist_page/base_wishlist.html" %} {% block head %}
+<title>Wishlist</title>
+{% endblock %} {% block content %}
+
+<div class="overflow-x-auto h-[75vh] border-b pb-2 border-b-base-200">
+  <table class="table table-pin-rows min-w-[60rem]">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Title</th>
+        <th>Author</th>
+        <th>Narrator</th>
+        <th>Released</th>
+        <th>Info</th>
+        <th>Requested by</th>
+        <th></th>
+      </tr>
+    </thead>
+    {% block book_wishlist %}
+
+    <tbody id="book-table-body">
+      {% for book in books %}
+      <tr class="text-xs lg:text-sm" id="{{ book.asin }}">
+        <th>{{ loop.index }}</th>
+
+        <td class="flex flex-col">
+          <span>{{ book.title }}</span>
+          {% if book.subtitle %}
+          <span class="font-semibold line-clamp-4">{{ book.subtitle }}</span>
+          {% endif %}
+        </td>
+
+        <td>{{ book.authors|join(', ') }}</td>
+        <td>{{ book.narrators|join(', ') }}</td>
+        <td>{{ book.publish_date }}</td>
+        <td>{{ book.additional_info }}</td>
+        <td>{{ book.user_username }}</td>
+
+        <td>
+          <!--prettier-ignore -->
+          <button
+              title="Remove"
+              class="btn btn-square"
+              {% if not user.is_admin() %}disabled{% endif %}
+              hx-delete="/wishlist/manual/{{ book.id }}"
+              hx-swap="outerHTML"
+              hx-target="#book-table-body"
+              hx-disabled-elt="this"
+            >
+              {% include 'icons/ban.html' %}
+            </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endblock %}
+  </table>
+</div>
+
+{% endblock %}

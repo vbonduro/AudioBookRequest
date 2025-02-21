@@ -6,6 +6,7 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
+    Form,
     HTTPException,
     Request,
     Response,
@@ -18,6 +19,7 @@ from app.models import (
     BookSearchResult,
     EventEnum,
     GroupEnum,
+    ManualBookRequest,
     Notification,
 )
 from app.routers.wishlist import background_start_query, get_wishlist_books
@@ -167,4 +169,45 @@ async def delete_request(
         admin_user,
         {"books": books},
         block_name="book_wishlist",
+    )
+
+
+@router.get("/manual")
+async def read_manual(
+    request: Request,
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+):
+    return template_response("manual.html", request, user, {})
+
+
+@router.post("/manual")
+async def add_manual(
+    request: Request,
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    session: Annotated[Session, Depends(get_session)],
+    title: Annotated[str, Form()],
+    author: Annotated[str, Form()],
+    narrator: Annotated[Optional[str], Form()] = None,
+    subtitle: Annotated[Optional[str], Form()] = None,
+    publish_date: Annotated[Optional[str], Form()] = None,
+    info: Annotated[Optional[str], Form()] = None,
+):
+    book_request = ManualBookRequest(
+        user_username=user.username,
+        title=title,
+        authors=author.split(","),
+        narrators=narrator.split(",") if narrator else [],
+        subtitle=subtitle,
+        publish_date=publish_date,
+        additional_info=info,
+    )
+    session.add(book_request)
+    session.commit()
+
+    return template_response(
+        "manual.html",
+        request,
+        user,
+        {"success": "Successfully added request"},
+        block_name="form",
     )

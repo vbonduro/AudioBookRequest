@@ -18,14 +18,26 @@
 <div
   class="w-screen flex flex-col items-center justify-center p-8 overflow-x-hidden gap-4"
 >
-  <h1 class="text-3xl font-bold w-full text-left">Search</h1>
+  <div class="flex w-full justify-between items-center">
+    <h1 class="text-3xl font-bold text-left">Search</h1>
+    <a
+      preload
+      href="/search/manual"
+      title="Manually add request"
+      class="btn flex items-center justify-center"
+    >
+      Manual {% include 'icons/plus.html' %}
+    </a>
+  </div>
 
   <div class="flex flex-col gap-4 justify-start items-center">
     <form class="flex items-start w-full join" onsubmit="onSearch();">
+      <!-- prettier-ignore -->
       <input
         name="q"
         class="input input-bordered join-item"
         placeholder="Book name..."
+        {% if not search_term %}autofocus{% endif %}
         value="{{ search_term }}"
       />
       <select class="select join-item max-w-[5rem]" name="region">
@@ -113,14 +125,19 @@
       </button>
     </div>
     {% endif %} {% if not search_results %}
-    <div role="alert" class="alert">
-      <span class="stroke-info h-6 w-6 shrink-0"
-        >{% include 'icons/info-circle.html' %}</span
-      >
+    <div
+      class="pt-8 flex flex-col gap-1 items-center justify-center text-center max-w-[20rem]"
+    >
       {% if search_term %}
-      <span>No results found for "{{ search_term }}"</span>
+      <span class="text-xl font-semibold">No results found</span>
+      <span class="text-sm text-neutral"
+        >No audiobooks were found. Do note, that internally Audible is used for
+        searching. If the book doesn't exist on Audible it'll have to be added
+        <a class="link" preload href="/search/manual">manually</a>.</span
+      >
       {% else %}
-      <span>Search for a book</span>
+      <span class="text-xl font-semibold">Perform a search</span>
+      <span class="text-sm text-neutral">Nothing has been searched yet.</span>
       {% endif %}
     </div>
     {% endif %}
