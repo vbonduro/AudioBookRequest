@@ -1,8 +1,5 @@
 # AudioBookRequest
 
-> [!CAUTION]
-> This project is in its very early stages. It's basically a weekend project at this state. There might be some bugs or unfinished parts.
-
 Your tool for handling audiobook requests on a Plex/AudioBookShelf/Jellyfin instance.
 
 If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <ins>but for audiobooks</ins>.
@@ -11,9 +8,10 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
 
 # Workflow
 
-1. Admin creates user accounts for their friends. Each account's group is one of: `Admin`, `Trusted`, and `Untrusted`. All groups can request/remove book requests. Trusted and above can have downloads automatically start when they select a book in the search tab. This requires the download client to be set up correctly in Prowlarr.
-2. The requests/wishlist page shows a list of all books that have been requested. An admin can directly view the torrent sources gotten from Prowlarr and start any download.
-3. Settings page allows for admins to create new accounts and set the required Prowlarr configs.
+1. Admin creates user accounts for their friends. Each account's group is one of: `Admin`, `Trusted`, and `Untrusted`. All groups can request/remove book requests.
+2. When a Trusted and above requests a book, it'll automatically start downloading. This requires the download client to be set up correctly in Prowlarr and the "Auto Download" option to be on in the settings.
+3. If configured, a notification will be sent to Apprise.
+4. The requests/wishlist page shows a list of all books that have been requested. An admin can directly view the torrent sources gotten from Prowlarr and start downloading requests or reject them.
 
 # Docker
 

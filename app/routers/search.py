@@ -31,7 +31,7 @@ from app.util.book_search import (
     list_audible_books,
 )
 from app.util.connection import get_connection
-from app.util.notifications import send_notification
+from app.util.notifications import send_manual_notification, send_notification
 from app.util.ranking.quality import quality_config
 from app.util.templates import template_response
 
@@ -188,6 +188,7 @@ async def add_manual(
     request: Request,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
+    background_task: BackgroundTasks,
     title: Annotated[str, Form()],
     author: Annotated[str, Form()],
     narrator: Annotated[Optional[str], Form()] = None,
@@ -205,7 +206,20 @@ async def add_manual(
         additional_info=info,
     )
     session.add(book_request)
+    session.flush()
+    session.expunge_all()  # so that we can pass down the object without the session
     session.commit()
+
+    notifications = session.exec(
+        select(Notification).where(Notification.event == EventEnum.on_new_request)
+    ).all()
+    for notif in notifications:
+        background_task.add_task(
+            send_manual_notification,
+            notification=notif,
+            book=book_request,
+            requester_username=user.username,
+        )
 
     return template_response(
         "manual.html",

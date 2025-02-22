@@ -79,7 +79,7 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
             self.delete(session, key)
 
     def get_auto_download(self, session: Session) -> bool:
-        return bool(self.get_int(session, "quality_auto_download", 1))
+        return bool(self.get_int(session, "quality_auto_download", 0))
 
     def set_auto_download(self, session: Session, auto_download: bool):
         self.set_int(session, "quality_auto_download", int(auto_download))
