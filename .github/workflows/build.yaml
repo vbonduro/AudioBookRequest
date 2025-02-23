@@ -1,8 +1,20 @@
 name: Type check and Build
 
 on:
-  - push
-  - pull_request
+  push:
+    paths:
+      - "**.py"
+      - "**.html"
+      - "**.css"
+      - "**.yaml"
+      - "Dockerfile"
+  pull_request:
+    paths:
+      - "**.py"
+      - "**.html"
+      - "**.css"
+      - "**.yaml"
+      - "Dockerfile"
 
 jobs:
   test:
