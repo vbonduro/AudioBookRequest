@@ -110,7 +110,8 @@ def create_new_user(
             request,
             admin_user,
             {"error": "Invalid username"},
-            block_name="create_user_messages",
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
         )
 
     try:
@@ -121,7 +122,8 @@ def create_new_user(
             request,
             admin_user,
             {"error": e.detail},
-            block_name="create_user_messages",
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
         )
 
     if group not in GroupEnum.__members__:
@@ -130,7 +132,8 @@ def create_new_user(
             request,
             admin_user,
             {"error": "Invalid group selected"},
-            block_name="create_user_messages",
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
         )
 
     group = GroupEnum[group]
@@ -142,7 +145,8 @@ def create_new_user(
             request,
             admin_user,
             {"error": "Username already exists"},
-            block_name="create_user_messages",
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
         )
 
     user = create_user(username, password, group)
@@ -155,13 +159,12 @@ def create_new_user(
         "settings_page/users.html",
         request,
         admin_user,
-        {"users": users},
+        {"users": users, "success": "Created user"},
         block_name="user_block",
-        headers={"HX-Retarget": "#user-list"},
     )
 
 
-@router.delete("/user")
+@router.delete("/user/{username}")
 def delete_user(
     request: Request,
     username: str,
@@ -171,12 +174,14 @@ def delete_user(
     ],
 ):
     if username == admin_user.username:
+        users = session.exec(select(User)).all()
         return template_response(
             "settings_page/users.html",
             request,
             admin_user,
             {"error": "Cannot delete own user"},
-            block_name="delete_user_messages",
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
         )
 
     user = session.exec(select(User).where(User.username == username)).one_or_none()
@@ -186,7 +191,8 @@ def delete_user(
             request,
             admin_user,
             {"error": "Cannot delete root user"},
-            block_name="delete_user_messages",
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
         )
 
     if user:
@@ -199,9 +205,44 @@ def delete_user(
         "settings_page/users.html",
         request,
         admin_user,
-        {"users": users},
+        {"users": users, "success": "Deleted user"},
         block_name="user_block",
-        headers={"HX-Retarget": "#user-list"},
+    )
+
+
+@router.patch("/user/{username}")
+def update_user(
+    request: Request,
+    username: str,
+    group: Annotated[GroupEnum, Form()],
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+):
+    user = session.exec(select(User).where(User.username == username)).one_or_none()
+    if user and user.root:
+        return template_response(
+            "settings_page/users.html",
+            request,
+            admin_user,
+            {"error": "Cannot change root user"},
+            block_name="toast_block",
+            headers={"HX-Retarget": "#toast-block"},
+        )
+
+    if user:
+        user.group = group
+        session.add(user)
+        session.commit()
+
+    users = session.exec(select(User)).all()
+    return template_response(
+        "settings_page/users.html",
+        request,
+        admin_user,
+        {"users": users, "success": "Updated user"},
+        block_name="user_block",
     )
 
 
