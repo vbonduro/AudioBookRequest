@@ -9,11 +9,10 @@ from fastapi import (
     Form,
     HTTPException,
     Request,
-    Response,
 )
 from sqlmodel import Session, col, select
 
-from app.db import get_session
+from app.db import get_session, open_session
 from app.models import (
     BookRequest,
     BookSearchResult,
@@ -22,7 +21,7 @@ from app.models import (
     ManualBookRequest,
     Notification,
 )
-from app.routers.wishlist import background_start_query, get_wishlist_books
+from app.routers.wishlist import get_wishlist_books
 from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.book_search import (
     audible_region_type,
@@ -32,6 +31,8 @@ from app.util.book_search import (
 )
 from app.util.connection import get_connection
 from app.util.notifications import send_manual_notification, send_notification
+from app.util.prowlarr import prowlarr_config
+from app.util.query import query_sources
 from app.util.ranking.quality import quality_config
 from app.util.templates import template_response
 
@@ -89,6 +90,8 @@ async def read_search(
     if len(results) > 0:
         books = get_already_requested(session, results, user.username)
 
+    prowlarr_configured = prowlarr_config.is_valid(session)
+
     return template_response(
         "search.html",
         request,
@@ -99,11 +102,22 @@ async def read_search(
             "regions": list(audible_regions.keys()),
             "selected_region": region,
             "page": page,
-            "num_results": num_results,
             "auto_start_download": quality_config.get_auto_download(session)
             and user.is_above(GroupEnum.trusted),
+            "prowlarr_configured": prowlarr_configured,
         },
     )
+
+
+async def background_start_query(asin: str):
+    with open_session() as session:
+        async with ClientSession() as client_session:
+            await query_sources(
+                asin=asin,
+                session=session,
+                client_session=client_session,
+                start_auto_download=True,
+            )
 
 
 @router.post("/request/{asin}")
@@ -114,6 +128,10 @@ async def add_request(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     background_task: BackgroundTasks,
+    query: Annotated[Optional[str], Form()],
+    page: Annotated[int, Form()],
+    region: Annotated[audible_region_type, Form()],
+    num_results: Annotated[int, Form()] = 20,
 ):
     book = await get_audnexus_book(client_session, asin)
     if not book:
@@ -126,12 +144,8 @@ async def add_request(
     except sa.exc.IntegrityError:
         pass  # ignore if already exists
 
-    if quality_config.get_auto_download(session):
-        background_task.add_task(
-            background_start_query,
-            asin=asin,
-            start_auto_download=user.is_above(GroupEnum.trusted),
-        )
+    if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
+        background_task.add_task(background_start_query, asin=asin)
 
     notifications = session.exec(
         select(Notification).where(Notification.event == EventEnum.on_new_request)
@@ -144,7 +158,42 @@ async def add_request(
             book_asin=asin,
         )
 
-    return Response(status_code=204, headers={"HX-Refresh": "true"})
+    if audible_regions.get(region) is None:
+        raise HTTPException(status_code=400, detail="Invalid region")
+    if query:
+        results = await list_audible_books(
+            session=session,
+            client_session=client_session,
+            query=query,
+            num_results=num_results,
+            page=page,
+            audible_region=region,
+        )
+    else:
+        results = []
+
+    books: list[BookSearchResult] = []
+    if len(results) > 0:
+        books = get_already_requested(session, results, user.username)
+
+    prowlarr_configured = prowlarr_config.is_valid(session)
+
+    return template_response(
+        "search.html",
+        request,
+        user,
+        {
+            "search_term": query or "",
+            "search_results": books,
+            "regions": list(audible_regions.keys()),
+            "selected_region": region,
+            "page": page,
+            "auto_start_download": quality_config.get_auto_download(session)
+            and user.is_above(GroupEnum.trusted),
+            "prowlarr_configured": prowlarr_configured,
+        },
+        block_name="book_results",
+    )
 
 
 @router.delete("/request/{asin}")

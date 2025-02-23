@@ -79,13 +79,19 @@
           {% else %} {% include 'icons/photo-off.html' %} {% endif %}
           <!-- prettier-ignore -->
           <button
-            class="absolute top-0 right-0 rounded-none btn-sm rounded-bl-md btn btn-square items-center justify-center flex {% if book.downloaded or book.already_requested %}btn-ghost bg-success{% else %}btn-info{% endif %}"
+            class="absolute top-0 right-0 rounded-none rounded-bl-md btn-xs btn btn-square items-center justify-center flex {% if book.downloaded or book.already_requested %}btn-ghost bg-success{% else %}btn-info{% endif %}"
             hx-post="/search/request/{{ book.asin }}"
             hx-disabled-elt="this"
-            hx-target="this"
+            hx-target="#book-results"
+            hx-include="this"
+            hx-swap="outerHTML"
             hx-on:click="this.disabled = true;"
             {% if book.downloaded or book.already_requested %}disabled{% endif %}
           >
+            <input type="hidden" name="query" value="{{ search_term }}" />
+            <input type="hidden" name="region" value="{{ selected_region }}" />
+            <input type="hidden" name="page" value="{{ page }}" />
+            <input type="hidden" name="search_term" value="{{ search_term }}" />
             {% if book.downloaded or book.already_requested %}
             <span>{% include 'icons/checkmark.html' %}</span>
             {% else %} {% if auto_start_download and user.can_download() %}

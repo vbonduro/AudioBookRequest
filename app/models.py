@@ -61,19 +61,9 @@ class BaseBook(BaseModel):
     runtime_length_min: int
     downloaded: bool = False
 
-    def __hash__(self):
-        return hash(
-            (
-                self.asin,
-                self.title,
-                self.subtitle,
-                self.authors,
-                self.narrators,
-                self.cover_image,
-                self.release_date,
-                self.runtime_length_min,
-            )
-        )
+    @property
+    def runtime_length_hrs(self):
+        return round(self.runtime_length_min / 60, 1)
 
 
 class BookSearchResult(BaseBook):
@@ -106,19 +96,6 @@ class BookRequest(BaseBook, table=True):
 
     class Config:  # pyright: ignore[reportIncompatibleVariableOverride]
         arbitrary_types_allowed = True
-
-    @property
-    def runtime_length_hrs(self):
-        return round(self.runtime_length_min / 60, 1)
-
-    # Used so that only BookRequests with new information are updated in the DB
-    def __hash__(self):
-        return hash(
-            (
-                super().__hash__(),
-                self.user_username,
-            )
-        )
 
 
 class ManualBookRequest(BaseModel, table=True):

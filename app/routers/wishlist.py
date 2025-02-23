@@ -208,35 +208,14 @@ async def download_book(
     session.commit()
 
 
-async def background_start_query(asin: str, start_auto_download: bool):
-    with open_session() as session:
-        async with ClientSession() as client_session:
-            await query_sources(
-                asin=asin,
-                start_auto_download=start_auto_download,
-                session=session,
-                client_session=client_session,
-            )
-
-
 @router.post("/auto-download/{asin}")
 async def start_auto_download(
     request: Request,
     asin: str,
     user: Annotated[DetailedUser, Depends(get_authenticated_user(GroupEnum.trusted))],
-    background_task: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
-    background: bool = True,
 ):
-    if background:
-        background_task.add_task(
-            background_start_query,
-            asin=asin,
-            start_auto_download=user.is_above(GroupEnum.trusted),
-        )
-        return Response(status_code=204)
-
     download_error: Optional[str] = None
     try:
         await query_sources(

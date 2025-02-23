@@ -28,6 +28,12 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
         if not self.get_api_key(session):
             raise ProwlarrMisconfigured("Prowlarr base url not set")
 
+    def is_valid(self, session: Session) -> bool:
+        return (
+            self.get_base_url(session) is not None
+            and self.get_api_key(session) is not None
+        )
+
     def get_api_key(self, session: Session) -> Optional[str]:
         return self.get(session, "prowlarr_api_key")
 

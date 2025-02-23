@@ -4,6 +4,7 @@ import time
 from typing import Literal, Optional
 from urllib.parse import urlencode
 from aiohttp import ClientSession
+import pydantic
 from sqlmodel import Session, col, select
 
 from app.models import BookRequest
@@ -48,6 +49,22 @@ audible_regions: dict[audible_region_type, str] = {
 }
 
 
+class CacheQuery(pydantic.BaseModel, frozen=True):
+    query: str
+    num_results: int
+    page: int
+    audible_region: audible_region_type
+
+
+class CacheResult(pydantic.BaseModel, frozen=True):
+    books: list[BookRequest]
+    timestamp: float
+
+
+# simple caching of search results to avoid having to fetch from audible so frequently
+search_cache: dict[CacheQuery, CacheResult] = {}
+
+
 async def list_audible_books(
     session: Session,
     client_session: ClientSession,
@@ -59,40 +76,62 @@ async def list_audible_books(
     """
     https://audible.readthedocs.io/en/latest/misc/external_api.html#get--1.0-catalog-products
     """
-    params = {
-        "num_results": num_results,
-        "products_sort_by": "Relevance",
-        "keywords": query,
-        "page": page,
-    }
-    base_url = (
-        f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products?"
+    cache_key = CacheQuery(
+        query=query,
+        num_results=num_results,
+        page=page,
+        audible_region=audible_region,
     )
-    url = base_url + urlencode(params)
+    cache_result = search_cache.get(cache_key)
 
-    async with client_session.get(url) as response:
-        response.raise_for_status()
-        books_json = await response.json()
+    if not cache_result or time.time() - cache_result.timestamp > REFETCH_TTL:
+        params = {
+            "num_results": num_results,
+            "products_sort_by": "Relevance",
+            "keywords": query,
+            "page": page,
+        }
+        base_url = f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products?"
+        url = base_url + urlencode(params)
 
-    # do not fetch book results we already have locally
-    asins = set(asin_obj["asin"] for asin_obj in books_json["products"])
-    books = get_existing_books(session, asins)
-    for key in books.keys():
-        asins.remove(key)
+        async with client_session.get(url) as response:
+            response.raise_for_status()
+            books_json = await response.json()
 
-    # book ASINs we do not have => fetch and store
-    coros = [get_audnexus_book(client_session, asin) for asin in asins]
-    new_books = await asyncio.gather(*coros)
-    new_books = [b for b in new_books if b]
-    store_new_books(session, new_books)
-    for b in new_books:
-        books[b.asin] = b
+        # do not fetch book results we already have locally
+        asins = set(asin_obj["asin"] for asin_obj in books_json["products"])
+        books = get_existing_books(session, asins)
+        for key in books.keys():
+            asins.remove(key)
 
-    ordered: list[BookRequest] = []
-    for asin_obj in books_json["products"]:
-        book = books.get(asin_obj["asin"])
-        if book:
-            ordered.append(book)
+        # book ASINs we do not have => fetch and store
+        coros = [get_audnexus_book(client_session, asin) for asin in asins]
+        new_books = await asyncio.gather(*coros)
+        new_books = [b for b in new_books if b]
+        store_new_books(session, new_books)
+        for b in new_books:
+            books[b.asin] = b
+
+        ordered: list[BookRequest] = []
+        for asin_obj in books_json["products"]:
+            book = books.get(asin_obj["asin"])
+            if book:
+                ordered.append(book)
+
+        search_cache[cache_key] = CacheResult(
+            books=ordered,
+            timestamp=time.time(),
+        )
+
+        # clean up cache slightly
+        for k in list(search_cache.keys()):
+            if time.time() - search_cache[k].timestamp > REFETCH_TTL:
+                try:
+                    del search_cache[k]
+                except KeyError:  # ignore in race conditions
+                    pass
+    else:
+        ordered = cache_result.books
 
     return ordered
 
@@ -131,8 +170,6 @@ def store_new_books(session: Session, books: list[BookRequest]):
     to_update: list[BookRequest] = []
     for b in existing:
         new_book = asins[b.asin]
-        if b == new_book:
-            continue
         b.title = new_book.title
         b.subtitle = new_book.subtitle
         b.authors = new_book.authors

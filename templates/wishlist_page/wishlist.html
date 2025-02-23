@@ -106,7 +106,7 @@
               class="btn btn-square"
               {% endif %}
               {% if not user.can_download() or book.downloaded %}disabled{% endif %}
-              hx-post="/wishlist/auto-download/{{ book.asin|quote_plus }}?background=False"
+              hx-post="/wishlist/auto-download/{{ book.asin|quote_plus }}"
               hx-swap="outerHTML"
               hx-target="#book-table-body"
               hx-disabled-elt="this"
