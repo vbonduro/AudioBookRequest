@@ -6,7 +6,7 @@ from urllib.parse import urlencode, urljoin
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
 
-from app.models import Indexer, ProwlarrSource
+from app.models import Indexer, ProwlarrSource, TorrentSource, UsenetSource
 from app.util.cache import StringConfigCache, SimpleCache
 
 logger = logging.getLogger(__name__)
@@ -159,21 +159,44 @@ async def query_prowlarr(
 
     sources: list[ProwlarrSource] = []
     for result in search_results:
-        sources.append(
-            ProwlarrSource(
-                guid=result["guid"],
-                indexer_id=result["indexerId"],
-                title=result["title"],
-                seeders=result["seeders"],
-                leechers=result["leechers"],
-                size=result["size"],
-                info_url=result["infoUrl"],
-                indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
-                download_url=result.get("downloadUrl"),
-                magnet_url=result.get("magnetUrl"),
-                publish_date=datetime.fromisoformat(result["publishDate"]),
+        if result["protocol"] not in ["torrent", "usenet"]:
+            print("Skipping source with unknown protocol", result["protocol"])
+            continue
+        if result["protocol"] == "torrent":
+            sources.append(
+                TorrentSource(
+                    protocol="torrent",
+                    guid=result["guid"],
+                    indexer_id=result["indexerId"],
+                    indexer=result["indexer"],
+                    title=result["title"],
+                    seeders=result.get("seeders", 0),
+                    leechers=result.get("leechers", 0),
+                    size=result.get("size", 0),
+                    info_url=result["infoUrl"],
+                    indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
+                    download_url=result.get("downloadUrl"),
+                    magnet_url=result.get("magnetUrl"),
+                    publish_date=datetime.fromisoformat(result["publishDate"]),
+                )
             )
-        )
+        else:
+            sources.append(
+                UsenetSource(
+                    protocol="usenet",
+                    guid=result["guid"],
+                    indexer_id=result["indexerId"],
+                    indexer=result["indexer"],
+                    title=result["title"],
+                    grabs=result.get("grabs"),
+                    size=result.get("size", 0),
+                    info_url=result["infoUrl"],
+                    indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
+                    download_url=result.get("downloadUrl"),
+                    magnet_url=result.get("magnetUrl"),
+                    publish_date=datetime.fromisoformat(result["publishDate"]),
+                )
+            )
 
     prowlarr_source_cache.set(sources, query)
 

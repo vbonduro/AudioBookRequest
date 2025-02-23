@@ -6,6 +6,7 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
+    Form,
     HTTPException,
     Request,
     Response,
@@ -177,7 +178,6 @@ async def list_sources(
         {
             "book": result.book,
             "sources": result.sources,
-            "indexers": result.indexers,
         },
     )
 
@@ -185,8 +185,8 @@ async def list_sources(
 @router.post("/sources/{asin}")
 async def download_book(
     asin: str,
-    guid: str,
-    indexer_id: int,
+    guid: Annotated[str, Form()],
+    indexer_id: Annotated[int, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
@@ -204,8 +204,9 @@ async def download_book(
     for b in book:
         b.downloaded = True
         session.add(b)
-
     session.commit()
+
+    return Response(status_code=204)
 
 
 @router.post("/auto-download/{asin}")

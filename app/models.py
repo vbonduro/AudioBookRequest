@@ -1,7 +1,7 @@
 # pyright: reportUnknownVariableType=false
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Literal, Optional, Union
 import uuid
 from sqlmodel import Field, SQLModel, JSON, Column, UniqueConstraint, func, DateTime
 
@@ -121,17 +121,11 @@ class ManualBookRequest(BaseModel, table=True):
         arbitrary_types_allowed = True
 
 
-class ProwlarrSource(BaseModel):
-    """
-    ProwlarrSources are not unique by their guid. We could have multiple books all in the same source.
-    https://sqlmodel.tiangolo.com/tutorial/automatic-id-none-refresh/
-    """
-
+class BaseSource(BaseModel):
     guid: str
     indexer_id: int
+    indexer: str
     title: str
-    seeders: int
-    leechers: int
     size: int  # in bytes
     publish_date: datetime
     info_url: str
@@ -142,6 +136,22 @@ class ProwlarrSource(BaseModel):
     @property
     def size_MB(self):
         return round(self.size / 1e6, 1)
+
+
+class TorrentSource(BaseSource):
+    protocol: Literal["torrent"] = "torrent"
+    seeders: int
+    leechers: int
+
+
+class UsenetSource(BaseSource):
+    protocol: Literal["usenet"] = "usenet"
+    grabs: int
+
+
+ProwlarrSource = Annotated[
+    Union[TorrentSource, UsenetSource], Field(discriminator="protocol")
+]
 
 
 class Indexer(BaseModel, table=True):

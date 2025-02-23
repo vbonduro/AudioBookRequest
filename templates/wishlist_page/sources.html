@@ -1,18 +1,5 @@
 {% extends "base.html" %} {% block head %}
 <title>Sources</title>
-<script>
-  const onDownload = (index, path) => {
-    const checkbox = document.getElementById(`checkbox-${index}`);
-    checkbox.disabled = true;
-    fetch(path, {
-      method: "POST",
-    }).then(resp => {
-      if (resp.ok) {
-        window.location.href = "/wishlist";
-      }
-    });
-  };
-</script>
 {% endblock %} {% block body %}
 
 <div class="w-screen p-2 md:p-4 lg:p-8 flex flex-col gap-2">
@@ -43,7 +30,7 @@
           <th>title</th>
           <th>indexer</th>
           <th>flags</th>
-          <th>seed / leech</th>
+          <th>seed / leech (or grabs)</th>
           <th>size (MB)</th>
           <th>publish date</th>
           <th></th>
@@ -59,9 +46,13 @@
           <td>
             <a href="{{ source.info_url }}" class="link">{{ source.title }}</a>
           </td>
-          <td>{{ indexers[source.indexer_id].name }}</td>
+          <td>{{ source.indexer }}</td>
           <td>{{ source.indexer_flags|join(', ') }}</td>
+          {% if source.protocol == "torrent" %}
           <td>{{ source.seeders }} / {{ source.leechers }}</td>
+          {% else %}
+          <td>{{ source.grabs }} grabs</td>
+          {% endif %}
           <td>{{ source.size_MB }}</td>
           <td>{{ source.publish_date.strftime("%d. %b %Y") }}</td>
 
@@ -74,8 +65,19 @@
               <input
                 id="checkbox-{{ loop.index }}"
                 type="checkbox"
-                onclick="onDownload('{{ loop.index }}','/wishlist/sources/{{ book.asin|quote_plus }}?indexer_id={{ source.indexer_id }}&guid={{ source.guid|quote_plus }}')"
+                hx-trigger="click"
+                hx-target="this"
+                hx-post="/wishlist/sources/{{ book.asin|quote_plus }}"
+                hx-include="#form-{{ loop.index }}"
+                hx-on::after-request="if (event.detail.successful) this.disabled = true"
               />
+              <input
+                type="hidden"
+                name="indexer_id"
+                value="{{ source.indexer_id }}"
+              />
+              <input type="hidden" name="guid" value="{{ source.guid }}" />
+
               <span class="swap-off">
                 {% include 'icons/download.html' %}
               </span>

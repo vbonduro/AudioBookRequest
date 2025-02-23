@@ -5,9 +5,9 @@ from fastapi import HTTPException
 import pydantic
 from sqlmodel import Session, select
 
-from app.models import BookRequest, Indexer, ProwlarrSource
+from app.models import BookRequest, ProwlarrSource
 from app.util.ranking.download_ranking import rank_sources
-from app.util.prowlarr import get_indexers, query_prowlarr, start_download
+from app.util.prowlarr import query_prowlarr, start_download
 from app.util.prowlarr import prowlarr_config
 
 querying: set[str] = set()
@@ -28,7 +28,6 @@ def manage_queried(asin: str):
 class QueryResult(pydantic.BaseModel):
     sources: list[ProwlarrSource]
     book: BookRequest
-    indexers: dict[int, Indexer]
 
 
 async def query_sources(
@@ -58,17 +57,6 @@ async def query_sources(
             force_refresh=force_refresh,
         )
 
-        if len(sources) > 0:
-            indexers = session.exec(select(Indexer)).all()
-            indexers = {indexer.id: indexer for indexer in indexers if indexer.id}
-            if len(indexers) == 0:
-                indexers = await get_indexers(session, client_session)
-                for indexer in indexers.values():
-                    session.add(indexer)
-                session.commit()
-        else:
-            indexers = {}
-
         ranked = await rank_sources(session, client_session, sources, book)
 
         # start download if requested
@@ -90,5 +78,4 @@ async def query_sources(
         return QueryResult(
             sources=ranked,
             book=book,
-            indexers=indexers,
         )

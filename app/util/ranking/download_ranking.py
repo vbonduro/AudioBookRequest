@@ -50,6 +50,7 @@ class CompareSource:
             self._compare_indexer,
             self._compare_subtitle,
             self._compare_seeders,
+            self._compare_age,
         ]
 
     def __call__(self, a: RankSource, b: RankSource):
@@ -89,12 +90,20 @@ class CompareSource:
 
     def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
         """Filter out any reasons that make it not valid"""
-        a_valid = self._is_valid_quality(
-            a
-        ) and a.source.seeders >= quality_config.get_min_seeders(self.session)
-        b_valid = self._is_valid_quality(
-            b
-        ) and b.source.seeders >= quality_config.get_min_seeders(self.session)
+        if a.source.protocol == "torrent":
+            a_valid = self._is_valid_quality(
+                a
+            ) and a.source.seeders >= quality_config.get_min_seeders(self.session)
+        else:
+            a_valid = self._is_valid_quality(a)
+
+        if b.source.protocol == "torrent":
+            b_valid = self._is_valid_quality(
+                b
+            ) and b.source.seeders >= quality_config.get_min_seeders(self.session)
+        else:
+            b_valid = self._is_valid_quality(b)
+
         if a_valid == b_valid:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
         return int(b_valid) - int(a_valid)
@@ -201,9 +210,20 @@ class CompareSource:
         return b_score - a_score
 
     def _compare_seeders(self, a: RankSource, b: RankSource, next_compare: int) -> int:
+        if a.source.protocol == "usenet" or b.source.protocol == "usenet":
+            return self._get_next_compare(next_compare)(a, b, next_compare + 1)
         if a.source.seeders == b.source.seeders:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
         return b.source.seeders - a.source.seeders
+
+    def _compare_age(self, a: RankSource, b: RankSource, next_compare: int) -> int:
+        if a.source.protocol != b.source.protocol:
+            return self._get_next_compare(next_compare)(a, b, next_compare + 1)
+        if a.source.protocol == "usenet":
+            # With usenets: newer => better
+            return int((a.source.publish_date - b.source.publish_date).total_seconds())
+        # With torrents: older => better
+        return int((b.source.publish_date - a.source.publish_date).total_seconds())
 
 
 def vaguely_exist_in_title(words: list[str], title: str, name_exists_ratio: int) -> int:
