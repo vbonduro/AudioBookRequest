@@ -1,6 +1,6 @@
 # AudioBookRequest
 
-Your tool for handling audiobook requests on a Plex/AudioBookShelf/Jellyfin instance.
+Your tool for handling audiobook requests on a Plex/Audiobookshelf/Jellyfin instance.
 
 If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <ins>but for audiobooks</ins>.
 
@@ -20,7 +20,7 @@ Using Docker, this website can be run with minimal setup:
 ```dockerfile
 services:
   web:
-    build: markbeep/audiobookrequest
+    image: markbeep/audiobookrequest
     ports:
       - "8000:8765"
     environment:
