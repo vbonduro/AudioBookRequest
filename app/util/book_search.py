@@ -11,27 +11,6 @@ from app.models import BookRequest
 
 REFETCH_TTL = 60 * 60 * 24 * 7  # 1 week
 
-
-async def get_audnexus_book(session: ClientSession, asin: str) -> Optional[BookRequest]:
-    """
-    https://audnex.us/#tag/Books/operation/getBookById
-    """
-    async with session.get(f"https://api.audnex.us/books/{asin}") as response:
-        if not response.ok:
-            return None
-        book = await response.json()
-    return BookRequest(
-        asin=book["asin"],
-        title=book["title"],
-        subtitle=book.get("subtitle"),
-        authors=[author["name"] for author in book["authors"]],
-        narrators=[narrator["name"] for narrator in book["narrators"]],
-        cover_image=book.get("image"),
-        release_date=datetime.fromisoformat(book["releaseDate"]),
-        runtime_length_min=book["runtimeLengthMin"],
-    )
-
-
 audible_region_type = Literal[
     "us", "ca", "uk", "au", "fr", "de", "jp", "it", "in", "es"
 ]
@@ -47,6 +26,32 @@ audible_regions: dict[audible_region_type, str] = {
     "in": ".in",
     "es": ".es",
 }
+
+
+async def get_audnexus_book(
+    session: ClientSession,
+    asin: str,
+    region: audible_region_type,
+) -> Optional[BookRequest]:
+    """
+    https://audnex.us/#tag/Books/operation/getBookById
+    """
+    async with session.get(
+        f"https://api.audnex.us/books/{asin}?region={region}"
+    ) as response:
+        if not response.ok:
+            return None
+        book = await response.json()
+    return BookRequest(
+        asin=book["asin"],
+        title=book["title"],
+        subtitle=book.get("subtitle"),
+        authors=[author["name"] for author in book["authors"]],
+        narrators=[narrator["name"] for narrator in book["narrators"]],
+        cover_image=book.get("image"),
+        release_date=datetime.fromisoformat(book["releaseDate"]),
+        runtime_length_min=book["runtimeLengthMin"],
+    )
 
 
 class CacheQuery(pydantic.BaseModel, frozen=True):
@@ -105,7 +110,9 @@ async def list_audible_books(
             asins.remove(key)
 
         # book ASINs we do not have => fetch and store
-        coros = [get_audnexus_book(client_session, asin) for asin in asins]
+        coros = [
+            get_audnexus_book(client_session, asin, audible_region) for asin in asins
+        ]
         new_books = await asyncio.gather(*coros)
         new_books = [b for b in new_books if b]
         store_new_books(session, new_books)

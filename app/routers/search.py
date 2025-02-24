@@ -133,7 +133,7 @@ async def add_request(
     region: Annotated[audible_region_type, Form()],
     num_results: Annotated[int, Form()] = 20,
 ):
-    book = await get_audnexus_book(client_session, asin)
+    book = await get_audnexus_book(client_session, asin, region)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
