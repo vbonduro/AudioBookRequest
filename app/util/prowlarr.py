@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -17,7 +18,10 @@ class ProwlarrMisconfigured(ValueError):
 
 
 ProwlarrConfigKey = Literal[
-    "prowlarr_api_key", "prowlarr_base_url", "prowlarr_source_ttl"
+    "prowlarr_api_key",
+    "prowlarr_base_url",
+    "prowlarr_source_ttl",
+    "prowlarr_categories",
 ]
 
 
@@ -51,6 +55,15 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
 
     def set_source_ttl(self, session: Session, source_ttl: int):
         self.set_int(session, "prowlarr_source_ttl", source_ttl)
+
+    def get_categories(self, session: Session) -> list[int]:
+        categories = self.get(session, "prowlarr_categories")
+        if categories is None:
+            return [3030]
+        return json.loads(categories)
+
+    def set_categories(self, session: Session, categories: list[int]):
+        self.set(session, "prowlarr_categories", json.dumps(categories))
 
 
 prowlarr_config = ProwlarrConfig()
@@ -139,11 +152,14 @@ async def query_prowlarr(
 
     params: dict[str, Any] = {
         "query": query,
-        "categories": 3030,  # Audio/Audiobook
         "type": "search",
         "limit": 100,
         "offset": 0,
     }
+
+    if len(x := prowlarr_config.get_categories(session)) > 0:
+        params["categories"] = x
+
     if indexer_ids is not None:
         params["indexerIds"] = indexer_ids
 
