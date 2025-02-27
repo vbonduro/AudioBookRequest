@@ -5,11 +5,17 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 from app.db import open_session
+from app.internal.env_settings import Settings
 from app.models import User
 from app.routers import root, search, settings, wishlist
 from app.util.auth import RequiresLoginException
 
-app = FastAPI()
+app = FastAPI(
+    title="AudioBookRequest",
+    debug=Settings().app.debug,
+    openapi_url="/openapi.json" if Settings().app.openapi_enabled else None,
+)
+
 
 app.include_router(root.router)
 app.include_router(search.router)

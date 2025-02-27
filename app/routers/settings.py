@@ -22,6 +22,7 @@ from app.util.notifications import send_notification
 from app.util.prowlarr import prowlarr_config
 from app.util.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.templates import template_response
+from app.internal.prowlarr.indexer_categories import get_indexer_categories
 
 router = APIRouter(prefix="/settings")
 
@@ -257,6 +258,8 @@ def read_prowlarr(
 ):
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
+    selected = set(prowlarr_config.get_categories(session))
+    categories = get_indexer_categories(selected)
 
     return template_response(
         "settings_page/prowlarr.html",
@@ -266,6 +269,7 @@ def read_prowlarr(
             "page": "prowlarr",
             "prowlarr_base_url": prowlarr_base_url or "",
             "prowlarr_api_key": prowlarr_api_key,
+            "indexer_categories": categories,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
         },
     )
@@ -295,6 +299,27 @@ def update_prowlarr_base_url(
     prowlarr_config.set_base_url(session, base_url)
     session.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.put("/prowlarr/category")
+def update_indexer_categories(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    selected = set(prowlarr_config.get_categories(session))
+    categories = get_indexer_categories(selected)
+    return template_response(
+        "settings_page/prowlarr.html",
+        request,
+        admin_user,
+        {
+            "indexer_categories": categories,
+        },
+        block_name="category",
+    )
 
 
 @router.get("/download")
