@@ -14,7 +14,7 @@
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           venvDir = ".venv";
-          packages = with pkgs; [ python311 nodejs_23 sqlite ] ++
+          packages = with pkgs; [ python311 nodejs_23 sqlite nodePackages.browser-sync ] ++
             (with pkgs.python311Packages; [
               pip
               venvShellHook

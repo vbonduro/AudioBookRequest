@@ -1,6 +1,10 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Prowlarr</title>
-{% endblock %} {% block content %}
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+></script>
+{% include 'scripts/toast.html' %} {% endblock %} {% block content %}
 
 <div class="flex flex-col gap-2">
   <h2 class="text-lg">Prowlarr</h2>
@@ -51,24 +55,61 @@
   </form>
 
   {% block category %}
-  <div id="category-select">
-    <select
-      name="group"
-      class="select w-full"
-      required
-      hx-put="/settings/prowlarr/category"
-      hx-trigger="change"
-      hx-disabled-elt="this"
-      hx-target="#category-select"
-      hx-swap="outerHTML"
-    >
-      {% for category in indexer_categories %}
-      <option value="{{category.id}}">
-        {{category.id|zfill(4)}} - {{category.name}}
-      </option>
-      {% endfor %}
+  <form
+    id="category-select"
+    class="flex flex-col gap-1"
+    x-data="{ selected: [{{ selected_categories|join(',') }}].sort(), categories: {{ indexer_categories }}, dirty: false }"
+    hx-put="/settings/prowlarr/category"
+    hx-disabled-elt="#category-submit-button"
+    hx-target="this"
+    hx-swap="outerHTML"
+  >
+    <label for="group">Categories</label>
+    <p class="text-xs text-neutral">
+      Categories to search for using Prowlarr. If none are selected, all
+      categories will be searched for.
+    </p>
+
+    {% if success %}
+    <script>
+      toast("{{success|safe}}", "success");
+    </script>
+    {% endif %}
+
+    <div class="flex flex-wrap gap-1">
+      <template x-for="sel in selected">
+        <div
+          class="badge badge-secondary badge-sm w-[13rem] justify-between h-fit"
+        >
+          <input type="hidden" name="c" x-bind:value="sel" />
+          <span
+            x-text="`${String(sel).padStart(4, '0')} - ${categories[sel]}`"
+          ></span>
+          <button
+            class="cursor-pointer [&>svg]:size-4 hover:opacity-70 transition-opacity duration-150"
+            x-on:click="selected = selected.filter((item) => item !== sel); dirty = true"
+            type="button"
+          >
+            {% include 'icons/xmark.html' %}
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <select name="group" class="select w-full">
+      <template x-for="sel in Object.keys(categories)">
+        <template x-if="!selected.includes(Number(sel))">
+          <option
+            x-text="`${String(sel).padStart(4, '0')} - ${categories[sel]}`"
+            x-on:click="selected = [...selected, Number(sel)].sort(); dirty = true"
+          ></option>
+        </template>
+      </template>
     </select>
-  </div>
+    <button id="category-submit-button" x-bind:disabled="!dirty" class="btn">
+      Save
+    </button>
+  </form>
   {% endblock %}
 </div>
 {% endblock %}

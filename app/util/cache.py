@@ -26,6 +26,9 @@ class SimpleCache(Generic[T]):
     def set(self, sources: T, *query: str):
         self._cache[query] = (int(time.time()), sources)
 
+    def flush(self):
+        self._cache = {}
+
 
 L = TypeVar("L", bound=str)
 

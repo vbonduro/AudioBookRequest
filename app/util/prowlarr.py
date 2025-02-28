@@ -7,7 +7,7 @@ from urllib.parse import urlencode, urljoin
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
 
-from app.models import Indexer, ProwlarrSource, TorrentSource, UsenetSource
+from app.models import ProwlarrSource, TorrentSource, UsenetSource
 from app.util.cache import StringConfigCache, SimpleCache
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,10 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
 
 prowlarr_config = ProwlarrConfig()
 prowlarr_source_cache = SimpleCache[list[ProwlarrSource]]()
-prowlarr_indexer_cache = SimpleCache[dict[int, Indexer]]()
+
+
+def flush_prowlarr_cache():
+    prowlarr_source_cache.flush()
 
 
 async def start_download(
@@ -95,39 +98,6 @@ async def start_download(
         else:
             logger.debug("Download successfully started for %s", guid)
         return response
-
-
-async def get_indexers(
-    session: Session,
-    client_session: ClientSession,
-) -> dict[int, Indexer]:
-    base_url = prowlarr_config.get_base_url(session)
-    api_key = prowlarr_config.get_api_key(session)
-    assert base_url is not None and api_key is not None
-
-    source_ttl = prowlarr_config.get_source_ttl(session)
-    cached_sources = prowlarr_indexer_cache.get(source_ttl)
-    if cached_sources:
-        return cached_sources
-
-    url = base_url + "/api/v1/indexer"
-    async with client_session.get(
-        url,
-        headers={"X-Api-Key": api_key},
-    ) as response:
-        indexers = await response.json()
-
-    indexer_mapping = {
-        i["id"]: Indexer(
-            id=i["id"],
-            name=i["name"],
-            enabled=i["enable"],
-            privacy=i["privacy"],
-        )
-        for i in indexers
-    }
-    prowlarr_indexer_cache.set(indexer_mapping)
-    return indexer_mapping
 
 
 async def query_prowlarr(

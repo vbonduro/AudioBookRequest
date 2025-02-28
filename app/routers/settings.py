@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.models import EventEnum, GroupEnum, Notification, User
 from app.util.auth import (
     DetailedUser,
@@ -19,10 +20,9 @@ from app.util.auth import (
 )
 from app.util.connection import get_connection
 from app.util.notifications import send_notification
-from app.util.prowlarr import prowlarr_config
+from app.util.prowlarr import flush_prowlarr_cache, prowlarr_config
 from app.util.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.templates import template_response
-from app.internal.prowlarr.indexer_categories import get_indexer_categories
 
 router = APIRouter(prefix="/settings")
 
@@ -259,7 +259,6 @@ def read_prowlarr(
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
     selected = set(prowlarr_config.get_categories(session))
-    categories = get_indexer_categories(selected)
 
     return template_response(
         "settings_page/prowlarr.html",
@@ -269,7 +268,8 @@ def read_prowlarr(
             "page": "prowlarr",
             "prowlarr_base_url": prowlarr_base_url or "",
             "prowlarr_api_key": prowlarr_api_key,
-            "indexer_categories": categories,
+            "indexer_categories": indexer_categories,
+            "selected_categories": selected,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
         },
     )
@@ -284,7 +284,6 @@ def update_prowlarr_api_key(
     ],
 ):
     prowlarr_config.set_api_key(session, api_key)
-    session.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -297,7 +296,6 @@ def update_prowlarr_base_url(
     ],
 ):
     prowlarr_config.set_base_url(session, base_url)
-    session.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -308,15 +306,20 @@ def update_indexer_categories(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    categories: Annotated[list[int], Form(alias="c")] = [],
 ):
-    selected = set(prowlarr_config.get_categories(session))
-    categories = get_indexer_categories(selected)
+    prowlarr_config.set_categories(session, categories)
+    selected = set(categories)
+    flush_prowlarr_cache()
+
     return template_response(
         "settings_page/prowlarr.html",
         request,
         admin_user,
         {
-            "indexer_categories": categories,
+            "indexer_categories": indexer_categories,
+            "selected_categories": selected,
+            "success": "Categories updated",
         },
         block_name="category",
     )

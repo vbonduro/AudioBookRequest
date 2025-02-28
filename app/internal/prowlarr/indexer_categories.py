@@ -1,12 +1,3 @@
-from pydantic import BaseModel
-
-
-class IndexerCategory(BaseModel):
-    id: int
-    name: str
-    selected: bool = False
-
-
 indexer_categories = {
     0: "Other",
     10: "Other/Misc",
@@ -85,10 +76,3 @@ indexer_categories = {
     8010: "Other/Misc",
     8020: "Other/Hashed",
 }
-
-
-def get_indexer_categories(selected: set[int]) -> list[IndexerCategory]:
-    return [
-        IndexerCategory(id=id, name=name, selected=id in selected)
-        for id, name in indexer_categories.items()
-    ]
