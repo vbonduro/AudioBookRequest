@@ -12,6 +12,7 @@ class ApplicationSettings(BaseModel):
     debug: bool = False
     openapi_enabled: bool = False
     config_dir: str = "/config"
+    port: int = 8000
 
 
 class Settings(BaseSettings):

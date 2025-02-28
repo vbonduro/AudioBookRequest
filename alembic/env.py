@@ -1,9 +1,10 @@
-import os
+import pathlib
 from logging.config import fileConfig
 
 from alembic import context
 from app import models
 from app.db import engine
+from app.internal.env_settings import Settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -57,8 +58,8 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    if not os.path.exists("data"):
-        os.makedirs("data")
+    db_path = Settings().get_sqlite_path()
+    pathlib.Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
     with engine.connect() as connection:
         context.configure(
