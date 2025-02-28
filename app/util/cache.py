@@ -1,11 +1,10 @@
-from abc import ABC
 import time
+from abc import ABC
 from typing import Generic, Optional, TypeVar, overload
 
 from sqlmodel import Session, select
 
-from app.models import Config
-
+from app.internal.models import Config
 
 T = TypeVar("T")
 
@@ -25,6 +24,9 @@ class SimpleCache(Generic[T]):
 
     def set(self, sources: T, *query: str):
         self._cache[query] = (int(time.time()), sources)
+
+    def flush(self):
+        self._cache = {}
 
 
 L = TypeVar("L", bound=str)

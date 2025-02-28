@@ -6,8 +6,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from app.db import get_session
-from app.models import GroupEnum
+from app.internal.models import GroupEnum
 from app.util.auth import (
     DetailedUser,
     LoginTypeEnum,
@@ -19,6 +18,7 @@ from app.util.auth import (
     get_authenticated_user,
     raise_for_invalid_password,
 )
+from app.util.db import get_session
 from app.util.templates import templates
 
 router = APIRouter()

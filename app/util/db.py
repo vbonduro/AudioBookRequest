@@ -1,10 +1,11 @@
 from contextlib import contextmanager
-from os import getenv
+
 from sqlalchemy import create_engine
 from sqlmodel import Session, text
 
-sqlite_path = getenv("SQLITE_PATH", "data/db.sqlite")
+from app.internal.env_settings import Settings
 
+sqlite_path = Settings().get_sqlite_path()
 engine = create_engine(f"sqlite+pysqlite:///{sqlite_path}")
 
 

@@ -1,16 +1,17 @@
 # pyright: basic
 
+import os
 from collections import defaultdict
-from aiohttp import ClientSession
+
 import aiohttp
 import pydantic
-from sqlmodel import Session
-from app.util.prowlarr import prowlarr_config
 import torrent_parser as tp
-import os
+from aiohttp import ClientSession
+from sqlmodel import Session
 
-from app.models import BookRequest, ProwlarrSource
-from app.util.ranking.quality import FileFormat
+from app.internal.models import BookRequest, ProwlarrSource
+from app.internal.prowlarr.prowlarr import prowlarr_config
+from app.internal.ranking.quality import FileFormat
 
 # HACK: Disabled because it doesn't work well with ratelimiting
 # We instead completely rely on the title and size of the complete torrent

@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -6,8 +7,8 @@ from urllib.parse import urlencode, urljoin
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
 
-from app.models import Indexer, ProwlarrSource, TorrentSource, UsenetSource
-from app.util.cache import StringConfigCache, SimpleCache
+from app.internal.models import ProwlarrSource, TorrentSource, UsenetSource
+from app.util.cache import SimpleCache, StringConfigCache
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,10 @@ class ProwlarrMisconfigured(ValueError):
 
 
 ProwlarrConfigKey = Literal[
-    "prowlarr_api_key", "prowlarr_base_url", "prowlarr_source_ttl"
+    "prowlarr_api_key",
+    "prowlarr_base_url",
+    "prowlarr_source_ttl",
+    "prowlarr_categories",
 ]
 
 
@@ -52,10 +56,22 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
     def set_source_ttl(self, session: Session, source_ttl: int):
         self.set_int(session, "prowlarr_source_ttl", source_ttl)
 
+    def get_categories(self, session: Session) -> list[int]:
+        categories = self.get(session, "prowlarr_categories")
+        if categories is None:
+            return [3030]
+        return json.loads(categories)
+
+    def set_categories(self, session: Session, categories: list[int]):
+        self.set(session, "prowlarr_categories", json.dumps(categories))
+
 
 prowlarr_config = ProwlarrConfig()
 prowlarr_source_cache = SimpleCache[list[ProwlarrSource]]()
-prowlarr_indexer_cache = SimpleCache[dict[int, Indexer]]()
+
+
+def flush_prowlarr_cache():
+    prowlarr_source_cache.flush()
 
 
 async def start_download(
@@ -84,39 +100,6 @@ async def start_download(
         return response
 
 
-async def get_indexers(
-    session: Session,
-    client_session: ClientSession,
-) -> dict[int, Indexer]:
-    base_url = prowlarr_config.get_base_url(session)
-    api_key = prowlarr_config.get_api_key(session)
-    assert base_url is not None and api_key is not None
-
-    source_ttl = prowlarr_config.get_source_ttl(session)
-    cached_sources = prowlarr_indexer_cache.get(source_ttl)
-    if cached_sources:
-        return cached_sources
-
-    url = base_url + "/api/v1/indexer"
-    async with client_session.get(
-        url,
-        headers={"X-Api-Key": api_key},
-    ) as response:
-        indexers = await response.json()
-
-    indexer_mapping = {
-        i["id"]: Indexer(
-            id=i["id"],
-            name=i["name"],
-            enabled=i["enable"],
-            privacy=i["privacy"],
-        )
-        for i in indexers
-    }
-    prowlarr_indexer_cache.set(indexer_mapping)
-    return indexer_mapping
-
-
 async def query_prowlarr(
     session: Session,
     client_session: ClientSession,
@@ -139,11 +122,14 @@ async def query_prowlarr(
 
     params: dict[str, Any] = {
         "query": query,
-        "categories": 3030,  # Audio/Audiobook
         "type": "search",
         "limit": 100,
         "offset": 0,
     }
+
+    if len(x := prowlarr_config.get_categories(session)) > 0:
+        params["categories"] = x
+
     if indexer_ids is not None:
         params["indexerIds"] = indexer_ids
 

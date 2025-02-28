@@ -4,5 +4,5 @@
 .envrc
 __pycache__
 static/globals.css
-data
+config
 node_modules

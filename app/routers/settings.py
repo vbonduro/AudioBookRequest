@@ -6,8 +6,11 @@ from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
-from app.db import get_session
-from app.models import EventEnum, GroupEnum, Notification, User
+from app.internal.models import EventEnum, GroupEnum, Notification, User
+from app.internal.prowlarr.indexer_categories import indexer_categories
+from app.internal.prowlarr.notifications import send_notification
+from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
+from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.auth import (
     DetailedUser,
     LoginTypeEnum,
@@ -18,9 +21,7 @@ from app.util.auth import (
     raise_for_invalid_password,
 )
 from app.util.connection import get_connection
-from app.util.notifications import send_notification
-from app.util.prowlarr import prowlarr_config
-from app.util.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.util.db import get_session
 from app.util.templates import template_response
 
 router = APIRouter(prefix="/settings")
@@ -257,6 +258,7 @@ def read_prowlarr(
 ):
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
+    selected = set(prowlarr_config.get_categories(session))
 
     return template_response(
         "settings_page/prowlarr.html",
@@ -266,6 +268,8 @@ def read_prowlarr(
             "page": "prowlarr",
             "prowlarr_base_url": prowlarr_base_url or "",
             "prowlarr_api_key": prowlarr_api_key,
+            "indexer_categories": indexer_categories,
+            "selected_categories": selected,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
         },
     )
@@ -280,7 +284,6 @@ def update_prowlarr_api_key(
     ],
 ):
     prowlarr_config.set_api_key(session, api_key)
-    session.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -293,8 +296,33 @@ def update_prowlarr_base_url(
     ],
 ):
     prowlarr_config.set_base_url(session, base_url)
-    session.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.put("/prowlarr/category")
+def update_indexer_categories(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+    categories: Annotated[list[int], Form(alias="c")] = [],
+):
+    prowlarr_config.set_categories(session, categories)
+    selected = set(categories)
+    flush_prowlarr_cache()
+
+    return template_response(
+        "settings_page/prowlarr.html",
+        request,
+        admin_user,
+        {
+            "indexer_categories": indexer_categories,
+            "selected_categories": selected,
+            "success": "Categories updated",
+        },
+        block_name="category",
+    )
 
 
 @router.get("/download")
@@ -550,7 +578,6 @@ def delete_notification(
     notifications = session.exec(select(Notification)).all()
     for notif in notifications:
         if notif.id == notification_id:
-            print("DELETED")
             session.delete(notif)
             session.commit()
             break
