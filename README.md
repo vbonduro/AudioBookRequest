@@ -29,7 +29,7 @@ AudioBookRequest is intended to be deployed using Docker or Kubernetes. For "bar
 Run the image directly:
 
 ```bash
-docker run -p 8000:8000 -v $(pwd)/config:/config markbeep/audiobookrequest:latest
+docker run -p 8000:8000 -v $(pwd)/config:/config markbeep/audiobookrequest:1
 ```
 
 Then head to http://localhost:8000.
@@ -67,12 +67,16 @@ Notifications depend on [Apprise](https://github.com/caronc/apprise).
 
 Docker image is located on [dockerhub](https://hub.docker.com/r/markbeep/audiobookrequest).
 
+**NOTE:** It is not recommended to use `:latest` in case of incompatible changes that are not backwards compatible. For versioning, [SemVer](https://semver.org/) is used.
+
+For experimental builds (latest commits to `main`), the `:nightly` version can be used.
+
 **Docker compose**
 
 ```yaml
 services:
   web:
-    image: markbeep/audiobookrequest
+    image: markbeep/audiobookrequest:1
     ports:
       - "8000:8765"
     environment:
@@ -102,7 +106,7 @@ spec:
     spec:
       containers:
         - name: audiobookrequest
-          image: markbeep/audiobookrequest:latest
+          image: markbeep/audiobookrequest:1
           imagePullPolicy: Always
           volumeMounts:
             - mountPath: /config
