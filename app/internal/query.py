@@ -1,14 +1,18 @@
 # what is currently being queried
 from contextlib import contextmanager
+
+import pydantic
 from aiohttp import ClientSession
 from fastapi import HTTPException
-import pydantic
 from sqlmodel import Session, select
 
-from app.models import BookRequest, ProwlarrSource
-from app.util.ranking.download_ranking import rank_sources
-from app.util.prowlarr import query_prowlarr, start_download
-from app.util.prowlarr import prowlarr_config
+from app.internal.models import BookRequest, ProwlarrSource
+from app.internal.prowlarr.prowlarr import (
+    prowlarr_config,
+    query_prowlarr,
+    start_download,
+)
+from app.internal.ranking.download_ranking import rank_sources
 
 querying: set[str] = set()
 

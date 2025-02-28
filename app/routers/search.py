@@ -12,8 +12,13 @@ from fastapi import (
 )
 from sqlmodel import Session, col, select
 
-from app.db import get_session, open_session
-from app.models import (
+from app.internal.book_search import (
+    audible_region_type,
+    audible_regions,
+    get_audnexus_book,
+    list_audible_books,
+)
+from app.internal.models import (
     BookRequest,
     BookSearchResult,
     EventEnum,
@@ -21,19 +26,17 @@ from app.models import (
     ManualBookRequest,
     Notification,
 )
+from app.internal.prowlarr.notifications import (
+    send_manual_notification,
+    send_notification,
+)
+from app.internal.prowlarr.prowlarr import prowlarr_config
+from app.internal.query import query_sources
+from app.internal.ranking.quality import quality_config
 from app.routers.wishlist import get_wishlist_books
 from app.util.auth import DetailedUser, get_authenticated_user
-from app.util.book_search import (
-    audible_region_type,
-    audible_regions,
-    get_audnexus_book,
-    list_audible_books,
-)
 from app.util.connection import get_connection
-from app.util.notifications import send_manual_notification, send_notification
-from app.util.prowlarr import prowlarr_config
-from app.util.query import query_sources
-from app.util.ranking.quality import quality_config
+from app.util.db import get_session, open_session
 from app.util.templates import template_response
 
 router = APIRouter(prefix="/search")

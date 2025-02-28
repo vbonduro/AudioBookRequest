@@ -1,20 +1,20 @@
 import base64
-from datetime import timedelta, datetime, timezone
-from enum import Enum
 import re
 import secrets
+from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Annotated, Literal, Optional
 
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, OAuth2PasswordBearer
-import jwt
 from sqlmodel import Session
 
-from app.db import get_session
-from app.models import User, GroupEnum
+from app.internal.models import GroupEnum, User
 from app.util.cache import StringConfigCache
+from app.util.db import get_session
 
 JWT_ALGORITHM = "HS256"
 

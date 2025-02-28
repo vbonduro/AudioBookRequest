@@ -7,9 +7,9 @@ from aiohttp import ClientSession
 from rapidfuzz import fuzz, utils
 from sqlmodel import Session
 
-from app.models import BookRequest, ProwlarrSource
-from app.util.ranking.quality import quality_config
-from app.util.ranking.quality_extract import Quality, extract_qualities
+from app.internal.models import BookRequest, ProwlarrSource
+from app.internal.ranking.quality import quality_config
+from app.internal.ranking.quality_extract import Quality, extract_qualities
 
 
 class RankSource(pydantic.BaseModel):

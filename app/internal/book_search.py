@@ -1,13 +1,14 @@
 import asyncio
-from datetime import datetime
 import time
+from datetime import datetime
 from typing import Literal, Optional
 from urllib.parse import urlencode
-from aiohttp import ClientSession
+
 import pydantic
+from aiohttp import ClientSession
 from sqlmodel import Session, col, select
 
-from app.models import BookRequest
+from app.internal.models import BookRequest
 
 REFETCH_TTL = 60 * 60 * 24 * 7  # 1 week
 

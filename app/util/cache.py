@@ -1,11 +1,10 @@
-from abc import ABC
 import time
+from abc import ABC
 from typing import Generic, Optional, TypeVar, overload
 
 from sqlmodel import Session, select
 
-from app.models import Config
-
+from app.internal.models import Config
 
 T = TypeVar("T")
 

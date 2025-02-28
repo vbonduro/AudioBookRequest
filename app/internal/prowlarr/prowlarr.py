@@ -7,8 +7,8 @@ from urllib.parse import urlencode, urljoin
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
 
-from app.models import ProwlarrSource, TorrentSource, UsenetSource
-from app.util.cache import StringConfigCache, SimpleCache
+from app.internal.models import ProwlarrSource, TorrentSource, UsenetSource
+from app.util.cache import SimpleCache, StringConfigCache
 
 logger = logging.getLogger(__name__)
 

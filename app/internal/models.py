@@ -1,9 +1,10 @@
 # pyright: reportUnknownVariableType=false
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal, Optional, Union
-import uuid
-from sqlmodel import Field, SQLModel, JSON, Column, UniqueConstraint, func, DateTime
+
+from sqlmodel import JSON, Column, DateTime, Field, SQLModel, UniqueConstraint, func
 
 
 class BaseModel(SQLModel):

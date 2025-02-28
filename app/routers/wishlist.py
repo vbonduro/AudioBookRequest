@@ -1,5 +1,5 @@
-from typing import Annotated, Literal, Optional
 import uuid
+from typing import Annotated, Literal, Optional
 
 from aiohttp import ClientSession
 from fastapi import (
@@ -15,16 +15,21 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
-from app.db import get_session, open_session
-from app.models import BookRequest, BookWishlistResult, GroupEnum, ManualBookRequest
-from app.util.auth import DetailedUser, get_authenticated_user
-from app.util.connection import get_connection
-from app.util.prowlarr import (
+from app.internal.models import (
+    BookRequest,
+    BookWishlistResult,
+    GroupEnum,
+    ManualBookRequest,
+)
+from app.internal.prowlarr.prowlarr import (
     ProwlarrMisconfigured,
     prowlarr_config,
     start_download,
 )
-from app.util.query import query_sources
+from app.internal.query import query_sources
+from app.util.auth import DetailedUser, get_authenticated_user
+from app.util.connection import get_connection
+from app.util.db import get_session, open_session
 from app.util.templates import template_response
 
 router = APIRouter(prefix="/wishlist")

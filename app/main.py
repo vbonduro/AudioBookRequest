@@ -1,14 +1,16 @@
 from typing import Any
 from urllib.parse import quote_plus
+
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
-from app.db import open_session
+
 from app.internal.env_settings import Settings
-from app.models import User
+from app.internal.models import User
 from app.routers import root, search, settings, wishlist
 from app.util.auth import RequiresLoginException
+from app.util.db import open_session
 
 app = FastAPI(
     title="AudioBookRequest",

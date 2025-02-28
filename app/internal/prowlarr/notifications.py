@@ -1,9 +1,10 @@
 from typing import Optional
+
 from aiohttp import ClientSession
 from sqlmodel import select
 
-from app.db import open_session
-from app.models import BookRequest, ManualBookRequest, Notification
+from app.internal.models import BookRequest, ManualBookRequest, Notification
+from app.util.db import open_session
 
 
 def create_title_body(
@@ -83,7 +84,6 @@ async def send_manual_notification(
     book: ManualBookRequest,
     requester_username: Optional[str] = None,
 ):
-    print("SENDING", "CALLED")
     try:
         async with ClientSession() as client_session:
             title, body = create_title_body(
@@ -95,7 +95,6 @@ async def send_manual_notification(
                 ",".join(book.narrators),
                 notification.event.value,
             )
-            print("SENDING", title, body)
 
             async with client_session.post(
                 notification.apprise_url,
@@ -108,5 +107,5 @@ async def send_manual_notification(
                 response.raise_for_status()
                 return await response.json()
     except Exception as e:
-        print("SENDING", e)
+        print("Failed to send notification", e)
         return None
