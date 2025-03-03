@@ -45,7 +45,10 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
         self.set(session, "prowlarr_api_key", api_key)
 
     def get_base_url(self, session: Session) -> Optional[str]:
-        return self.get(session, "prowlarr_base_url")
+        path = self.get(session, "prowlarr_base_url")
+        if path:
+            return path.rstrip("/")
+        return None
 
     def set_base_url(self, session: Session, base_url: str):
         self.set(session, "prowlarr_base_url", base_url)
@@ -85,7 +88,7 @@ async def start_download(
     api_key = prowlarr_config.get_api_key(session)
     assert base_url is not None and api_key is not None
 
-    url = base_url + "/api/v1/search"
+    url = urljoin(base_url, "/api/v1/search")
     logger.debug("Starting download for %s", guid)
     async with client_session.post(
         url,
