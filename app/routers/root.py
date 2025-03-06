@@ -76,7 +76,7 @@ def create_init(
         )
 
     try:
-        raise_for_invalid_password(password, confirm_password)
+        raise_for_invalid_password(session, password, confirm_password)
     except HTTPException as e:
         return templates.TemplateResponse(
             "init.html",

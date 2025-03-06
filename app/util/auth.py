@@ -1,5 +1,4 @@
 import base64
-import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -34,7 +33,12 @@ class LoginTypeEnum(str, Enum):
         return self == LoginTypeEnum.none
 
 
-AuthConfigKey = Literal["login_type", "access_token_expiry_minutes", "auth_secret"]
+AuthConfigKey = Literal[
+    "login_type",
+    "access_token_expiry_minutes",
+    "auth_secret",
+    "min_password_length",
+]
 
 
 class AuthConfig(StringConfigCache[AuthConfigKey]):
@@ -65,6 +69,12 @@ class AuthConfig(StringConfigCache[AuthConfigKey]):
     def set_access_token_expiry_minutes(self, session: Session, expiry: int):
         self.set_int(session, "access_token_expiry_minutes", expiry)
 
+    def get_min_password_length(self, session: Session) -> int:
+        return self.get_int(session, "min_password_length", 1)
+
+    def set_min_password_length(self, session: Session, min_password_length: int):
+        self.set_int(session, "min_password_length", min_password_length)
+
 
 class DetailedUser(User):
     login_type: LoginTypeEnum
@@ -79,23 +89,23 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 auth_config = AuthConfig()
 
 
-validate_password_regex = re.compile(
-    r"^(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}$"
-)
-
-
 def raise_for_invalid_password(
-    password: str, confirm_password: Optional[str] = None, ignore_confirm: bool = False
+    session: Session,
+    password: str,
+    confirm_password: Optional[str] = None,
+    ignore_confirm: bool = False,
 ):
     if not ignore_confirm and password != confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Passwords must be equal",
         )
-    if not validate_password_regex.match(password):
+
+    min_password_length = auth_config.get_min_password_length(session)
+    if not len(password) >= min_password_length:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number",
+            detail=f"Password must be at least {min_password_length} characters long",
         )
 
 

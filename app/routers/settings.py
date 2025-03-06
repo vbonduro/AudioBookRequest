@@ -51,30 +51,35 @@ def change_password(
             "settings_page/account.html",
             request,
             user,
-            {
-                "page": "account",
-                "error": "Old password is wrong",
-            },
-            block_name="change_pw_messages",
+            {"page": "account", "error": "Old password is incorrect"},
+            block_name="error",
+            headers={"HX-Retarget": "#error"},
         )
     try:
-        raise_for_invalid_password(password, confirm_password)
+        raise_for_invalid_password(session, password, confirm_password)
     except HTTPException as e:
         return template_response(
             "settings_page/account.html",
             request,
             user,
             {"page": "account", "error": e.detail},
-            block_name="change_pw_messages",
+            block_name="error",
+            headers={"HX-Retarget": "#error"},
         )
 
     new_user = create_user(user.username, password, user.group)
-
-    user.password = new_user.password
-    session.add(user)
+    old_user = session.exec(select(User).where(User.username == user.username)).one()
+    old_user.password = new_user.password
+    session.add(old_user)
     session.commit()
 
-    return Response(status_code=204, headers={"HX-Refresh": "true"})
+    return template_response(
+        "settings_page/account.html",
+        request,
+        user,
+        {"page": "account", "success": "Password changed"},
+        block_name="content",
+    )
 
 
 @router.get("/users")
@@ -116,7 +121,7 @@ def create_new_user(
         )
 
     try:
-        raise_for_invalid_password(password, ignore_confirm=True)
+        raise_for_invalid_password(session, password, ignore_confirm=True)
     except HTTPException as e:
         return template_response(
             "settings_page/users.html",
@@ -631,6 +636,7 @@ def read_security(
             "page": "security",
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+            "min_password_length": auth_config.get_min_password_length(session),
         },
     )
 
@@ -650,6 +656,7 @@ def reset_auth_secret(
 def update_security(
     login_type: Annotated[LoginTypeEnum, Form()],
     access_token_expiry: Annotated[int, Form()],
+    min_password_length: Annotated[int, Form()],
     request: Request,
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
@@ -661,13 +668,25 @@ def update_security(
             "settings_page/security.html",
             request,
             admin_user,
-            {"error": "Access token expiry can't be negative"},
+            {"error": "Access token expiry can't be 0 or negative"},
             block_name="error_toast",
             headers={"HX-Retarget": "#message"},
         )
+
+    if min_password_length < 1:
+        return template_response(
+            "settings_page/security.html",
+            request,
+            admin_user,
+            {"error": "Minimum password length can't be 0 or negative"},
+            block_name="error_toast",
+            headers={"HX-Retarget": "#message"},
+        )
+
     old = auth_config.get_login_type(session)
     auth_config.set_login_type(session, login_type)
     auth_config.set_access_token_expiry_minutes(session, access_token_expiry)
+    auth_config.set_min_password_length(session, min_password_length)
     return template_response(
         "settings_page/security.html",
         request,
