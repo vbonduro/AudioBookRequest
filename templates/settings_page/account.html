@@ -1,12 +1,26 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Account</title>
-{% endblock %} {% block content %}
+{% include 'scripts/toast.html' %} {% endblock %} {% block content %}
 <form
   id="change-password-form"
   class="flex flex-col gap-2"
   hx-post="/settings/account/password"
-  hx-target="#change-pw-error"
+  hx-target="this"
 >
+  {% if success %}
+  <script>
+    toast("{{success|safe}}", "success");
+  </script>
+  {% endif %} {% block error %}
+  <div id="error" class="hidden">
+    {% if error %}
+    <script>
+      toast("{{error|safe}}", "error");
+    </script>
+    {% endif %}
+  </div>
+  {% endblock %}
+
   <h2 class="text-lg">Change Password</h2>
 
   <label for="old-password">Old password</label>
@@ -18,15 +32,12 @@
     required
   />
 
-  <label for="change-password-1">Password</label>
+  <label for="change-password-1">New Password</label>
   <input
     id="change-password-1"
     name="password"
     type="password"
     class="input w-full"
-    pattern="(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}"
-    oninvalid="this.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number')"
-    oninput="this.setCustomValidity('')"
     required
   />
 
@@ -36,15 +47,8 @@
     name="confirm_password"
     type="password"
     class="input w-full"
-    pattern="(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])(?=\D*\d).{8,}"
-    oninvalid="this.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number')"
-    oninput="this.setCustomValidity('')"
     required
   />
-
-  {% block change_pw_messages %}
-  <span id="change-pw-error" class="text-red-400">{{ error }}</span>
-  {% endblock %}
 
   <button name="submit" class="btn btn-primary" type="submit">
     Change password
