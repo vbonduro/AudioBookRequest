@@ -3,7 +3,7 @@
 
 @plugin "daisyui/theme" {
   name: "nord";
-  default: false;
+  default: true;
   prefersdark: false;
   color-scheme: "light";
   --color-base-100: oklch(95.127% 0.007 260.731);
