@@ -94,3 +94,38 @@
   right: -9px; /* half the width */
   border-radius: 9px;
 }
+
+.light-dark-toggle {
+  position: relative;
+  display: inline-grid;
+  cursor: pointer;
+  place-content: center;
+  vertical-align: middle;
+  webkit-user-select: none;
+  user-select: none;
+  input {
+    appearance: none;
+    border: none;
+  }
+  > * {
+    grid-column-start: 1;
+    grid-row-start: 1;
+    transition-property: transform, rotate, opacity;
+    transition-duration: 0.2s;
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+.DARKCLASS .theme-light {
+  rotate: 45deg;
+  opacity: 0%;
+}
+
+.theme-dark {
+  rotate: 45deg;
+  opacity: 0%;
+}
+
+.DARKCLASS .theme-dark {
+  rotate: 0deg;
+  opacity: 100%;
+}
