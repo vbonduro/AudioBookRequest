@@ -149,6 +149,7 @@ async def add_request(
         pass  # ignore if already exists
 
     if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
+        # start querying and downloading if auto download is enabled
         background_task.add_task(
             background_start_query, asin=asin, requester_username=user.username
         )

@@ -249,7 +249,7 @@ async def start_auto_download(
     try:
         await query_sources(
             asin=asin,
-            start_auto_download=user.is_above(GroupEnum.trusted),
+            start_auto_download=True,
             session=session,
             client_session=client_session,
             requester_username=user.username,

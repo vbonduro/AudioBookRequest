@@ -107,7 +107,13 @@ async def start_download(
             print(response)
             logger.error("Failed to start download for %s: %s", guid, response)
             await send_all_notifications(
-                EventEnum.on_failed_download, requester_username, book_asin
+                EventEnum.on_failed_download,
+                requester_username,
+                book_asin,
+                {
+                    "errorStatus": str(response.status),
+                    "errorReason": response.reason or "<unknown>",
+                },
             )
         else:
             logger.debug("Download successfully started for %s", guid)

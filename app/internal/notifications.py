@@ -7,7 +7,7 @@ from app.internal.models import BookRequest, EventEnum, ManualBookRequest, Notif
 from app.util.db import open_session
 
 
-def create_title_body(
+def replace_variables(
     title_template: str,
     body_template: str,
     username: Optional[str] = None,
@@ -15,6 +15,7 @@ def create_title_body(
     book_authors: Optional[str] = None,
     book_narrators: Optional[str] = None,
     event_type: Optional[str] = None,
+    other_replacements: dict[str, str] = {},
 ):
     title = title_template
     body = body_template
@@ -35,6 +36,10 @@ def create_title_body(
         title = title.replace("{eventType}", event_type)
         body = body.replace("{eventType}", event_type)
 
+    for key, value in other_replacements.items():
+        title = title.replace(f"{{{key}}}", value)
+        body = body.replace(f"{{{key}}}", value)
+
     return title, body
 
 
@@ -42,6 +47,7 @@ async def send_all_notifications(
     event_type: EventEnum,
     requester_username: Optional[str] = None,
     book_asin: Optional[str] = None,
+    other_replacements: dict[str, str] = {},
 ):
     with open_session() as session:
         notifications = session.exec(
@@ -49,7 +55,11 @@ async def send_all_notifications(
         ).all()
         for notification in notifications:
             await send_notification(
-                session, notification, requester_username, book_asin
+                session=session,
+                notification=notification,
+                requester_username=requester_username,
+                book_asin=book_asin,
+                other_replacements=other_replacements,
             )
 
 
@@ -58,6 +68,7 @@ async def send_notification(
     notification: Notification,
     requester_username: Optional[str] = None,
     book_asin: Optional[str] = None,
+    other_replacements: dict[str, str] = {},
 ):
     async with ClientSession() as client_session:
         book_title = None
@@ -72,7 +83,7 @@ async def send_notification(
                 book_authors = ",".join(book.authors)
                 book_narrators = ",".join(book.narrators)
 
-        title, body = create_title_body(
+        title, body = replace_variables(
             notification.title_template,
             notification.body_template,
             requester_username,
@@ -80,6 +91,7 @@ async def send_notification(
             book_authors,
             book_narrators,
             notification.event.value,
+            other_replacements,
         )
 
         async with client_session.post(
@@ -98,11 +110,12 @@ async def send_manual_notification(
     notification: Notification,
     book: ManualBookRequest,
     requester_username: Optional[str] = None,
+    other_replacements: dict[str, str] = {},
 ):
     """Send a notification for manual book requests"""
     try:
         async with ClientSession() as client_session:
-            title, body = create_title_body(
+            title, body = replace_variables(
                 notification.title_template,
                 notification.body_template,
                 requester_username,
@@ -110,6 +123,7 @@ async def send_manual_notification(
                 ",".join(book.authors),
                 ",".join(book.narrators),
                 notification.event.value,
+                other_replacements,
             )
 
             async with client_session.post(
