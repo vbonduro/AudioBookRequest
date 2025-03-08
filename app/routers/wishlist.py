@@ -27,6 +27,7 @@ from app.internal.prowlarr.prowlarr import (
     start_download,
 )
 from app.internal.query import query_sources
+from app.internal.ranking.quality import quality_config
 from app.util.auth import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.db import get_session, open_session
@@ -108,8 +109,16 @@ async def manual(
     session: Annotated[Session, Depends(get_session)],
 ):
     books = session.exec(select(ManualBookRequest)).all()
+    auto_download = quality_config.get_auto_download(session)
     return template_response(
-        "wishlist_page/manual.html", request, user, {"books": books, "page": "manual"}
+        "wishlist_page/manual.html",
+        request,
+        user,
+        {
+            "books": books,
+            "page": "manual",
+            "auto_download": auto_download,
+        },
     )
 
 
@@ -128,11 +137,12 @@ async def delete_manual(
         session.commit()
 
     books = session.exec(select(ManualBookRequest)).all()
+    auto_download = quality_config.get_auto_download(session)
     return template_response(
         "wishlist_page/manual.html",
         request,
         admin_user,
-        {"books": books, "page": "manual"},
+        {"books": books, "page": "manual", "auto_download": auto_download},
         block_name="book_wishlist",
     )
 
