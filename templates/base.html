@@ -15,8 +15,40 @@
       src="https://unpkg.com/htmx-ext-preload@2.1.0"
       crossorigin="anonymous"
     ></script>
-    <script src="https://cdn.jsdelivr.net/npm/theme-change@2.0.2/index.js"></script>
+    <script>
+      const setTheme = theme => {
+        if (!theme) {
+          theme = localStorage.getItem("theme") || "nord";
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
+        if (theme === "night") {
+          for (const elem of document.getElementsByClassName(
+            "light-dark-toggle",
+          )) {
+            elem.classList.add("DARKCLASS");
+          }
+        } else {
+          for (const elem of document.getElementsByClassName(
+            "light-dark-toggle",
+          )) {
+            elem.classList.remove("DARKCLASS");
+          }
+        }
+      };
+      const toggleTheme = () => {
+        const theme = document.documentElement.getAttribute("data-theme");
+        const newTheme = theme === "nord" ? "night" : "nord";
+        setTheme(newTheme);
+      };
+    </script>
+
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" sizes="any" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/site.webmanifest" />
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden" hx-ext="preload">
     {% if not hide_navbar %}
@@ -59,17 +91,20 @@
         </div>
 
         <div class="flex-none flex pr-4">
-          <label
-            class="btn btn-ghost btn-square light-dark-toggle swap swap-rotate"
+          <button
+            class="btn btn-ghost btn-square light-dark-toggle"
+            onclick="toggleTheme()"
           >
-            <input type="checkbox" data-toggle-theme="nord,night" />
-            <span class="swap-on svg-dark"
+            <script>
+              setTheme();
+            </script>
+            <span class="theme-dark svg-dark"
               >{% include 'icons/moon.html' %}</span
             >
-            <span class="swap-off svg-light"
+            <span class="theme-light svg-light"
               >{% include 'icons/sun.html' %}</span
             >
-          </label>
+          </button>
           {% if user.can_logout() %}
           <btn
             hx-post="/auth/logout"

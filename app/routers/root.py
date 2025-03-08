@@ -39,6 +39,33 @@ def read_nouislider_js():
     return FileResponse("static/nouislider.min.js", media_type="text/javascript")
 
 
+@router.get("/apple-touch-icon.png")
+def read_apple_touch_icon():
+    return FileResponse("static/apple-touch-icon.png", media_type="image/png")
+
+
+@router.get("/favicon-32x32.png")
+def read_favicon_32():
+    return FileResponse("static/favicon-32x32.png", media_type="image/png")
+
+
+@router.get("/favicon-16x16.png")
+def read_favicon_16():
+    return FileResponse("static/favicon-16x16.png", media_type="image/png")
+
+
+@router.get("/site.webmanifest")
+def read_site_webmanifest():
+    return FileResponse(
+        "static/site.webmanifest", media_type="application/manifest+json"
+    )
+
+
+@router.get("/favicon.svg")
+def read_favicon_svg():
+    return FileResponse("static/favicon.svg", media_type="image/svg+xml")
+
+
 @router.get("/")
 def read_root(
     request: Request,

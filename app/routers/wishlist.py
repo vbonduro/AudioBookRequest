@@ -163,6 +163,7 @@ async def refresh_source(
                 session=session,
                 client_session=client_session,
                 force_refresh=force_refresh,
+                requester_username=user.username,
             )
     return Response(status_code=202)
 
@@ -184,7 +185,12 @@ async def list_sources(
             "/settings/prowlarr?prowlarr_misconfigured=1", status_code=302
         )
 
-    result = await query_sources(asin, session=session, client_session=client_session)
+    result = await query_sources(
+        asin,
+        session=session,
+        client_session=client_session,
+        requester_username=admin_user.username,
+    )
 
     return template_response(
         "wishlist_page/sources.html",
@@ -209,7 +215,14 @@ async def download_book(
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     try:
-        resp = await start_download(session, client_session, guid, indexer_id)
+        resp = await start_download(
+            session=session,
+            client_session=client_session,
+            guid=guid,
+            indexer_id=indexer_id,
+            requester_username=admin_user.username,
+            book_asin=asin,
+        )
     except ProwlarrMisconfigured as e:
         raise HTTPException(status_code=500, detail=str(e))
     if not resp.ok:
@@ -236,9 +249,10 @@ async def start_auto_download(
     try:
         await query_sources(
             asin=asin,
-            start_auto_download=user.is_above(GroupEnum.trusted),
+            start_auto_download=True,
             session=session,
             client_session=client_session,
+            requester_username=user.username,
         )
     except HTTPException as e:
         download_error = e.detail

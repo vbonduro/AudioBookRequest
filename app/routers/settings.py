@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from app.internal.models import EventEnum, GroupEnum, Notification, User
 from app.internal.prowlarr.indexer_categories import indexer_categories
-from app.internal.prowlarr.notifications import send_notification
+from app.internal.notifications import send_notification
 from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.auth import (
@@ -496,11 +496,16 @@ def read_notifications(
     session: Annotated[Session, Depends(get_session)],
 ):
     notifications = session.exec(select(Notification)).all()
+    event_types = [e.value for e in EventEnum]
     return template_response(
         "settings_page/notifications.html",
         request,
         admin_user,
-        {"page": "notifications", "notifications": notifications},
+        {
+            "page": "notifications",
+            "notifications": notifications,
+            "event_types": event_types,
+        },
     )
 
 
@@ -511,7 +516,7 @@ def add_notification(
     apprise_url: Annotated[str, Form()],
     title_template: Annotated[str, Form()],
     body_template: Annotated[str, Form()],
-    event: Annotated[str, Form()],
+    event_type: Annotated[str, Form()],
     headers: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
@@ -537,7 +542,7 @@ def add_notification(
         )
 
     try:
-        event_enum = EventEnum(event)
+        event_enum = EventEnum(event_type)
     except ValueError:
         return template_response(
             "settings_page/notifications.html",
@@ -613,7 +618,7 @@ async def execute_notification(
         raise HTTPException(status_code=404, detail="Notification not found")
 
     try:
-        await send_notification(notification)
+        await send_notification(session, notification)
     except ClientResponseError:
         raise HTTPException(status_code=500, detail="Failed to send notification")
 

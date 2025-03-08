@@ -38,6 +38,7 @@ async def query_sources(
     asin: str,
     session: Session,
     client_session: ClientSession,
+    requester_username: str,
     force_refresh: bool = False,
     start_auto_download: bool = False,
 ) -> QueryResult:
@@ -66,7 +67,12 @@ async def query_sources(
         # start download if requested
         if start_auto_download and not book.downloaded and len(ranked) > 0:
             resp = await start_download(
-                session, client_session, ranked[0].guid, ranked[0].indexer_id
+                session=session,
+                client_session=client_session,
+                guid=ranked[0].guid,
+                indexer_id=ranked[0].indexer_id,
+                requester_username=requester_username,
+                book_asin=asin,
             )
             if resp.ok:
                 same_books = session.exec(

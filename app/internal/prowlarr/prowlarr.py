@@ -7,7 +7,13 @@ from urllib.parse import urlencode, urljoin
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
 
-from app.internal.models import ProwlarrSource, TorrentSource, UsenetSource
+from app.internal.models import (
+    EventEnum,
+    ProwlarrSource,
+    TorrentSource,
+    UsenetSource,
+)
+from app.internal.notifications import send_all_notifications
 from app.util.cache import SimpleCache, StringConfigCache
 
 logger = logging.getLogger(__name__)
@@ -82,6 +88,8 @@ async def start_download(
     client_session: ClientSession,
     guid: str,
     indexer_id: int,
+    requester_username: str,
+    book_asin: str,
 ) -> ClientResponse:
     prowlarr_config.raise_if_invalid(session)
     base_url = prowlarr_config.get_base_url(session)
@@ -98,8 +106,21 @@ async def start_download(
         if not response.ok:
             print(response)
             logger.error("Failed to start download for %s: %s", guid, response)
+            await send_all_notifications(
+                EventEnum.on_failed_download,
+                requester_username,
+                book_asin,
+                {
+                    "errorStatus": str(response.status),
+                    "errorReason": response.reason or "<unknown>",
+                },
+            )
         else:
             logger.debug("Download successfully started for %s", guid)
+            await send_all_notifications(
+                EventEnum.on_successful_download, requester_username, book_asin
+            )
+
         return response
 
 

@@ -1,4 +1,4 @@
-# AudioBookRequest <!-- omit from toc -->
+![Header](/media/AudioBookRequestIcon.png)
 
 Your tool for handling audiobook requests on a Plex/Audiobookshelf/Jellyfin instance.
 
