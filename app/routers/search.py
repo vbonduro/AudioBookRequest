@@ -26,9 +26,9 @@ from app.internal.models import (
     ManualBookRequest,
     Notification,
 )
-from app.internal.prowlarr.notifications import (
+from app.internal.notifications import (
+    send_all_notifications,
     send_manual_notification,
-    send_notification,
 )
 from app.internal.prowlarr.prowlarr import prowlarr_config
 from app.internal.query import query_sources
@@ -112,7 +112,7 @@ async def read_search(
     )
 
 
-async def background_start_query(asin: str):
+async def background_start_query(asin: str, requester_username: str):
     with open_session() as session:
         async with ClientSession() as client_session:
             await query_sources(
@@ -120,6 +120,7 @@ async def background_start_query(asin: str):
                 session=session,
                 client_session=client_session,
                 start_auto_download=True,
+                requester_username=requester_username,
             )
 
 
@@ -148,18 +149,16 @@ async def add_request(
         pass  # ignore if already exists
 
     if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
-        background_task.add_task(background_start_query, asin=asin)
-
-    notifications = session.exec(
-        select(Notification).where(Notification.event == EventEnum.on_new_request)
-    ).all()
-    for notif in notifications:
         background_task.add_task(
-            send_notification,
-            notification=notif,
-            requester_username=user.username,
-            book_asin=asin,
+            background_start_query, asin=asin, requester_username=user.username
         )
+
+    background_task.add_task(
+        send_all_notifications,
+        event_type=EventEnum.on_new_request,
+        requester_username=user.username,
+        book_asin=asin,
+    )
 
     if audible_regions.get(region) is None:
         raise HTTPException(status_code=400, detail="Invalid region")

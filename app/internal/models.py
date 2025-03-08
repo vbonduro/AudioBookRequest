@@ -177,6 +177,8 @@ class Log(BaseModel):
 
 class EventEnum(str, Enum):
     on_new_request = "onNewRequest"
+    on_successful_download = "onSuccessfulDownload"
+    on_failed_download = "onFailedDownload"
 
 
 class Notification(BaseModel, table=True):

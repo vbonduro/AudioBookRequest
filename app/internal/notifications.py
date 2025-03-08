@@ -1,9 +1,9 @@
 from typing import Optional
 
 from aiohttp import ClientSession
-from sqlmodel import select
+from sqlmodel import Session, select
 
-from app.internal.models import BookRequest, ManualBookRequest, Notification
+from app.internal.models import BookRequest, EventEnum, ManualBookRequest, Notification
 from app.util.db import open_session
 
 
@@ -38,45 +38,60 @@ def create_title_body(
     return title, body
 
 
-async def send_notification(
-    notification: Notification,
+async def send_all_notifications(
+    event_type: EventEnum,
     requester_username: Optional[str] = None,
     book_asin: Optional[str] = None,
 ):
     with open_session() as session:
-        async with ClientSession() as client_session:
-            book_title = None
-            book_authors = None
-            book_narrators = None
-            if book_asin:
-                book = session.exec(
-                    select(BookRequest).where(BookRequest.asin == book_asin)
-                ).first()
-                if book:
-                    book_title = book.title
-                    book_authors = ",".join(book.authors)
-                    book_narrators = ",".join(book.narrators)
-
-            title, body = create_title_body(
-                notification.title_template,
-                notification.body_template,
-                requester_username,
-                book_title,
-                book_authors,
-                book_narrators,
-                notification.event.value,
+        notifications = session.exec(
+            select(Notification).where(Notification.event == event_type)
+        ).all()
+        for notification in notifications:
+            await send_notification(
+                session, notification, requester_username, book_asin
             )
 
-            async with client_session.post(
-                notification.apprise_url,
-                json={
-                    "title": title,
-                    "body": body,
-                },
-                headers=notification.headers,
-            ) as response:
-                response.raise_for_status()
-                return await response.json()
+
+async def send_notification(
+    session: Session,
+    notification: Notification,
+    requester_username: Optional[str] = None,
+    book_asin: Optional[str] = None,
+):
+    async with ClientSession() as client_session:
+        book_title = None
+        book_authors = None
+        book_narrators = None
+        if book_asin:
+            book = session.exec(
+                select(BookRequest).where(BookRequest.asin == book_asin)
+            ).first()
+            if book:
+                book_title = book.title
+                book_authors = ",".join(book.authors)
+                book_narrators = ",".join(book.narrators)
+
+        title, body = create_title_body(
+            notification.title_template,
+            notification.body_template,
+            requester_username,
+            book_title,
+            book_authors,
+            book_narrators,
+            notification.event.value,
+        )
+
+        async with client_session.post(
+            notification.apprise_url,
+            json={
+                "title": title,
+                "body": body,
+            },
+            headers=notification.headers,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
 
 
 async def send_manual_notification(
@@ -84,6 +99,7 @@ async def send_manual_notification(
     book: ManualBookRequest,
     requester_username: Optional[str] = None,
 ):
+    """Send a notification for manual book requests"""
     try:
         async with ClientSession() as client_session:
             title, body = create_title_body(
