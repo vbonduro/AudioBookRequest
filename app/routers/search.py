@@ -231,8 +231,12 @@ async def delete_request(
 async def read_manual(
     request: Request,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    session: Annotated[Session, Depends(get_session)],
 ):
-    return template_response("manual.html", request, user, {})
+    auto_download = quality_config.get_auto_download(session)
+    return template_response(
+        "manual.html", request, user, {"auto_download": auto_download}
+    )
 
 
 @router.post("/manual")
@@ -272,11 +276,12 @@ async def add_manual(
             book=book_request,
             requester_username=user.username,
         )
+    auto_download = quality_config.get_auto_download(session)
 
     return template_response(
         "manual.html",
         request,
         user,
-        {"success": "Successfully added request"},
+        {"success": "Successfully added request", "auto_download": auto_download},
         block_name="form",
     )

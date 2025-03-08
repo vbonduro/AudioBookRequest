@@ -5,10 +5,6 @@
   class="w-screen flex flex-col items-center justify-center p-8 overflow-x-hidden gap-4"
 >
   <h1 class="text-3xl font-bold text-left w-full">Manual Request</h1>
-  <p class="text-sm text-neutral">
-    Manual requests do not automatically start a download. They have to be
-    manually reviewed.
-  </p>
 
   {% block form %}
   <form
@@ -18,13 +14,18 @@
     hx-swap="outerHTML"
     hx-disabled-elt="#submit-button"
   >
+    <p class="text-sm text-left w-full opacity-60">
+      {% if auto_download %} Manual requests do not automatically start a
+      download. They have to be manually reviewed. {% endif %}
+    </p>
+
     {% if success %}
     <script>
       toast("{{success|safe}}", "success");
     </script>
     {% endif %}
 
-    <label for="title">Title</label>
+    <label for="title">Title <span class="text-error">*</span></label>
     <input
       id="title"
       name="title"
@@ -44,7 +45,7 @@
       placeholder="The Lord of the Rings"
     />
 
-    <label for="author">Author(s)</label>
+    <label for="author">Author(s) <span class="text-error">*</span></label>
     <input
       id="author"
       name="author"

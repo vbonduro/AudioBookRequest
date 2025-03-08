@@ -15,11 +15,12 @@
       src="https://unpkg.com/htmx-ext-preload@2.1.0"
       crossorigin="anonymous"
     ></script>
+    <script src="https://cdn.jsdelivr.net/npm/theme-change@2.0.2/index.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden" hx-ext="preload">
     {% if not hide_navbar %}
-    <header class="bg-base-100 text-neutral shadow-lg">
+    <header class="shadow-lg">
       <nav class="navbar">
         <div class="flex-1">
           <a
@@ -58,6 +59,17 @@
         </div>
 
         <div class="flex-none flex pr-4">
+          <label
+            class="btn btn-ghost btn-square light-dark-toggle swap swap-rotate"
+          >
+            <input type="checkbox" data-toggle-theme="nord,night" />
+            <span class="swap-on svg-dark"
+              >{% include 'icons/moon.html' %}</span
+            >
+            <span class="swap-off svg-light"
+              >{% include 'icons/sun.html' %}</span
+            >
+          </label>
           {% if user.can_logout() %}
           <btn
             hx-post="/auth/logout"
