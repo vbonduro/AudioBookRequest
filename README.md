@@ -80,7 +80,7 @@ services:
     ports:
       - "8000:8765"
     environment:
-      - ABR_APP__PORT: 8765
+      ABR_APP__PORT: 8765
     volumes:
       - ./config:/config
 ```
