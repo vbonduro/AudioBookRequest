@@ -116,10 +116,11 @@
             {% endif %} {% endif %}
           </button>
         </div>
-
+        <a class="text-sm text-primary font-bold pt-1" href="https://audible{{ selected_region_tld }}/pd/{{book.asin}}" >
         <div class="text-sm text-primary font-bold pt-1" title="Title">
           {{ book.title }}
         </div>
+        </a>
         {% if book.subtitle %}
         <div class="opacity-60 font-semibold text-xs" title="Subtitle">
           {{ book.subtitle }}

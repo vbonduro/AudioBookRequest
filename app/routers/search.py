@@ -106,6 +106,7 @@ async def read_search(
             "search_results": books,
             "regions": list(audible_regions.keys()),
             "selected_region": region,
+            "selected_region_tld" : audible_regions.get(region),
             "page": page,
             "auto_start_download": quality_config.get_auto_download(session)
             and user.is_above(GroupEnum.trusted),
@@ -212,6 +213,7 @@ async def add_request(
             "search_results": books,
             "regions": list(audible_regions.keys()),
             "selected_region": region,
+            "selected_region_tld" : audible_regions.get(region),
             "page": page,
             "auto_start_download": quality_config.get_auto_download(session)
             and user.is_above(GroupEnum.trusted),
