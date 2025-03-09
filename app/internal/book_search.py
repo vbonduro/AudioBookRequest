@@ -1,7 +1,7 @@
 import asyncio
 import time
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Generic, Literal, Optional, TypeVar
 from urllib.parse import urlencode
 
 import pydantic
@@ -62,13 +62,57 @@ class CacheQuery(pydantic.BaseModel, frozen=True):
     audible_region: audible_region_type
 
 
-class CacheResult(pydantic.BaseModel, frozen=True):
-    books: list[BookRequest]
+T = TypeVar("T")
+
+
+class CacheResult(pydantic.BaseModel, Generic[T], frozen=True):
+    value: T
     timestamp: float
 
 
 # simple caching of search results to avoid having to fetch from audible so frequently
-search_cache: dict[CacheQuery, CacheResult] = {}
+search_cache: dict[CacheQuery, CacheResult[list[BookRequest]]] = {}
+search_suggestions_cache: dict[str, CacheResult[list[str]]] = {}
+
+
+async def get_search_suggestions(
+    client_session: ClientSession,
+    query: str,
+    audible_region: audible_region_type = "us",
+) -> list[str]:
+    cache_result = search_suggestions_cache.get(query)
+    if cache_result and time.time() - cache_result.timestamp < REFETCH_TTL:
+        return cache_result.value
+
+    params = {
+        "key_strokes": query,
+        "site_variant": "desktop",
+    }
+    base_url = (
+        f"https://api.audible{audible_regions[audible_region]}/1.0/searchsuggestions?"
+    )
+    url = base_url + urlencode(params)
+
+    async with client_session.get(url) as response:
+        response.raise_for_status()
+        results = await response.json()
+
+    items: list[Any] = results.get("model", {}).get("items", [])
+    titles: list[str] = [
+        item["model"]["product_metadata"]["title"]["value"]
+        for item in items
+        if item.get("model", {})
+        .get("product_metadata", {})
+        .get("title", {})
+        .get("value")
+    ]
+
+    search_suggestions_cache[query] = CacheResult(
+        value=titles,
+        timestamp=time.time(),
+    )
+
+    return titles
 
 
 async def list_audible_books(
@@ -90,56 +134,56 @@ async def list_audible_books(
     )
     cache_result = search_cache.get(cache_key)
 
-    if not cache_result or time.time() - cache_result.timestamp > REFETCH_TTL:
-        params = {
-            "num_results": num_results,
-            "products_sort_by": "Relevance",
-            "keywords": query,
-            "page": page,
-        }
-        base_url = f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products?"
-        url = base_url + urlencode(params)
+    if cache_result and time.time() - cache_result.timestamp < REFETCH_TTL:
+        return cache_result.value
 
-        async with client_session.get(url) as response:
-            response.raise_for_status()
-            books_json = await response.json()
+    params = {
+        "num_results": num_results,
+        "products_sort_by": "Relevance",
+        "keywords": query,
+        "page": page,
+    }
+    base_url = (
+        f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products?"
+    )
+    url = base_url + urlencode(params)
 
-        # do not fetch book results we already have locally
-        asins = set(asin_obj["asin"] for asin_obj in books_json["products"])
-        books = get_existing_books(session, asins)
-        for key in books.keys():
-            asins.remove(key)
+    async with client_session.get(url) as response:
+        response.raise_for_status()
+        books_json = await response.json()
 
-        # book ASINs we do not have => fetch and store
-        coros = [
-            get_audnexus_book(client_session, asin, audible_region) for asin in asins
-        ]
-        new_books = await asyncio.gather(*coros)
-        new_books = [b for b in new_books if b]
-        store_new_books(session, new_books)
-        for b in new_books:
-            books[b.asin] = b
+    # do not fetch book results we already have locally
+    asins = set(asin_obj["asin"] for asin_obj in books_json["products"])
+    books = get_existing_books(session, asins)
+    for key in books.keys():
+        asins.remove(key)
 
-        ordered: list[BookRequest] = []
-        for asin_obj in books_json["products"]:
-            book = books.get(asin_obj["asin"])
-            if book:
-                ordered.append(book)
+    # book ASINs we do not have => fetch and store
+    coros = [get_audnexus_book(client_session, asin, audible_region) for asin in asins]
+    new_books = await asyncio.gather(*coros)
+    new_books = [b for b in new_books if b]
+    store_new_books(session, new_books)
+    for b in new_books:
+        books[b.asin] = b
 
-        search_cache[cache_key] = CacheResult(
-            books=ordered,
-            timestamp=time.time(),
-        )
+    ordered: list[BookRequest] = []
+    for asin_obj in books_json["products"]:
+        book = books.get(asin_obj["asin"])
+        if book:
+            ordered.append(book)
 
-        # clean up cache slightly
-        for k in list(search_cache.keys()):
-            if time.time() - search_cache[k].timestamp > REFETCH_TTL:
-                try:
-                    del search_cache[k]
-                except KeyError:  # ignore in race conditions
-                    pass
-    else:
-        ordered = cache_result.books
+    search_cache[cache_key] = CacheResult(
+        value=ordered,
+        timestamp=time.time(),
+    )
+
+    # clean up cache slightly
+    for k in list(search_cache.keys()):
+        if time.time() - search_cache[k].timestamp > REFETCH_TTL:
+            try:
+                del search_cache[k]
+            except KeyError:  # ignore in race conditions
+                pass
 
     return ordered
 

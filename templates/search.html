@@ -35,11 +35,26 @@
       <!-- prettier-ignore -->
       <input
         name="q"
-        class="input input-bordered join-item"
+        class="input join-item"
         placeholder="Book name..."
         {% if not search_term %}autofocus{% endif %}
         value="{{ search_term }}"
+        spellcheck="false"
+        autocomplete="off"
+        list="search-suggestions"
+        hx-get="/search/suggestions?region={{ selected_region }}"
+        hx-target="#search-suggestions"
+        hx-swap="outerHTML"
+        hx-trigger="keyup changed delay:250ms"
       />
+      {% block search_suggestions %}
+      <datalist id="search-suggestions">
+        {% for suggestion in suggestions %}
+        <option value="{{ suggestion }}"></option>
+        {% endfor %}
+      </datalist>
+      {% endblock %}
+
       <select
         class="select join-item max-w-[4rem] sm:max-w-[5rem]"
         name="region"
@@ -79,7 +94,7 @@
           {% else %} {% include 'icons/photo-off.html' %} {% endif %}
           <!-- prettier-ignore -->
           <button
-            class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or book.already_requested %}btn-ghost bg-success{% else %}btn-info{% endif %}"
+            class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or book.already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-info{% endif %}"
             hx-post="/search/request/{{ book.asin }}"
             hx-disabled-elt="this"
             hx-target="#book-results"

@@ -8,10 +8,12 @@ from fastapi import (
     Depends,
     Form,
     HTTPException,
+    Query,
     Request,
 )
 from sqlmodel import Session, col, select
 
+from app.internal import book_search
 from app.internal.book_search import (
     audible_region_type,
     audible_regions,
@@ -70,18 +72,18 @@ async def read_search(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     session: Annotated[Session, Depends(get_session)],
-    q: Optional[str] = None,
+    query: Annotated[Optional[str], Query(alias="q")] = None,
     num_results: int = 20,
     page: int = 0,
     region: audible_region_type = "us",
 ):
     if audible_regions.get(region) is None:
         raise HTTPException(status_code=400, detail="Invalid region")
-    if q:
+    if query:
         results = await list_audible_books(
             session=session,
             client_session=client_session,
-            query=q,
+            query=query,
             num_results=num_results,
             page=page,
             audible_region=region,
@@ -100,7 +102,7 @@ async def read_search(
         request,
         user,
         {
-            "search_term": q or "",
+            "search_term": query or "",
             "search_results": books,
             "regions": list(audible_regions.keys()),
             "selected_region": region,
@@ -110,6 +112,26 @@ async def read_search(
             "prowlarr_configured": prowlarr_configured,
         },
     )
+
+
+@router.get("/suggestions")
+async def search_suggestions(
+    request: Request,
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    query: Annotated[str, Query(alias="q")],
+    region: audible_region_type = "us",
+):
+    async with ClientSession() as client_session:
+        suggestions = await book_search.get_search_suggestions(
+            client_session, query, region
+        )
+        return template_response(
+            "search.html",
+            request,
+            user,
+            {"suggestions": suggestions},
+            block_name="search_suggestions",
+        )
 
 
 async def background_start_query(asin: str, requester_username: str):
