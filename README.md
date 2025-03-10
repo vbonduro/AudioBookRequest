@@ -137,7 +137,7 @@ spec:
 
 # Contributing
 
-Pull requests are always welcome. Do note though that a big goal is to keep this project on a smaller scale. The main focus of this project is to make it easy for friends to request and potentially automatically download Audiobooks without having to give direct access to Readarr/Prowlarr.
+Suggestions are always welcome. Do note though that a big goal is to keep this project on a smaller scale. The main focus of this project is to make it easy for friends to request and potentially automatically download Audiobooks without having to give direct access to Readarr/Prowlarr. It might make sense to first create an issue before undertaking a big project and opening a pull request. Your idea could already be worked on in the background.
 
 ## Local Development
 
