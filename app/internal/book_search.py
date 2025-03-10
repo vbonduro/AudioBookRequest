@@ -125,6 +125,10 @@ async def list_audible_books(
 ) -> list[BookRequest]:
     """
     https://audible.readthedocs.io/en/latest/misc/external_api.html#get--1.0-catalog-products
+
+    We first use the audible search API to get a list of matching ASINs. Using these ASINs we check our database
+    if we have any of the books already to save on the amount of requests we have to do.
+    Any books we don't already have locally, we fetch all the details from audnexus.
     """
     cache_key = CacheQuery(
         query=query,
