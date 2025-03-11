@@ -75,7 +75,7 @@ async def query_sources(
                 query,
                 force_refresh=force_refresh,
             )
-            sources = inject_mam_metadata(sources,mam_sources)
+            sources = inject_mam_metadata(prowlarrData=sources,mamData=mam_sources)
 
         ranked = await rank_sources(session, client_session, sources, book)
 

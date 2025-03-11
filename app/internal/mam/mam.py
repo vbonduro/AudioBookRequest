@@ -68,46 +68,44 @@ async def query_mam(
     force_refresh: bool = False,
 ) -> dict[str, TorrentSource]:
     if not query:
-        return {}
-
-    base_url = "https://www.myanonamouse.net"
+        return dict()
+    
     session_id = mam_config.get_session_id(session)
     assert session_id is not None 
-        
-    if not force_refresh:
-        source_ttl = mam_config.get_source_ttl(session)
-        cached_sources = mam_source_cache.get(source_ttl, query)
-        if cached_sources:
-            return cached_sources
+    # TODO: Add cache, disabled because this cache is global so it would return prowlarr results. A dirty solution would be to just have it in the cache under "mam_" + querry. This would work. 
+    # if not force_refresh:
+        # source_ttl = mam_config.get_source_ttl(session)
+        # cached_sources = mam_source_cache.get(source_ttl, query)
+        # if cached_sources:
+        #     return cached_sources
     params: dict[str, Any] = {
-        "text": query, # book title + author(s)
+        "tor[text]": query, # book title + author(s)
+        
+        "tor[main_cat]": [13],
+        "tor[searchIn]": "torrents",
+        'tor[srchIn][author]': 'true',
+        'tor[srchIn][title]': 'true',
+        'tor[searchType]': 'active',
+        "startNumber": 0, 
         "perpage": 100,
-        "tor": {
-            "main_cat": {13}, # 13 is the audiobook category on mam
-            "searchIn": "torrents",
-            "searchType": "active", # retrieve only torrents with at least 1 seed. 
-            "srchIn": {
-                "title": "true",
-                "author": "true",
-		    },
-        },
-        "startNumber": 0 #offset
     }
 
-
+    base_url = "https://www.myanonamouse.net"
     url = urljoin(base_url, f"/tor/js/loadSearchJSONbasic.php?{urlencode(params, doseq=True)}")
 
     logger.info("Querying Mam: %s", url)
+    print(url)
     async with ClientSession() as client_session:
 
         async with client_session.get(
             url,
-            cookies={"mam_id":mam_config.get_session_id}
+            cookies={"mam_id":mam_config.get_session_id(session)}
         ) as response:
-            search_results = await response.json()
-    sources : Dict[str,TorrentSource] = {}
+            search_results =  await response.json()
+    # Storing in dict for faster retrieval by guid
+    sources : Dict[str,TorrentSource] = dict()
 
-    for result in search_results:
+    for result in search_results["data"]:
         # TODO reduce to just authors / narrator unless there is a use for the other data. 
         sources.update({
             f'https://www.myanonamouse.net/t/{result["id"]}':
@@ -123,25 +121,28 @@ async def query_mam(
                 info_url=f'https://www.myanonamouse.net/t/{result["id"]}',
                 indexer_flags=["freeleech"] if result["personal_freeleech"]==1 else [], # TODO add differentiate between freeleech and VIP freeleech availible flags in result: [free, fl_vip, personal_freeleech]
                 publish_date=datetime.fromisoformat(result["added"]),
-                authors=list(json.load(result["author_info"]).values()),
-                narrators=list(json.load(result["narrator_info"]).values())
+                authors=list(json.loads(result["author_info"]).values() ) if result["author_info"] else [],
+                narrators=list(json.loads(result["narrator_info"]).values()) if result["narrator_info"] else []
             )
         }
         )
        
 
-    mam_source_cache.set(sources, query)
+    # mam_source_cache.set(sources, query)
 
     return sources
 
 
 def inject_mam_metadata(prowlarrData: list[ProwlarrSource], mamData: Dict[str,TorrentSource]) -> list[ProwlarrSource]:
+    print(mamData)
     for p in prowlarrData:
         m =mamData.get(p.guid)
         if m is None:
+            print("Not found: ", p.title, p.guid)
             continue
         p.authors= m.authors
         p.narrators = m.narrators
+        print(m.authors, m.narrators, p.title)
 
     return prowlarrData
 
