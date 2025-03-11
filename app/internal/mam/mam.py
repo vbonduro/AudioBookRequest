@@ -72,12 +72,12 @@ async def query_mam(
     
     session_id = mam_config.get_session_id(session)
     assert session_id is not None 
-    # TODO: Add cache, disabled because this cache is global so it would return prowlarr results. A dirty solution would be to just have it in the cache under "mam_" + querry. This would work. 
-    # if not force_refresh:
-        # source_ttl = mam_config.get_source_ttl(session)
-        # cached_sources = mam_source_cache.get(source_ttl, query)
-        # if cached_sources:
-        #     return cached_sources
+     
+    if not force_refresh:
+        source_ttl = mam_config.get_source_ttl(session)
+        cached_sources = mam_source_cache.get(source_ttl,"mam_"+query)
+        if cached_sources:
+            return cached_sources
     params: dict[str, Any] = {
         "tor[text]": query, # book title + author(s)
         
@@ -127,7 +127,7 @@ async def query_mam(
         )
        
 
-    # mam_source_cache.set(sources, query)
+    mam_source_cache.set(sources, "mam_" + query)
 
     return sources
 
