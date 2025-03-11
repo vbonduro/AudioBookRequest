@@ -13,11 +13,7 @@ from app.internal.prowlarr.prowlarr import (
     start_download,
 )
 
-from app.internal.mam.mam import (
-    mam_config,
-    query_mam,
-    inject_mam_metadata
-)
+from app.internal.indexers.mam import mam_config, query_mam, inject_mam_metadata
 from app.internal.ranking.download_ranking import rank_sources
 
 querying: set[str] = set()
@@ -72,10 +68,11 @@ async def query_sources(
 
             mam_sources = await query_mam(
                 session,
+                client_session,
                 query,
                 force_refresh=force_refresh,
             )
-            sources = inject_mam_metadata(prowlarrData=sources,mamData=mam_sources)
+            sources = inject_mam_metadata(prowlarrData=sources, mamData=mam_sources)
 
         ranked = await rank_sources(session, client_session, sources, book)
 

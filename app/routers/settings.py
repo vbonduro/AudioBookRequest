@@ -10,7 +10,7 @@ from app.internal.models import EventEnum, GroupEnum, Notification, User
 from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
-from app.internal.mam.mam import mam_config
+from app.internal.indexers.mam import mam_config
 
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.auth import (
@@ -282,7 +282,6 @@ def read_prowlarr(
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
             "mam_active": mam_is_active,
             "mam_id": mam_id,
-
         },
     )
 
@@ -336,6 +335,7 @@ def update_indexer_categories(
         block_name="category",
     )
 
+
 @router.put("/mam/mam_id")
 def update_mam_id(
     mam_id: Annotated[str, Form()],
@@ -347,6 +347,7 @@ def update_mam_id(
     mam_config.set_mam_id(session, mam_id)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
+
 @router.put("/mam/activate")
 def activate_mam(
     session: Annotated[Session, Depends(get_session)],
@@ -357,6 +358,7 @@ def activate_mam(
     mam_config.set_active(session, True)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
+
 @router.put("/mam/deactivate")
 def deactivate_mam(
     session: Annotated[Session, Depends(get_session)],
@@ -366,7 +368,6 @@ def deactivate_mam(
 ):
     mam_config.set_active(session, False)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
-
 
 
 @router.get("/download")
