@@ -51,8 +51,8 @@
             <a href="{{ source.info_url }}" class="link">{{ source.title }}</a>
           </td>
           {% if mam_active %}
-          <td>{{ source.authors }}</td>
-          <td>{{ source.narrators }}</td>
+          <td>{{ source.authors|join(', ') }}</td>
+          <td>{{ source.narrators|join(', ') }} </td>
           {% endif %}
           <td>{{ source.indexer }}</td>
           <td>{{ source.indexer_flags|join(', ') }}</td>

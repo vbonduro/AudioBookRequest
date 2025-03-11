@@ -94,12 +94,11 @@ async def query_mam(
     url = urljoin(base_url, f"/tor/js/loadSearchJSONbasic.php?{urlencode(params, doseq=True)}")
 
     logger.info("Querying Mam: %s", url)
-    print(url)
     async with ClientSession() as client_session:
 
         async with client_session.get(
             url,
-            cookies={"mam_id":mam_config.get_session_id(session)}
+            cookies={"mam_id":session_id}
         ) as response:
             search_results =  await response.json()
     # Storing in dict for faster retrieval by guid
