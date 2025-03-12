@@ -1,5 +1,5 @@
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware import Middleware
@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 
-from app.internal.auth.auth import RequiresLoginException, auth_config
+from app.internal.auth.login import RequiresLoginException, auth_config
 from app.internal.auth.session_middleware import (
     DynamicSessionMiddleware,
     middleware_linker,
@@ -44,9 +44,13 @@ user_exists = False
 @app.exception_handler(RequiresLoginException)
 async def redirect_to_login(request: Request, exc: RequiresLoginException):
     if request.method == "GET":
+        params: dict[str, str] = {}
         if exc.detail:
-            return RedirectResponse(f"/login?error={quote_plus(exc.detail)}")
-        return RedirectResponse("/login")
+            params["error"] = exc.detail
+        path = request.url.path
+        if path != "/" and not path.startswith("/login"):
+            params["redirect_uri"] = path
+        return RedirectResponse("/login?" + urlencode(params))
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -5,6 +5,12 @@ from app.util.time import Second
 
 
 class DynamicSessionMiddleware:
+    """
+    A wrapper around the Starlette SessionMiddleware with the ability to
+    change options during run-time
+    https://www.starlette.io/middleware/#sessionmiddleware
+    """
+
     def __init__(
         self,
         app: ASGIApp,

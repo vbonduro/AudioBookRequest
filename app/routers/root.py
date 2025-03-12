@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlmodel import Session
 
-from app.internal.auth.auth import (
+from app.internal.auth.config import LoginTypeEnum, auth_config
+from app.internal.auth.login import (
     DetailedUser,
-    LoginTypeEnum,
-    auth_config,
     create_user,
     get_authenticated_user,
     raise_for_invalid_password,

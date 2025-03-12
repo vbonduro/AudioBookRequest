@@ -6,20 +6,19 @@ from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
-from app.internal.models import EventEnum, GroupEnum, Notification, User
-from app.internal.prowlarr.indexer_categories import indexer_categories
-from app.internal.notifications import send_notification
-from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
-from app.internal.auth.auth import (
+from app.internal.auth.config import LoginTypeEnum, auth_config
+from app.internal.auth.login import (
     DetailedUser,
-    LoginTypeEnum,
-    auth_config,
     create_user,
     get_authenticated_user,
     is_correct_password,
     raise_for_invalid_password,
 )
+from app.internal.models import EventEnum, GroupEnum, Notification, User
+from app.internal.notifications import send_notification
+from app.internal.prowlarr.indexer_categories import indexer_categories
+from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
+from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response

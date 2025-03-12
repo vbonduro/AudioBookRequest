@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Form, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from app.internal.auth.auth import (
+from app.internal.auth.login import (
     DetailedUser,
     authenticate_user,
     get_authenticated_user,
@@ -30,6 +30,7 @@ def login_access_token(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    redirect_uri: str = Form("/"),
 ):
     user = authenticate_user(session, form_data.username, form_data.password)
     if not user:
@@ -40,4 +41,6 @@ def login_access_token(
         )
 
     request.session["sub"] = form_data.username
-    return Response(status_code=status.HTTP_200_OK, headers={"HX-Redirect": "/"})
+    return Response(
+        status_code=status.HTTP_200_OK, headers={"HX-Redirect": redirect_uri}
+    )
