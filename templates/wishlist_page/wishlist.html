@@ -78,7 +78,9 @@
         </td>
         <td class="lg:hidden">{{ book.release_date.strftime("%Y") }}</td>
         <td>{{ book.runtime_length_hrs }}</td>
-        <td>{{ book.amount_requested }}</td>
+        <td title="{{ book.requested_by|join('\n') }}">
+          {{ book.amount_requested }}
+        </td>
 
         <td class="grid grid-cols-2 min-w-[8rem] gap-1">
           <!--prettier-ignore -->

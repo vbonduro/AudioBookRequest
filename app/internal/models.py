@@ -72,8 +72,12 @@ class BookSearchResult(BaseBook):
 
 
 class BookWishlistResult(BaseBook):
-    amount_requested: int = 0
+    requested_by: list[str] = []
     download_error: Optional[str] = None
+
+    @property
+    def amount_requested(self):
+        return len(self.requested_by)
 
 
 class BookRequest(BaseBook, table=True):

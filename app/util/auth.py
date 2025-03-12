@@ -9,7 +9,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, OAuth2PasswordBearer
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.internal.models import GroupEnum, User
 from app.util.cache import StringConfigCache
@@ -164,7 +164,7 @@ def get_authenticated_user(lowest_allowed_group: GroupEnum = GroupEnum.untrusted
         if login_type == LoginTypeEnum.forms:
             user = await _get_forms_auth(request, session)
         elif login_type == LoginTypeEnum.none:
-            user = await _get_none_auth()
+            user = await _get_none_auth(session)
         else:
             user = await _get_basic_auth(request, session)
 
@@ -237,6 +237,8 @@ async def _get_forms_auth(
     return user
 
 
-async def _get_none_auth() -> User:
-    """Treats every request as being root / turns off authentication"""
-    return User(username="no-login", password="", group=GroupEnum.admin, root=True)
+async def _get_none_auth(session: Session) -> User:
+    """Treats every request as being root by returning the first admin user"""
+    return session.exec(
+        select(User).where(User.group == GroupEnum.admin).limit(1)
+    ).one()
