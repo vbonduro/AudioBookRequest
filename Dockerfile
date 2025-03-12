@@ -1,8 +1,8 @@
-# Install daisyui
 FROM node:23-alpine3.20
 
 WORKDIR /app
 
+# Install daisyui
 COPY package.json package.json
 COPY package-lock.json package-lock.json
 RUN npm install

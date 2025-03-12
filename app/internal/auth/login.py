@@ -166,7 +166,8 @@ class ABRAuth:
         return user
 
     # TODO
-    async def _get_oidc_auth(self, request: Request, session: Session) -> User: ...
+    async def _get_oidc_auth(self, request: Request, session: Session) -> User:
+        raise RequiresLoginException()
 
     async def _get_none_auth(self, session: Session) -> User:
         """Treats every request as being root by returning the first admin user"""

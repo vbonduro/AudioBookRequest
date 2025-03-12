@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import Annotated, Any, Optional, cast
 
-from aiohttp import ClientResponseError, ClientSession
+from aiohttp import ClientResponseError
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
@@ -19,7 +19,6 @@ from app.internal.notifications import send_notification
 from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
-from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response
 from app.util.time import Minute
@@ -609,7 +608,6 @@ async def execute_notification(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
-    client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     notification = session.exec(
         select(Notification).where(Notification.id == notification_id)
