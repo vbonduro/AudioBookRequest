@@ -1,3 +1,4 @@
+from collections import defaultdict
 import uuid
 from typing import Annotated, Literal, Optional
 
@@ -12,7 +13,6 @@ from fastapi import (
     Response,
 )
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.internal.models import (
@@ -41,23 +41,32 @@ def get_wishlist_books(
     username: Optional[str] = None,
     response_type: Literal["all", "downloaded", "not_downloaded"] = "all",
 ) -> list[BookWishlistResult]:
-    query = select(
-        BookRequest, func.count(col(BookRequest.user_username)).label("count")
-    )
+    """
+    Gets the books that have been requested. If a username is given only the books requested by that
+    user are returned. If no username is given, all book requests are returned.
+    """
     if username:
-        query = query.where(BookRequest.user_username == username)
+        query = select(BookRequest).where(BookRequest.user_username == username)
     else:
-        query = query.where(col(BookRequest.user_username).is_not(None))
+        query = select(BookRequest).where(col(BookRequest.user_username).is_not(None))
 
-    book_requests = session.exec(
-        query.select_from(BookRequest).group_by(BookRequest.asin)
-    ).all()
+    book_requests = session.exec(query).all()
 
+    # group by asin and aggregate all usernames
+    usernames: dict[str, list[str]] = defaultdict(list)
+    distinct_books: dict[str, BookRequest] = {}
+    for book in book_requests:
+        if book.asin not in distinct_books:
+            distinct_books[book.asin] = book
+        if book.user_username:
+            usernames[book.asin].append(book.user_username)
+
+    # add information of what users requested the book
     books: list[BookWishlistResult] = []
     downloaded: list[BookWishlistResult] = []
-    for book, count in book_requests:
+    for asin, book in distinct_books.items():
         b = BookWishlistResult.model_validate(book)
-        b.amount_requested = count
+        b.requested_by = usernames[asin]
         if b.downloaded:
             downloaded.append(b)
         else:
