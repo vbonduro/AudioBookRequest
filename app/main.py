@@ -2,27 +2,41 @@ from typing import Any
 from urllib.parse import quote_plus
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware import Middleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 
+from app.internal.auth.auth import RequiresLoginException, auth_config
+from app.internal.auth.session_middleware import (
+    DynamicSessionMiddleware,
+    middleware_linker,
+)
 from app.internal.env_settings import Settings
 from app.internal.models import User
-from app.routers import root, search, settings, wishlist
-from app.util.auth import RequiresLoginException
+from app.routers import auth, login, root, search, settings, wishlist
 from app.util.db import open_session
+
+with open_session() as session:
+    auth_secret = auth_config.get_auth_secret(session)
 
 app = FastAPI(
     title="AudioBookRequest",
     debug=Settings().app.debug,
     openapi_url="/openapi.json" if Settings().app.openapi_enabled else None,
+    middleware=[
+        Middleware(DynamicSessionMiddleware, auth_secret, middleware_linker),
+        Middleware(GZipMiddleware),
+    ],
 )
 
-
+app.include_router(auth.router)
+app.include_router(login.router)
 app.include_router(root.router)
 app.include_router(search.router)
-app.include_router(wishlist.router)
 app.include_router(settings.router)
+app.include_router(wishlist.router)
 
 user_exists = False
 

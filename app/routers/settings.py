@@ -11,7 +11,7 @@ from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
-from app.util.auth import (
+from app.internal.auth.auth import (
     DetailedUser,
     LoginTypeEnum,
     auth_config,
@@ -23,6 +23,7 @@ from app.util.auth import (
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response
+from app.util.time import Minute
 
 router = APIRouter(prefix="/settings")
 
@@ -690,7 +691,7 @@ def update_security(
 
     old = auth_config.get_login_type(session)
     auth_config.set_login_type(session, login_type)
-    auth_config.set_access_token_expiry_minutes(session, access_token_expiry)
+    auth_config.set_access_token_expiry_minutes(session, Minute(access_token_expiry))
     auth_config.set_min_password_length(session, min_password_length)
     return template_response(
         "settings_page/security.html",

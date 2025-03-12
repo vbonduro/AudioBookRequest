@@ -33,6 +33,9 @@
       <option value="forms" {% if login_type.is_forms() %}selected{% endif %}>
         Forms Login
       </option>
+      <option value="oidc" {% if login_type.is_oidc() %}selected{% endif %}>
+        OpenID Connect
+      </option>
       <option value="none" {% if login_type.is_none() %}selected{% endif %}>
         None (Insecure)
       </option>

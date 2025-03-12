@@ -5,7 +5,7 @@ from fastapi import Request, Response
 from jinja2_fragments.fastapi import Jinja2Blocks
 from starlette.background import BackgroundTask
 
-from app.util.auth import DetailedUser
+from app.internal.auth.auth import DetailedUser
 
 templates = Jinja2Blocks(directory="templates")
 templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]

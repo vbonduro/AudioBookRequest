@@ -8,12 +8,14 @@ import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBasic, OAuth2PasswordBearer
+from fastapi.security import HTTPBasic, OAuth2PasswordBearer, OpenIdConnect
 from sqlmodel import Session, select
 
+from app.internal.auth.session_middleware import middleware_linker
 from app.internal.models import GroupEnum, User
 from app.util.cache import StringConfigCache
 from app.util.db import get_session
+from app.util.time import Minute, Second
 
 JWT_ALGORITHM = "HS256"
 
@@ -21,6 +23,7 @@ JWT_ALGORITHM = "HS256"
 class LoginTypeEnum(str, Enum):
     basic = "basic"
     forms = "forms"
+    oidc = "oidc"
     none = "none"
 
     def is_basic(self):
@@ -31,6 +34,9 @@ class LoginTypeEnum(str, Enum):
 
     def is_none(self):
         return self == LoginTypeEnum.none
+
+    def is_oidc(self):
+        return self == LoginTypeEnum.oidc
 
 
 AuthConfigKey = Literal[
@@ -53,6 +59,7 @@ class AuthConfig(StringConfigCache[AuthConfigKey]):
 
     def reset_auth_secret(self, session: Session):
         auth_secret = base64.encodebytes(secrets.token_bytes(64)).decode("utf-8")
+        middleware_linker.update_secret(auth_secret)
         self.set(session, "auth_secret", auth_secret)
 
     def get_auth_secret(self, session: Session) -> str:
@@ -63,10 +70,11 @@ class AuthConfig(StringConfigCache[AuthConfigKey]):
         self.set(session, "auth_secret", auth_secret)
         return auth_secret
 
-    def get_access_token_expiry_minutes(self, session: Session):
-        return self.get_int(session, "access_token_expiry_minutes", 60 * 24 * 7)
+    def get_access_token_expiry_minutes(self, session: Session) -> Minute:
+        return Minute(self.get_int(session, "access_token_expiry_minutes", 60 * 24 * 7))
 
-    def set_access_token_expiry_minutes(self, session: Session, expiry: int):
+    def set_access_token_expiry_minutes(self, session: Session, expiry: Minute):
+        middleware_linker.update_max_age(Second(expiry * 60))
         self.set_int(session, "access_token_expiry_minutes", expiry)
 
     def get_min_password_length(self, session: Session) -> int:
@@ -81,12 +89,6 @@ class DetailedUser(User):
 
     def can_logout(self):
         return self.login_type == LoginTypeEnum.forms
-
-
-security = HTTPBasic()
-ph = PasswordHasher()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
-auth_config = AuthConfig()
 
 
 def raise_for_invalid_password(
@@ -154,91 +156,103 @@ def create_user(
     return User(username=username, password=password_hash, group=group, root=root)
 
 
-def get_authenticated_user(lowest_allowed_group: GroupEnum = GroupEnum.untrusted):
-    async def get_user(
-        request: Request,
-        session: Annotated[Session, Depends(get_session)],
-    ) -> DetailedUser:
-        login_type = auth_config.get_login_type(session)
-
-        if login_type == LoginTypeEnum.forms:
-            user = await _get_forms_auth(request, session)
-        elif login_type == LoginTypeEnum.none:
-            user = await _get_none_auth(session)
-        else:
-            user = await _get_basic_auth(request, session)
-
-        if not user.is_above(lowest_allowed_group):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
-            )
-
-        user = DetailedUser.model_validate(user, update={"login_type": login_type})
-
-        return user
-
-    return get_user
-
-
-async def _get_basic_auth(
-    request: Request,
-    session: Session,
-) -> User:
-    invalid_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid credentials",
-        headers={"WWW-Authenticate": "Basic"},
-    )
-
-    credentials = await security(request)
-
-    if not credentials:
-        raise invalid_exception
-
-    user = authenticate_user(session, credentials.username, credentials.password)
-    if not user:
-        raise invalid_exception
-
-    return user
-
-
 class RequiresLoginException(Exception):
     def __init__(self, detail: Optional[str] = None, **kwargs: object):
         super().__init__(**kwargs)
         self.detail = detail
 
 
-async def _get_forms_auth(
-    request: Request,
-    session: Session,
-) -> User:
-    # Authentication is either through Authorization header or cookie
-    token = await oauth2_scheme(request)
-    if not token:
-        token = request.cookies.get("audio_sess")
-        if not token:
+class ABRAuth:
+    def __init__(self):
+        self.oidc_scheme: Optional[OpenIdConnect] = None
+        self.none_user: Optional[User] = None
+
+    def __call__(self, lowest_allowed_group: GroupEnum):
+        return self._get_authenticated_user(lowest_allowed_group)
+
+    def _get_authenticated_user(self, lowest_allowed_group: GroupEnum):
+        async def get_user(
+            request: Request,
+            session: Annotated[Session, Depends(get_session)],
+        ) -> DetailedUser:
+            login_type = auth_config.get_login_type(session)
+
+            if login_type == LoginTypeEnum.forms:
+                user = await self._get_forms_auth(request, session)
+            elif login_type == LoginTypeEnum.none:
+                user = await self._get_none_auth(session)
+            elif login_type == LoginTypeEnum.oidc:
+                user = await self._get_oidc_auth(request, session)
+            else:
+                user = await self._get_basic_auth(request, session)
+
+            if not user.is_above(lowest_allowed_group):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+                )
+
+            user = DetailedUser.model_validate(user, update={"login_type": login_type})
+
+            return user
+
+        return get_user
+
+    async def _get_basic_auth(
+        self,
+        request: Request,
+        session: Session,
+    ) -> User:
+        invalid_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+        credentials = await security(request)
+
+        if not credentials:
+            raise invalid_exception
+
+        user = authenticate_user(session, credentials.username, credentials.password)
+        if not user:
+            raise invalid_exception
+
+        return user
+
+    async def _get_forms_auth(
+        self,
+        request: Request,
+        session: Session,
+    ) -> User:
+        username = request.session.get("sub")
+        if not username:
             raise RequiresLoginException()
 
-    try:
-        payload = jwt.decode(  # pyright: ignore[reportUnknownMemberType]
-            token, auth_config.get_auth_secret(session), algorithms=[JWT_ALGORITHM]
-        )
-    except jwt.InvalidTokenError:
-        raise RequiresLoginException("Token is expired/invalid")
+        user = session.get(User, username)
+        if not user:
+            raise RequiresLoginException("User does not exist")
 
-    username = payload.get("sub")
-    if username is None:
-        raise RequiresLoginException("Token is invalid")
+        return user
 
-    user = session.get(User, username)
-    if not user:
-        raise RequiresLoginException("User does not exist")
+    # TODO
+    async def _get_oidc_auth(self, request: Request, session: Session) -> User: ...
 
-    return user
+    async def _get_none_auth(self, session: Session) -> User:
+        """Treats every request as being root by returning the first admin user"""
+        if self.none_user:
+            return self.none_user
+        self.none_user = session.exec(
+            select(User).where(User.group == GroupEnum.admin).limit(1)
+        ).one()
+        return self.none_user
 
 
-async def _get_none_auth(session: Session) -> User:
-    """Treats every request as being root by returning the first admin user"""
-    return session.exec(
-        select(User).where(User.group == GroupEnum.admin).limit(1)
-    ).one()
+security = HTTPBasic()
+ph = PasswordHasher()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+auth_config = AuthConfig()
+abr_authentication = ABRAuth()
+
+
+def get_authenticated_user(lowest_allowed_group: GroupEnum = GroupEnum.untrusted):
+    return abr_authentication(lowest_allowed_group)
