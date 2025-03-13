@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.auth.login import RequiresLoginException, get_authenticated_user
-from app.internal.env_settings import Settings
+from app.internal.auth.oidc_config import InvalidOIDCConfiguration, oidc_config
 from app.util.db import get_session
 from app.util.templates import templates
 
@@ -33,19 +33,23 @@ async def login(
         pass
 
     if login_type == LoginTypeEnum.oidc:
-        host = Settings().app.public_host.rstrip("/")
-        client_id = Settings().oidc.client_id
-        scope = Settings().oidc.scope
-        endpoint = Settings().oidc.endpoint.rstrip("/")
+        authorize_endpoint = oidc_config.get(session, "oidc_authorize_endpoint")
+        client_id = oidc_config.get(session, "oidc_client_id")
+        scope = oidc_config.get(session, "oidc_scope") or "openid"
+        if not authorize_endpoint:
+            raise InvalidOIDCConfiguration("Missing OIDC endpoint")
+        if not client_id:
+            raise InvalidOIDCConfiguration("Missing OIDC client ID")
+
+        base_url = str(request.base_url).rstrip("/")
         params = {
             "response_type": "code",
             "client_id": client_id,
-            "redirect_uri": f"{host}/auth/oidc",
+            "redirect_uri": f"{base_url}/auth/oidc",
             "scope": scope,
             "state": redirect_uri,
         }
-        # TODO: get endpoint from .well-known
-        return RedirectResponse(f"{endpoint}/authorize/?" + urlencode(params))
+        return RedirectResponse(f"{authorize_endpoint}?" + urlencode(params))
 
     return templates.TemplateResponse(
         "login.html",

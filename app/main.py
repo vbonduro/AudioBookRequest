@@ -1,5 +1,5 @@
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote_plus, urlencode
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware import Middleware
@@ -8,7 +8,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 
+from app.internal.auth.config import LoginTypeEnum
 from app.internal.auth.login import RequiresLoginException, auth_config
+from app.internal.auth.oidc_config import InvalidOIDCConfiguration
 from app.internal.auth.session_middleware import (
     DynamicSessionMiddleware,
     middleware_linker,
@@ -57,6 +59,17 @@ async def redirect_to_login(request: Request, exc: RequiresLoginException):
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@app.exception_handler(InvalidOIDCConfiguration)
+async def redirect_to_invalid_oidc(request: Request, exc: InvalidOIDCConfiguration):
+    with open_session() as session:
+        auth_config.set_login_type(session, LoginTypeEnum.forms)
+
+    path = "/auth/invalid-oidc"
+    if exc.detail:
+        path += f"?error={quote_plus(exc.detail)}"
+    return RedirectResponse(path)
 
 
 @app.middleware("http")

@@ -1,7 +1,5 @@
-from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
-import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, Request, status
@@ -19,7 +17,7 @@ class DetailedUser(User):
     login_type: LoginTypeEnum
 
     def can_logout(self):
-        return self.login_type == LoginTypeEnum.forms
+        return self.login_type in [LoginTypeEnum.forms, LoginTypeEnum.oidc]
 
 
 def raise_for_invalid_password(
@@ -65,16 +63,6 @@ def authenticate_user(session: Session, username: str, password: str) -> Optiona
         session.commit()
 
     return user
-
-
-def create_access_token(
-    auth_secret: str, data: dict[str, str | datetime], expires_delta: timedelta
-):
-    to_encode = data.copy()
-    expires = datetime.now(timezone.utc) + expires_delta
-    to_encode.update({"exp": expires})
-    encoded_jwt = jwt.encode(to_encode, auth_secret, algorithm=JWT_ALGORITHM)  # pyright: ignore[reportUnknownMemberType]
-    return encoded_jwt
 
 
 def create_user(
@@ -165,9 +153,9 @@ class ABRAuth:
 
         return user
 
-    # TODO
+    # TODO: Update information of the user after they log in
     async def _get_oidc_auth(self, request: Request, session: Session) -> User:
-        raise RequiresLoginException()
+        return await self._get_forms_auth(request, session)
 
     async def _get_none_auth(self, session: Session) -> User:
         """Treats every request as being root by returning the first admin user"""

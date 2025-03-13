@@ -1,17 +1,21 @@
+import base64
+import secrets
 from typing import Annotated, Optional
 
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, Request, Response, status
-from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session
+import jwt
+from sqlmodel import Session, select
 
+from app.internal.auth.oidc_config import InvalidOIDCConfiguration, oidc_config
 from app.internal.auth.login import (
     DetailedUser,
     authenticate_user,
+    create_user,
     get_authenticated_user,
 )
-from app.internal.env_settings import Settings
+from app.internal.models import GroupEnum, User
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import templates
@@ -53,32 +57,113 @@ def login_access_token(
 @router.get("/oidc")
 async def login_oidc(
     request: Request,
+    session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     code: str,
     state: Optional[str] = None,
 ):
-    endpoint = Settings().oidc.endpoint.rstrip("/")
-    client_id = Settings().oidc.client_id
-    client_secret = Settings().oidc.client_secret
-    username_claim = Settings().oidc.username_claim
+    token_endpoint = oidc_config.get(session, "oidc_token_endpoint")
+    client_id = oidc_config.get(session, "oidc_client_id")
+    client_secret = oidc_config.get(session, "oidc_client_secret")
+    username_claim = oidc_config.get(session, "oidc_username_claim")
+    group_claim = oidc_config.get(session, "oidc_group_claim")
+
+    if not token_endpoint:
+        raise InvalidOIDCConfiguration("Missing OIDC endpoint")
+    if not client_id:
+        raise InvalidOIDCConfiguration("Missing OIDC client ID")
+    if not client_secret:
+        raise InvalidOIDCConfiguration("Missing OIDC client secret")
+    if not username_claim:
+        raise InvalidOIDCConfiguration("Missing OIDC username claim")
+    if not group_claim:
+        raise InvalidOIDCConfiguration("Missing OIDC group claim")
+
+    base_url = str(request.base_url).rstrip("/")
 
     data = {
         "grant_type": "authorization_code",
         "code": code,
         "client_id": client_id,
         "client_secret": client_secret,
-        "redirect_uri": f"{Settings().app.public_host}/auth/oidc",  # TODO: is this even required?
+        "redirect_uri": f"{base_url}/auth/oidc",
     }
-    # TODO: get endpoint from .well-known
     async with client_session.post(
-        endpoint + "/token/",
+        token_endpoint,
         data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     ) as response:
         body = await response.json()
-        print(body)
 
-    # TODO: validate the token and extract username and group claims
-    access_token = body["access_token"]
-    id_token = body["id_token"]
-    # return RedirectResponse(state or "/")
+    id_token = body.get("id_token")
+    if not id_token:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        # TODO: Verify signature
+        decoded = jwt.decode(  # pyright: ignore[reportUnknownMemberType]
+            id_token,
+            options={"verify_signature": False},
+            require=[
+                username_claim,
+                group_claim,
+            ],  # TODO: 'require' has no effect if verify_signature is False
+        )
+    except jwt.InvalidTokenError as e:
+        print(f"Invalid id_token: {e}")
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    username = decoded[username_claim]
+    groups = decoded.get(group_claim, [])
+    user = session.exec(select(User).where(User.username == username)).first()
+    if not user:
+        user = create_user(
+            username=username,
+            password=base64.encodebytes(secrets.token_bytes(64)).decode("utf-8"),
+        )
+    ensure_group = GroupEnum.untrusted
+    for group in groups:
+        if group.lower() == "admin":
+            ensure_group = GroupEnum.admin
+            break
+        elif group.lower() == "trusted":
+            ensure_group = GroupEnum.trusted
+            break
+        elif group.lower() == "untrusted":
+            ensure_group = GroupEnum.untrusted
+            break
+    user.group = ensure_group
+    session.add(user)
+    session.commit()
+
+    request.session["sub"] = decoded[username_claim]
+
+    # We can't redirect server side, because that results in an infinite loop.
+    # The session token is never correctly set causing any other endpoint to
+    # redirect to the login page which in turn starts the OIDC flow again.
+    # The redirect page allows for the cookie to properly be set on the browser
+    # and then redirects client-side.
+    return templates.TemplateResponse(
+        "redirect.html",
+        {
+            "request": request,
+            "hide_navbar": True,
+            "redirect_uri": state or "/",
+        },
+    )
+
+
+@router.get("/invalid-oidc")
+def invalid_oidc(
+    request: Request,
+    error: Optional[str] = None,
+):
+    return templates.TemplateResponse(
+        "invalid_oidc.html",
+        {
+            "request": request,
+            "error": error,
+            "hide_navbar": True,
+        },
+        status_code=status.HTTP_200_OK,
+    )

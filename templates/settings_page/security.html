@@ -1,5 +1,9 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Security</title>
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+></script>
 {% include 'scripts/toast.html' %} {% endblock %} {% block content %}
 <div class="flex flex-col">
   {% block error_toast %}
@@ -16,6 +20,7 @@
     hx-post="/settings/security"
     hx-disabled-elt="#save-button"
     hx-target="this"
+    x-data="{ loginType: '{{ login_type.value }}' }"
   >
     {% if success %}
     <script>
@@ -26,7 +31,12 @@
     <h2 class="text-lg">Login/Security</h2>
 
     <label for="login-type">Login Type</label>
-    <select id="login-type" name="login_type" class="select w-full">
+    <select
+      id="login-type"
+      name="login_type"
+      class="select w-full"
+      x-model="loginType"
+    >
       <option value="basic" {% if login_type.is_basic() %}selected{% endif %}>
         Basic Auth (Dialog)
       </option>
@@ -41,24 +51,116 @@
       </option>
     </select>
 
-    <label for="expiry-input">Access Token Expiry (minutes)</label>
-    <input
-      id="expiry-input"
-      type="number"
-      name="access_token_expiry"
-      class="input w-full"
-      value="{{ access_token_expiry }}"
-    />
+    <template x-if="loginType === 'forms' || loginType === 'oidc'">
+      <div class="contents">
+        <label for="expiry-input">Access Token Expiry (minutes)</label>
+        <input
+          id="expiry-input"
+          type="number"
+          name="access_token_expiry"
+          class="input w-full"
+          value="{{ access_token_expiry }}"
+        />
+      </div>
+    </template>
 
-    <label for="pw-len-input">Minimum Password Length</label>
-    <input
-      id="pw-len-input"
-      type="number"
-      name="min_password_length"
-      class="input w-full"
-      placeholder="1"
-      value="{{ min_password_length }}"
-    />
+    <template x-if="loginType === 'forms' || loginType === 'basic'">
+      <div class="contents">
+        <label for="pw-len-input">Minimum Password Length</label>
+        <input
+          id="pw-len-input"
+          type="number"
+          name="min_password_length"
+          class="input w-full"
+          placeholder="1"
+          value="{{ min_password_length }}"
+        />
+      </div>
+    </template>
+
+    <template x-if="loginType === 'oidc'">
+      <div class="contents">
+        <label for="oidc-client-id">OIDC Client ID</label>
+        <input
+          id="oidc-client-id"
+          required
+          type="text"
+          autocomplete="off"
+          name="oidc_client_id"
+          class="input w-full"
+          value="{{ oidc_client_id}}"
+        />
+
+        <label for="oidc-client-secret">OIDC Client Secret</label>
+        <input
+          id="oidc-client-secret"
+          required
+          type="text"
+          autocomplete="off"
+          name="oidc_client_secret"
+          class="input w-full"
+          value="{{ oidc_client_secret }}"
+        />
+
+        <label for="oidc-endpoint">OIDC Configuration Endpoint</label>
+        <p class="opacity-60">
+          This has to be the
+          <span class="font-mono">.well-known/openid-configuration</span>
+          endpoint
+        </p>
+        <input
+          id="oidc-endpoint"
+          required
+          type="text"
+          placeholder="https://example.com/.well-known/openid-configuration"
+          name="oidc_endpoint"
+          class="input w-full"
+          value="{{ oidc_endpoint }}"
+        />
+
+        <label for="oidc-scope">OIDC Scopes</label>
+        <input
+          id="oidc-scope"
+          required
+          type="text"
+          placeholder="openid profile"
+          autocomplete="off"
+          name="oidc_scope"
+          class="input w-full"
+          value="{{ oidc_scope }}"
+        />
+
+        <label for="oidc-username-claim">OIDC Username Claim</label>
+        <input
+          id="oidc-username-claim"
+          required
+          type="text"
+          autocomplete="off"
+          placeholder="sub"
+          name="oidc_username_claim"
+          class="input w-full"
+          value="{{ oidc_username_claim }}"
+        />
+
+        <label for="oidc-username-claim">OIDC Group Claim</label>
+        <input
+          id="oidc-group-claim"
+          required
+          type="text"
+          autocomplete="off"
+          placeholder="group"
+          name="oidc_group_claim"
+          class="input w-full"
+          value="{{ oidc_group_claim }}"
+        />
+
+        <p class="text-error">
+          Make sure all the settings are correct. Once you save you'll be
+          redirected to your auth server. If there is a configuration error the
+          login type will be reset to the forms login.
+        </p>
+      </div>
+    </template>
 
     <button
       id="save-button"
