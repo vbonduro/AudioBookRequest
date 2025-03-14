@@ -1,11 +1,12 @@
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlmodel import Session
 
 from app.internal.auth.config import LoginTypeEnum, auth_config
-from app.internal.auth.login import (
+from app.internal.auth.authentication import (
     DetailedUser,
     create_user,
     get_authenticated_user,
@@ -111,3 +112,8 @@ def create_init(
     session.commit()
 
     return Response(status_code=201, headers={"HX-Redirect": "/"})
+
+
+@router.get("/login")
+def redirect_login(request: Request):
+    return RedirectResponse("/auth/login?" + urlencode(request.query_params))

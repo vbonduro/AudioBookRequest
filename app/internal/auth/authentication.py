@@ -86,22 +86,17 @@ class ABRAuth:
         self.oidc_scheme: Optional[OpenIdConnect] = None
         self.none_user: Optional[User] = None
 
-    def __call__(self, lowest_allowed_group: GroupEnum):
-        return self._get_authenticated_user(lowest_allowed_group)
-
-    def _get_authenticated_user(self, lowest_allowed_group: GroupEnum):
+    def get_authenticated_user(self, lowest_allowed_group: GroupEnum):
         async def get_user(
             request: Request,
             session: Annotated[Session, Depends(get_session)],
         ) -> DetailedUser:
             login_type = auth_config.get_login_type(session)
 
-            if login_type == LoginTypeEnum.forms:
-                user = await self._get_forms_auth(request, session)
+            if login_type == LoginTypeEnum.forms or login_type == LoginTypeEnum.oidc:
+                user = await self._get_session_auth(request, session)
             elif login_type == LoginTypeEnum.none:
                 user = await self._get_none_auth(session)
-            elif login_type == LoginTypeEnum.oidc:
-                user = await self._get_oidc_auth(request, session)
             else:
                 user = await self._get_basic_auth(request, session)
 
@@ -137,7 +132,7 @@ class ABRAuth:
 
         return user
 
-    async def _get_forms_auth(
+    async def _get_session_auth(
         self,
         request: Request,
         session: Session,
@@ -152,10 +147,6 @@ class ABRAuth:
             raise RequiresLoginException("User does not exist")
 
         return user
-
-    # TODO: Update information of the user after they log in
-    async def _get_oidc_auth(self, request: Request, session: Session) -> User:
-        return await self._get_forms_auth(request, session)
 
     async def _get_none_auth(self, session: Session) -> User:
         """Treats every request as being root by returning the first admin user"""
@@ -174,4 +165,4 @@ abr_authentication = ABRAuth()
 
 
 def get_authenticated_user(lowest_allowed_group: GroupEnum = GroupEnum.untrusted):
-    return abr_authentication(lowest_allowed_group)
+    return abr_authentication.get_authenticated_user(lowest_allowed_group)

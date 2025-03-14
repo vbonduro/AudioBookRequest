@@ -1,16 +1,20 @@
 import base64
 import secrets
 from typing import Annotated, Optional
+from urllib.parse import urlencode
 
 from aiohttp import ClientSession
-from fastapi import APIRouter, Depends, Form, Request, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 import jwt
 from sqlmodel import Session, select
 
+from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.auth.oidc_config import InvalidOIDCConfiguration, oidc_config
-from app.internal.auth.login import (
+from app.internal.auth.authentication import (
     DetailedUser,
+    RequiresLoginException,
     authenticate_user,
     create_user,
     get_authenticated_user,
@@ -21,6 +25,58 @@ from app.util.db import get_session
 from app.util.templates import templates
 
 router = APIRouter(prefix="/auth")
+
+
+@router.get("/login")
+async def login(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    error: Optional[str] = None,
+    redirect_uri: str = "/",
+    backup: bool = False,
+):
+    login_type = auth_config.get(session, "login_type")
+    if login_type in [LoginTypeEnum.basic, LoginTypeEnum.none]:
+        return RedirectResponse(redirect_uri)
+    if login_type != LoginTypeEnum.oidc and backup:
+        backup = False
+
+    try:
+        await get_authenticated_user()(request, session)
+        # already logged in
+        return RedirectResponse(redirect_uri)
+    except (HTTPException, RequiresLoginException):
+        pass
+
+    if login_type == LoginTypeEnum.oidc and not backup:
+        authorize_endpoint = oidc_config.get(session, "oidc_authorize_endpoint")
+        client_id = oidc_config.get(session, "oidc_client_id")
+        scope = oidc_config.get(session, "oidc_scope") or "openid"
+        if not authorize_endpoint:
+            raise InvalidOIDCConfiguration("Missing OIDC endpoint")
+        if not client_id:
+            raise InvalidOIDCConfiguration("Missing OIDC client ID")
+
+        base_url = str(request.base_url).rstrip("/")
+        params = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": f"{base_url}/auth/oidc",
+            "scope": scope,
+            "state": redirect_uri,
+        }
+        return RedirectResponse(f"{authorize_endpoint}?" + urlencode(params))
+
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "hide_navbar": True,
+            "error": error,
+            "redirect_uri": redirect_uri,
+            "backup": backup,
+        },
+    )
 
 
 @router.post("/logout")
@@ -45,6 +101,15 @@ def login_access_token(
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "hide_navbar": True, "error": "Invalid login"},
+            block_name="error_toast",
+        )
+
+    # only admins can use the backup forms login
+    login_type = auth_config.get_login_type(session)
+    if login_type == LoginTypeEnum.oidc and not user.root:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "hide_navbar": True, "error": "Not root admin"},
             block_name="error_toast",
         )
 
@@ -113,28 +178,38 @@ async def login_oidc(
         print(f"Invalid id_token: {e}")
         return Response(status_code=status.HTTP_401_UNAUTHORIZED)
 
-    username = decoded[username_claim]
-    groups = decoded.get(group_claim, [])
+    username = decoded.get(username_claim)
+    if not username:
+        raise InvalidOIDCConfiguration("Missing username claim")
+
+    groups: list[str] | str = decoded.get(group_claim, [])
+    if isinstance(groups, str):
+        groups = groups.split(" ")
+
     user = session.exec(select(User).where(User.username == username)).first()
     if not user:
         user = create_user(
             username=username,
+            # assign a random password to users created via OIDC
             password=base64.encodebytes(secrets.token_bytes(64)).decode("utf-8"),
         )
-    ensure_group = GroupEnum.untrusted
-    for group in groups:
-        if group.lower() == "admin":
-            ensure_group = GroupEnum.admin
-            break
-        elif group.lower() == "trusted":
-            ensure_group = GroupEnum.trusted
-            break
-        elif group.lower() == "untrusted":
-            ensure_group = GroupEnum.untrusted
-            break
-    user.group = ensure_group
-    session.add(user)
-    session.commit()
+
+    # Don't overwrite the group if the user is root admin
+    if not user.root:
+        ensure_group = GroupEnum.untrusted
+        for group in groups:
+            if group.lower() == "admin":
+                ensure_group = GroupEnum.admin
+                break
+            elif group.lower() == "trusted":
+                ensure_group = GroupEnum.trusted
+                break
+            elif group.lower() == "untrusted":
+                ensure_group = GroupEnum.untrusted
+                break
+        user.group = ensure_group
+        session.add(user)
+        session.commit()
 
     request.session["sub"] = decoded[username_claim]
 
@@ -156,8 +231,11 @@ async def login_oidc(
 @router.get("/invalid-oidc")
 def invalid_oidc(
     request: Request,
+    session: Annotated[Session, Depends(get_session)],
     error: Optional[str] = None,
 ):
+    if auth_config.get_login_type(session) != LoginTypeEnum.oidc:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
     return templates.TemplateResponse(
         "invalid_oidc.html",
         {

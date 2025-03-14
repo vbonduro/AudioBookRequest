@@ -8,8 +8,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 
-from app.internal.auth.config import LoginTypeEnum
-from app.internal.auth.login import RequiresLoginException, auth_config
+from app.internal.auth.authentication import RequiresLoginException, auth_config
 from app.internal.auth.oidc_config import InvalidOIDCConfiguration
 from app.internal.auth.session_middleware import (
     DynamicSessionMiddleware,
@@ -17,7 +16,7 @@ from app.internal.auth.session_middleware import (
 )
 from app.internal.env_settings import Settings
 from app.internal.models import User
-from app.routers import auth, login, root, search, settings, wishlist
+from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
 
 with open_session() as session:
@@ -34,7 +33,6 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
-app.include_router(login.router)
 app.include_router(root.router)
 app.include_router(search.router)
 app.include_router(settings.router)
@@ -63,9 +61,6 @@ async def redirect_to_login(request: Request, exc: RequiresLoginException):
 
 @app.exception_handler(InvalidOIDCConfiguration)
 async def redirect_to_invalid_oidc(request: Request, exc: InvalidOIDCConfiguration):
-    with open_session() as session:
-        auth_config.set_login_type(session, LoginTypeEnum.forms)
-
     path = "/auth/invalid-oidc"
     if exc.detail:
         path += f"?error={quote_plus(exc.detail)}"

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
 from app.internal.auth.config import LoginTypeEnum, auth_config
-from app.internal.auth.login import (
+from app.internal.auth.authentication import (
     DetailedUser,
     create_user,
     get_authenticated_user,

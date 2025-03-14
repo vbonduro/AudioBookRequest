@@ -6,8 +6,10 @@
     <p>The OIDC configuration is invalid!</p>
     <p>Error: <span class="font-mono text-error">{{ error }}</span></p>
 
-    <p>Login type has been automatically set back to forms-based login.</p>
-    <a class="btn" href="/settings/security">Head to OIDC Settings</a>
+    <p>
+      Click the button below to log in with an admin account (without oidc):
+    </p>
+    <a class="btn" href="/login?backup=1">Backup Login</a>
   </div>
 </div>
 

@@ -36,7 +36,7 @@ from app.internal.prowlarr.prowlarr import prowlarr_config
 from app.internal.query import query_sources
 from app.internal.ranking.quality import quality_config
 from app.routers.wishlist import get_wishlist_books
-from app.internal.auth.login import DetailedUser, get_authenticated_user
+from app.internal.auth.authentication import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.db import get_session, open_session
 from app.util.templates import template_response

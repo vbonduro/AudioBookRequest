@@ -13,6 +13,8 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
   - [Usage](#usage)
     - [Auto download](#auto-download)
     - [Notifications](#notifications)
+    - [OpenID Connect](#openid-connect)
+      - [Getting locked out](#getting-locked-out)
   - [Alternative Deployments](#alternative-deployments)
     - [Environment Variables](#environment-variables)
 - [Contributing](#contributing)
@@ -62,6 +64,23 @@ Notifications depend on [Apprise](https://github.com/caronc/apprise).
 3. On Apprise, copy the notification url along the format of `https://apprise.example.com/notify/<id>`.
 4. On AudioBookRequest, head to `Settings>Notifications` and add the URL.
 5. Configure the remaining settings. **The event variables are case sensitive**.
+
+### OpenID Connect
+
+OIDC allows you to use an external authentication service (Authentik, Keycloak, etc.) for user and group authentication. It can be configured in `Settings>Security`. The following six settings are required to successfully set up oidc. Ensure you use the correct values. Incorrect values or changing values on your authentication server in the future can cause lead to locking you out of the service. In those cases head to [`Getting "locked" out`](#getting-locked-out).
+
+- `well-known` configuration endpoint: This is located at `/realms/{realm-name}/.well-known/openid-configuration` for keycloak or `/application/o/{issuer}/.well-known/openid-configuration` for authentik.
+- username claim: The claim that should be used for usernames. The username has to be unique. **NOTE:** Any user logging in with the username of the root admin account will be root admin, no matter what group they're assigned.
+- group claim: This is the claim that contains the group of each user. It should either be a string or a list of strings with one of the following case-insensitive values: `untrusted`, `trusted`, or `admin`. Any user without any groups is assigned the `untrusted` role.
+- scope: The scopes required to get all the necessary information. The scope `openid` is almost **always** required. You need to add all required scopes to that the username and group claim is available.
+- client id
+- client secret
+
+Applying settings does not directly invalidate your current session. To test OIDC-settings, press the "log out" button to invalidate your current session.
+
+#### Getting locked out
+
+In the case of an OIDC misconfiguration, i.e. changing a setting like your client secret on your auth server, can cause you to be locked out. In these cases, you can head to `/login?backup=1`, where you can log in using your root admin credentials allowing you to correctly configure any settings.
 
 ## Alternative Deployments
 
