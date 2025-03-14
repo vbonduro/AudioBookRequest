@@ -133,7 +133,7 @@ class BaseSource(BaseModel):
     title: str
     size: int  # in bytes
     publish_date: datetime
-    info_url: str
+    info_url: Optional[str]
     indexer_flags: list[str]
     download_url: Optional[str] = None
     magnet_url: Optional[str] = None

@@ -44,7 +44,9 @@
           <th>{{ loop.index }}</th>
 
           <td>
-            <a href="{{ source.info_url }}" class="link">{{ source.title }}</a>
+            {% if source.info_url %}<a href="{{ source.info_url }}" class="link"
+              >{{ source.title }}</a
+            >{% else %}{{ source.title }}{% endif %}
           </td>
           <td>{{ source.indexer }}</td>
           <td>{{ source.indexer_flags|join(', ') }}</td>
