@@ -76,6 +76,8 @@ OIDC allows you to use an external authentication service (Authentik, Keycloak, 
 - client id
 - client secret
 
+In your auth server settings, make sure you allow for redirecting to `/auth/oidc`. The oidc-login flow will redirect you there after you log in.
+
 Applying settings does not directly invalidate your current session. To test OIDC-settings, press the "log out" button to invalidate your current session.
 
 #### Getting locked out
@@ -97,9 +99,7 @@ services:
   web:
     image: markbeep/audiobookrequest:1
     ports:
-      - "8000:8765"
-    environment:
-      ABR_APP__PORT: 8765
+      - "8000:8000"
     volumes:
       - ./config:/config
 ```
@@ -130,12 +130,9 @@ spec:
           volumeMounts:
             - mountPath: /config
               name: abr-config
-          env:
-            - name: ABR_APP__PORT
-              value: "8765"
           ports:
             - name: http-request
-              containerPort: 8765
+              containerPort: 8000
       volumes:
         - name: abr-config
           hostPath:

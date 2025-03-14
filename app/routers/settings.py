@@ -693,20 +693,22 @@ async def update_security(
             headers={"HX-Retarget": "#message"},
         )
 
-    if login_type in [LoginTypeEnum.basic, LoginTypeEnum.forms]:
-        if access_token_expiry is not None:
-            if access_token_expiry < 1:
-                return error_response("Access token expiry can't be 0 or negative")
-            else:
-                auth_config.set_access_token_expiry_minutes(
-                    session, Minute(access_token_expiry)
-                )
+    if (
+        login_type in [LoginTypeEnum.basic, LoginTypeEnum.forms]
+        and min_password_length is not None
+    ):
+        if min_password_length < 1:
+            return error_response("Minimum password length can't be 0 or negative")
+        else:
+            auth_config.set_min_password_length(session, min_password_length)
 
-        if min_password_length is not None:
-            if min_password_length < 1:
-                return error_response("Minimum password length can't be 0 or negative")
-            else:
-                auth_config.set_min_password_length(session, min_password_length)
+    if access_token_expiry is not None:
+        if access_token_expiry < 1:
+            return error_response("Access token expiry can't be 0 or negative")
+        else:
+            auth_config.set_access_token_expiry_minutes(
+                session, Minute(access_token_expiry)
+            )
 
     if login_type == LoginTypeEnum.oidc:
         if oidc_endpoint:
@@ -722,9 +724,9 @@ async def update_security(
         if oidc_group_claim:
             oidc_config.set(session, "oidc_group_claim", oidc_group_claim)
 
-        error = await oidc_config.validate(session, client_session)
-        if error:
-            return error_response(error)
+        error_message = await oidc_config.validate(session, client_session)
+        if error_message:
+            return error_response(error_message)
 
     old = auth_config.get_login_type(session)
     auth_config.set_login_type(session, login_type)
@@ -736,13 +738,12 @@ async def update_security(
             "page": "security",
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
-            "oidc_client_id": oidc_config.get(session, "oidc_client_id") or "",
-            "oidc_scope": oidc_config.get(session, "oidc_scope") or "",
-            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim")
-            or "",
-            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim") or "",
-            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret") or "",
-            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint") or "",
+            "oidc_client_id": oidc_config.get(session, "oidc_client_id", ""),
+            "oidc_scope": oidc_config.get(session, "oidc_scope", ""),
+            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim", ""),
+            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
+            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret", ""),
+            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint", ""),
             "success": "Settings updated",
         },
         block_name="form",

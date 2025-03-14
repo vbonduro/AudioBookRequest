@@ -155,9 +155,17 @@
         />
 
         <p class="text-error">
-          Make sure all the settings are correct. Once you save you'll be
-          redirected to your auth server. If there is a configuration error the
-          login type will be reset to the forms login.
+          Make sure all the settings are correct. In the case of a
+          miconfiguration, you can log in at
+          <a
+            href="/login?backup=1"
+            class="font-mono link whitespace-nowrap inline-block"
+            >/login?backup=1</a
+          >
+          to fix the settings.
+          <br />
+          Note: To test your OpenID Connect settings you have to log out to
+          invalidate your current session first.
         </p>
       </div>
     </template>
