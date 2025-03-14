@@ -92,11 +92,12 @@ def read_users(
     session: Annotated[Session, Depends(get_session)],
 ):
     users = session.exec(select(User)).all()
+    is_oidc = auth_config.get_login_type(session) == LoginTypeEnum.oidc
     return template_response(
         "settings_page/users.html",
         request,
         admin_user,
-        {"page": "users", "users": users},
+        {"page": "users", "users": users, "is_oidc": is_oidc},
     )
 
 
@@ -721,7 +722,8 @@ async def update_security(
             oidc_config.set(session, "oidc_scope", oidc_scope)
         if oidc_username_claim:
             oidc_config.set(session, "oidc_username_claim", oidc_username_claim)
-        if oidc_group_claim:
+
+        if oidc_group_claim is not None:
             oidc_config.set(session, "oidc_group_claim", oidc_group_claim)
 
         error_message = await oidc_config.validate(session, client_session)

@@ -1,3 +1,4 @@
+import time
 from typing import Annotated, Optional
 
 from argon2 import PasswordHasher
@@ -91,10 +92,12 @@ class ABRAuth:
         ) -> DetailedUser:
             login_type = auth_config.get_login_type(session)
 
-            if login_type == LoginTypeEnum.forms or login_type == LoginTypeEnum.oidc:
+            if login_type == LoginTypeEnum.forms:
                 user = await self._get_session_auth(request, session)
             elif login_type == LoginTypeEnum.none:
                 user = await self._get_none_auth(session)
+            elif login_type == LoginTypeEnum.oidc:
+                user = await self._get_oidc_auth(request, session)
             else:
                 user = await self._get_basic_auth(request, session)
 
@@ -145,6 +148,16 @@ class ABRAuth:
             raise RequiresLoginException("User does not exist")
 
         return user
+
+    async def _get_oidc_auth(
+        self,
+        request: Request,
+        session: Session,
+    ) -> User:
+        if exp := request.session.get("exp"):
+            if exp < time.time():
+                raise RequiresLoginException()
+        return await self._get_session_auth(request, session)
 
     async def _get_none_auth(self, session: Session) -> User:
         """Treats every request as being root by returning the first admin user"""

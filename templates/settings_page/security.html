@@ -51,7 +51,7 @@
       </option>
     </select>
 
-    <template x-if="loginType === 'forms' || loginType === 'oidc'">
+    <template x-if="loginType === 'forms'">
       <div class="contents">
         <label for="expiry-input">Access Token Expiry (minutes)</label>
         <input
@@ -80,7 +80,9 @@
 
     <template x-if="loginType === 'oidc'">
       <div class="contents">
-        <label for="oidc-client-id">OIDC Client ID</label>
+        <label for="oidc-client-id"
+          >OIDC Client ID <span class="text-error">*</span></label
+        >
         <input
           id="oidc-client-id"
           required
@@ -91,7 +93,9 @@
           value="{{ oidc_client_id}}"
         />
 
-        <label for="oidc-client-secret">OIDC Client Secret</label>
+        <label for="oidc-client-secret"
+          >OIDC Client Secret <span class="text-error">*</span></label
+        >
         <input
           id="oidc-client-secret"
           required
@@ -102,12 +106,18 @@
           value="{{ oidc_client_secret }}"
         />
 
-        <label for="oidc-endpoint">OIDC Configuration Endpoint</label>
-        <p class="opacity-60">
-          This has to be the
-          <span class="font-mono">.well-known/openid-configuration</span>
-          endpoint
-        </p>
+        <div>
+          <label for="oidc-endpoint"
+            >OIDC Configuration Endpoint
+            <span class="text-error">*</span></label
+          >
+          <p class="opacity-60 text-xs">
+            The
+            <span class="font-mono">.well-known/openid-configuration</span>
+            endpoint containing all the OIDC information. You should be able to
+            visit the page and view it yourself.
+          </p>
+        </div>
         <input
           id="oidc-endpoint"
           required
@@ -118,7 +128,16 @@
           value="{{ oidc_endpoint }}"
         />
 
-        <label for="oidc-scope">OIDC Scopes</label>
+        <div>
+          <label for="oidc-scope"
+            >OIDC Scopes <span class="text-error">*</span></label
+          >
+          <p class="opacity-60 text-xs">
+            The scopes that will be requested from the OIDC provider. "openid"
+            is almost always required. Add the scopes required to fetch the
+            username and group claims.
+          </p>
+        </div>
         <input
           id="oidc-scope"
           required
@@ -130,7 +149,18 @@
           value="{{ oidc_scope }}"
         />
 
-        <label for="oidc-username-claim">OIDC Username Claim</label>
+        <div>
+          <label for="oidc-username-claim"
+            >OIDC Username Claim <span class="text-error">*</span></label
+          >
+          <p class="opacity-60 text-xs">
+            The claim that will be used for the username. Make sure the
+            respective scope is passed along above. For example some services
+            expect the "email" claim to be able to use the email. "sub" is
+            always avaiable. You can head to the OIDC endpoint to see what
+            claims are avaiable.
+          </p>
+        </div>
         <input
           id="oidc-username-claim"
           required
@@ -142,10 +172,17 @@
           value="{{ oidc_username_claim }}"
         />
 
-        <label for="oidc-username-claim">OIDC Group Claim</label>
+        <div>
+          <label for="oidc-username-claim">OIDC Group Claim</label>
+          <p class="opacity-60 text-xs">
+            The claim that contains the group(s) the user is in. For example, if
+            a user is in the group "trusted" they will be assigned the Trusted
+            role here. The group claim can be a list of groups or a single one
+            and is case-insensitive.
+          </p>
+        </div>
         <input
           id="oidc-group-claim"
-          required
           type="text"
           autocomplete="off"
           placeholder="group"
@@ -154,7 +191,7 @@
           value="{{ oidc_group_claim }}"
         />
 
-        <p class="text-error">
+        <p class="text-error text-xs">
           Make sure all the settings are correct. In the case of a
           miconfiguration, you can log in at
           <a
@@ -164,8 +201,8 @@
           >
           to fix the settings.
           <br />
-          Note: To test your OpenID Connect settings you have to log out to
-          invalidate your current session first.
+          <span class="font-semibold">Note:</span> To test your OpenID Connect
+          settings you have to log out to invalidate your current session first.
         </p>
       </div>
     </template>

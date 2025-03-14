@@ -16,6 +16,7 @@ oidcConfigKey = Literal[
     "oidc_token_endpoint",
     "oidc_userinfo_endpoint",
     "oidc_authorize_endpoint",
+    "oidc_end_session_endpoint",
 ]
 
 
@@ -41,6 +42,9 @@ class oidcConfig(StringConfigCache[oidcConfigKey]):
                 )
                 self.set(session, "oidc_token_endpoint", data["token_endpoint"])
                 self.set(session, "oidc_userinfo_endpoint", data["userinfo_endpoint"])
+                self.set(
+                    session, "oidc_end_session_endpoint", data["end_session_endpoint"]
+                )
 
     async def validate(
         self, session: Session, client_session: ClientSession
@@ -72,7 +76,7 @@ class oidcConfig(StringConfigCache[oidcConfigKey]):
             return "Username claim is not supported by the provider"
 
         group_claim = self.get(session, "oidc_group_claim")
-        if not group_claim or group_claim not in provider_claims:
+        if group_claim and group_claim not in provider_claims:
             return "Group claim is not supported by the provider"
 
 

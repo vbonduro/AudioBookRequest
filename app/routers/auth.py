@@ -1,5 +1,6 @@
 import base64
 import secrets
+import time
 from typing import Annotated, Optional
 from urllib.parse import urlencode
 
@@ -79,10 +80,21 @@ async def login(
 
 
 @router.post("/logout")
-def logout(
-    request: Request, user: Annotated[DetailedUser, Depends(get_authenticated_user())]
+async def logout(
+    request: Request,
+    user: Annotated[DetailedUser, Depends(get_authenticated_user())],
+    session: Annotated[Session, Depends(get_session)],
 ):
     request.session["sub"] = ""
+
+    login_type = auth_config.get_login_type(session)
+    if login_type == LoginTypeEnum.oidc:
+        end_session_endpoint = oidc_config.get(session, "oidc_end_session_endpoint")
+        if end_session_endpoint:
+            return Response(
+                status_code=status.HTTP_204_NO_CONTENT,
+                headers={"HX-Redirect": end_session_endpoint},
+            )
     return Response(
         status_code=status.HTTP_204_NO_CONTENT, headers={"HX-Redirect": "/login"}
     )
@@ -143,8 +155,6 @@ async def login_oidc(
         raise InvalidOIDCConfiguration("Missing OIDC client secret")
     if not username_claim:
         raise InvalidOIDCConfiguration("Missing OIDC username claim")
-    if not group_claim:
-        raise InvalidOIDCConfiguration("Missing OIDC group claim")
 
     base_url = str(request.base_url).rstrip("/")
 
@@ -162,7 +172,7 @@ async def login_oidc(
     ) as response:
         body = await response.json()
 
-    access_token = body.get("access_token")
+    access_token: Optional[str] = body.get("access_token")
     if not access_token:
         return Response(status_code=status.HTTP_401_UNAUTHORIZED)
 
@@ -176,9 +186,12 @@ async def login_oidc(
     if not username:
         raise InvalidOIDCConfiguration("Missing username claim")
 
-    groups: list[str] | str = userinfo.get(group_claim, [])
-    if isinstance(groups, str):
-        groups = groups.split(" ")
+    if group_claim:
+        groups: list[str] | str = userinfo.get(group_claim, [])
+        if isinstance(groups, str):
+            groups = groups.split(" ")
+    else:
+        groups = []
 
     user = session.exec(select(User).where(User.username == username)).first()
     if not user:
@@ -190,22 +203,28 @@ async def login_oidc(
 
     # Don't overwrite the group if the user is root admin
     if not user.root:
-        ensure_group = GroupEnum.untrusted
         for group in groups:
             if group.lower() == "admin":
-                ensure_group = GroupEnum.admin
+                user.group = GroupEnum.admin
                 break
             elif group.lower() == "trusted":
-                ensure_group = GroupEnum.trusted
+                user.group = GroupEnum.trusted
                 break
             elif group.lower() == "untrusted":
-                ensure_group = GroupEnum.untrusted
+                user.group = GroupEnum.untrusted
                 break
-        user.group = ensure_group
-        session.add(user)
-        session.commit()
+
+    session.add(user)
+    session.commit()
+
+    expires_in: int = body.get(
+        "expires_in",
+        auth_config.get_access_token_expiry_minutes(session) * 60,
+    )
+    expires = int(time.time() + expires_in)
 
     request.session["sub"] = username
+    request.session["exp"] = expires
 
     # We can't redirect server side, because that results in an infinite loop.
     # The session token is never correctly set causing any other endpoint to

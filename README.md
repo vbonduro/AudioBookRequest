@@ -77,7 +77,7 @@ OIDC allows you to use an external authentication service (Authentik, Keycloak, 
 - client id
 - client secret
 
-In your auth server settings, make sure you allow for redirecting to `/auth/oidc`. The oidc-login flow will redirect you there after you log in.
+In your auth server settings, make sure you allow for redirecting to `/auth/oidc`. The oidc-login flow will redirect you there after you log in. Additionally, the access token expiry time from the authentication server will be used if provided. This might be fairly low by default.
 
 Applying settings does not directly invalidate your current session. To test OIDC-settings, press the "log out" button to invalidate your current session.
 

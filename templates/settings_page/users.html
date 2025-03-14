@@ -2,6 +2,13 @@
 <title>Settings - Users</title>
 {% include 'scripts/toast.html' %}
 {% endblock %} {% block content %}
+
+{% if is_oidc %}
+<p class="text-error font-semibold">
+  OpenID Connect is enabled. Users will be automatically created when they log in.
+  If a user has a group assigned on the authentication server, it will override their group here.
+</p>
+{% endif %}
 <form
   id="create-user-form"
   class="flex flex-col gap-2"
@@ -44,6 +51,12 @@
 {% block user_block %}
 <div id="user-list" class="pt-4 border-t border-base-200">
   <h2 class="text-lg">Users</h2>
+
+  <div class="flex flex-col opacity-60 text-sm">
+    <span class="font-bold">Untrusted:</span> <span>Can search and request files.</span>
+    <span class="font-bold">Trusted:</span> <span>Same as untrused, but if auto-download is enabled the user can start downloads.</span>
+    <span class="font-bold">Admin:</span> <span>Can manage users and settings.</span>
+  </div>
 
   {% block toast_block %}
   <div class="hidden" id="toast-block">
@@ -94,7 +107,7 @@
               {% if u.root %}<option value="admin" selected>Root Admin</option>{% endif %}
             </select>
           </td>
-          <td {% if u.root %}title="Root user" {% endif %}>
+          <td {% if u.root %}title="Can't delete the root admin"{% elif u.is_self(user.username) %}title="Can't delete yourself"{% endif %}>
             <!--prettier-ignore -->
             <button
                 class="btn btn-square btn-ghost"
