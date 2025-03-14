@@ -21,6 +21,7 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
   - [Local Development](#local-development)
   - [Initialize Database](#initialize-database)
   - [Running](#running)
+  - [Docker Compose](#docker-compose)
 
 # Getting Started
 
@@ -210,3 +211,11 @@ browser-sync http://localhost:8000 --files templates/** --files app/**
 ```
 
 **NOTE**: Website has to be visited at http://localhost:3000 instead.
+
+## Docker Compose
+
+The docker compose can also be used to run the app locally:
+
+```bash
+docker compose up --build
+```

@@ -1,0 +1,7 @@
+services:
+  web:
+    build: .
+    volumes:
+      - ./config:/config
+    ports:
+      - "8000:8000"
