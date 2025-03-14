@@ -475,7 +475,6 @@ def remove_indexer_flag(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
 ):
-    # TODO: very bad concurrency here
     flags = quality_config.get_indexer_flags(session)
     flags = [f for f in flags if f.flag != flag]
     quality_config.set_indexer_flags(session, flags)

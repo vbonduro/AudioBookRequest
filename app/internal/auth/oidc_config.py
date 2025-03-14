@@ -14,6 +14,7 @@ oidcConfigKey = Literal[
     "oidc_group_claim",
     "oidc_endpoint",
     "oidc_token_endpoint",
+    "oidc_userinfo_endpoint",
     "oidc_authorize_endpoint",
 ]
 
@@ -39,6 +40,7 @@ class oidcConfig(StringConfigCache[oidcConfigKey]):
                     session, "oidc_authorize_endpoint", data["authorization_endpoint"]
                 )
                 self.set(session, "oidc_token_endpoint", data["token_endpoint"])
+                self.set(session, "oidc_userinfo_endpoint", data["userinfo_endpoint"])
 
     async def validate(
         self, session: Session, client_session: ClientSession

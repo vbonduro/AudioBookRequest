@@ -10,8 +10,6 @@ from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.models import GroupEnum, User
 from app.util.db import get_session
 
-JWT_ALGORITHM = "HS256"
-
 
 class DetailedUser(User):
     login_type: LoginTypeEnum
