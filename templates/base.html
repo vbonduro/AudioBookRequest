@@ -51,9 +51,27 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="manifest" href="/site.webmanifest" />
+
+    {% include 'scripts/toast.html' %}
   </head>
   <body class="w-screen min-h-screen overflow-x-hidden" hx-ext="preload">
-    {% if not hide_navbar %}
+    {% block toast_block %}
+    <div class="hidden" id="toast-block">
+      {% if toast_error %}
+      <script>
+        toast("{{toast_error|safe}}", "error");
+      </script>
+      {% endif %} {% if toast_success %}
+      <script>
+        toast("{{toast_success|safe}}", "success");
+      </script>
+      {% endif %} {% if toast_info %}
+      <script>
+        toast("{{toast_info|safe}}", "info");
+      </script>
+      {% endif %}
+    </div>
+    {% endblock %} {% if not hide_navbar %}
     <header class="shadow-lg">
       <nav class="navbar">
         <div class="flex-1">

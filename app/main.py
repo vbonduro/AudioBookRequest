@@ -18,6 +18,8 @@ from app.internal.env_settings import Settings
 from app.internal.models import User
 from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
+from app.util.templates import templates
+from app.util.toast import ToastException
 
 with open_session() as session:
     auth_secret = auth_config.get_auth_secret(session)
@@ -65,6 +67,24 @@ async def redirect_to_invalid_oidc(request: Request, exc: InvalidOIDCConfigurati
     if exc.detail:
         path += f"?error={quote_plus(exc.detail)}"
     return RedirectResponse(path)
+
+
+@app.exception_handler(ToastException)
+async def raise_toast(request: Request, exc: ToastException):
+    context: dict[str, Request | str] = {"request": request}
+    if exc.type == "error":
+        context["toast_error"] = exc.message
+    elif exc.type == "success":
+        context["toast_success"] = exc.message
+    elif exc.type == "info":
+        context["toast_info"] = exc.message
+
+    return templates.TemplateResponse(
+        "base.html",
+        context,
+        block_name="toast_block",
+        headers={"HX-Retarget": "#toast-block"},
+    )
 
 
 @app.middleware("http")

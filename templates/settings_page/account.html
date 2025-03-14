@@ -1,6 +1,5 @@
 {% extends "settings_page/base.html" %} {% block head %}
-<title>Settings - Account</title>
-{% include 'scripts/toast.html' %} {% endblock %} {% block content %}
+<title>Settings - Account</title> {% endblock %} {% block content %}
 <form
   id="change-password-form"
   class="flex flex-col gap-2"
@@ -11,15 +10,7 @@
   <script>
     toast("{{success|safe}}", "success");
   </script>
-  {% endif %} {% block error %}
-  <div id="error" class="hidden">
-    {% if error %}
-    <script>
-      toast("{{error|safe}}", "error");
-    </script>
-    {% endif %}
-  </div>
-  {% endblock %}
+  {% endif %}
 
   <h2 class="text-lg">Change Password</h2>
 
