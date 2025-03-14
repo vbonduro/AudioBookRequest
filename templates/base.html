@@ -27,12 +27,14 @@
             "light-dark-toggle",
           )) {
             elem.classList.add("DARKCLASS");
+            document.documentElement.classList.add("dark");
           }
         } else {
           for (const elem of document.getElementsByClassName(
             "light-dark-toggle",
           )) {
             elem.classList.remove("DARKCLASS");
+            document.documentElement.classList.remove("dark");
           }
         }
       };

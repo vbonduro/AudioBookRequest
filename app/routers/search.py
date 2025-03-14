@@ -170,18 +170,18 @@ async def add_request(
     except sa.exc.IntegrityError:
         pass  # ignore if already exists
 
-    if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
-        # start querying and downloading if auto download is enabled
-        background_task.add_task(
-            background_start_query, asin=asin, requester_username=user.username
-        )
-
     background_task.add_task(
         send_all_notifications,
         event_type=EventEnum.on_new_request,
         requester_username=user.username,
         book_asin=asin,
     )
+
+    if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
+        # start querying and downloading if auto download is enabled
+        background_task.add_task(
+            background_start_query, asin=asin, requester_username=user.username
+        )
 
     if audible_regions.get(region) is None:
         raise HTTPException(status_code=400, detail="Invalid region")

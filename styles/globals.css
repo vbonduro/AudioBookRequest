@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
+/* Enables dark mode specific styling with "dark:" */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @plugin "daisyui/theme" {
   name: "nord";
   default: true;
