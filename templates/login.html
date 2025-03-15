@@ -2,23 +2,13 @@
 <title>Backup Login</title>
 {% else %}
 <title>Login</title>
-{% endif %} {% include 'scripts/toast.html' %} {% endblock %} {% block body %}
+{% endif %} {% endblock %} {% block body %}
 <div class="h-screen w-full flex items-center justify-center">
-  {% block error_toast %}
-  <div id="message" class="hidden">
-    {% if error %}
-    <script>
-      toast("{{error|safe}}", "error");
-    </script>
-    {% endif %}
-  </div>
-  {% endblock %}
-
   <form
     class="flex flex-col gap-2 max-w-[30rem]"
     hx-post="/auth/token"
     id="form"
-    hx-target="#message"
+    hx-target="this"
   >
     <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}" />
     {% if backup %}

@@ -1,3 +1,4 @@
+from math import inf
 import time
 from typing import Annotated, Optional
 
@@ -154,9 +155,8 @@ class ABRAuth:
         request: Request,
         session: Session,
     ) -> User:
-        if exp := request.session.get("exp"):
-            if exp < time.time():
-                raise RequiresLoginException()
+        if request.session.get("exp", inf) < time.time():
+            raise RequiresLoginException()
         return await self._get_session_auth(request, session)
 
     async def _get_none_auth(self, session: Session) -> User:

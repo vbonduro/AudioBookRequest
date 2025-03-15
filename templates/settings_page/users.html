@@ -1,6 +1,5 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Users</title>
-{% include 'scripts/toast.html' %}
 {% endblock %} {% block content %}
 
 {% if is_oidc %}
@@ -51,28 +50,18 @@
 {% block user_block %}
 <div id="user-list" class="pt-4 border-t border-base-200">
   <h2 class="text-lg">Users</h2>
-
+  {% if success %}
+  <script>
+    toast("{{success|safe}}", "success");
+  </script>
+  {% endif %}
+  
   <div class="flex flex-col opacity-60 text-sm">
     <span class="font-bold">Untrusted:</span> <span>Can search and request files.</span>
     <span class="font-bold">Trusted:</span> <span>Same as untrused, but if auto-download is enabled the user can start downloads.</span>
     <span class="font-bold">Admin:</span> <span>Can manage users and settings.</span>
   </div>
-
-  {% block toast_block %}
-  <div class="hidden" id="toast-block">
-    {% if error %}
-    <script>
-      toast("{{error|safe}}", "error");
-    </script>
-    {% endif %}
-    {% if success %}
-    <script>
-      toast("{{success|safe}}", "success");
-    </script>
-    {% endif %}
-  </div>
-{% endblock %}
-
+  
   <div class="max-h-[30rem] overflow-x-auto">
     <table class="table table-pin-rows">
       <thead>

@@ -24,6 +24,7 @@ from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response
 from app.util.time import Minute
+from app.util.toast import ToastException
 
 router = APIRouter(prefix="/settings")
 
@@ -48,25 +49,11 @@ def change_password(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     if not is_correct_password(user, old_password):
-        return template_response(
-            "settings_page/account.html",
-            request,
-            user,
-            {"page": "account", "error": "Old password is incorrect"},
-            block_name="error",
-            headers={"HX-Retarget": "#error"},
-        )
+        raise ToastException("Old password is incorrect", "error")
     try:
         raise_for_invalid_password(session, password, confirm_password)
     except HTTPException as e:
-        return template_response(
-            "settings_page/account.html",
-            request,
-            user,
-            {"page": "account", "error": e.detail},
-            block_name="error",
-            headers={"HX-Retarget": "#error"},
-        )
+        raise ToastException(e.detail, "error")
 
     new_user = create_user(user.username, password, user.group)
     old_user = session.exec(select(User).where(User.username == user.username)).one()
@@ -113,49 +100,21 @@ def create_new_user(
     ],
 ):
     if username.strip() == "":
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Invalid username"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Invalid username", "error")
 
     try:
         raise_for_invalid_password(session, password, ignore_confirm=True)
     except HTTPException as e:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": e.detail},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException(e.detail, "error")
 
     if group not in GroupEnum.__members__:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Invalid group selected"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Invalid group selected", "error")
 
     group = GroupEnum[group]
 
     user = session.exec(select(User).where(User.username == username)).first()
     if user:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Username already exists"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Username already exists", "error")
 
     user = create_user(username, password, group)
     session.add(user)
@@ -182,26 +141,11 @@ def delete_user(
     ],
 ):
     if username == admin_user.username:
-        users = session.exec(select(User)).all()
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Cannot delete own user"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Cannot delete own user", "error")
 
     user = session.exec(select(User).where(User.username == username)).one_or_none()
     if user and user.root:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Cannot delete root user"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Cannot delete root user", "error")
 
     if user:
         session.delete(user)
@@ -230,14 +174,7 @@ def update_user(
 ):
     user = session.exec(select(User).where(User.username == username)).one_or_none()
     if user and user.root:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Cannot change root user"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Cannot change root user's group", "error")
 
     if user:
         user.group = group
@@ -684,28 +621,20 @@ async def update_security(
     oidc_username_claim: Optional[str] = Form(None),
     oidc_group_claim: Optional[str] = Form(None),
 ):
-    def error_response(error: str):
-        return template_response(
-            "settings_page/security.html",
-            request,
-            admin_user,
-            {"error": error},
-            block_name="error_toast",
-            headers={"HX-Retarget": "#message"},
-        )
-
     if (
         login_type in [LoginTypeEnum.basic, LoginTypeEnum.forms]
         and min_password_length is not None
     ):
         if min_password_length < 1:
-            return error_response("Minimum password length can't be 0 or negative")
+            raise ToastException(
+                "Minimum password length can't be 0 or negative", "error"
+            )
         else:
             auth_config.set_min_password_length(session, min_password_length)
 
     if access_token_expiry is not None:
         if access_token_expiry < 1:
-            return error_response("Access token expiry can't be 0 or negative")
+            raise ToastException("Access token expiry can't be 0 or negative", "error")
         else:
             auth_config.set_access_token_expiry_minutes(
                 session, Minute(access_token_expiry)
@@ -728,7 +657,7 @@ async def update_security(
 
         error_message = await oidc_config.validate(session, client_session)
         if error_message:
-            return error_response(error_message)
+            raise ToastException(error_message, "error")
 
     old = auth_config.get_login_type(session)
     auth_config.set_login_type(session, login_type)

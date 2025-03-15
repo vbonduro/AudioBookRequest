@@ -23,6 +23,7 @@ from app.internal.models import GroupEnum, User
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import templates
+from app.util.toast import ToastException
 
 router = APIRouter(prefix="/auth")
 
@@ -31,7 +32,6 @@ router = APIRouter(prefix="/auth")
 async def login(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    error: Optional[str] = None,
     redirect_uri: str = "/",
     backup: bool = False,
 ):
@@ -72,7 +72,6 @@ async def login(
         {
             "request": request,
             "hide_navbar": True,
-            "error": error,
             "redirect_uri": redirect_uri,
             "backup": backup,
         },
@@ -109,20 +108,12 @@ def login_access_token(
 ):
     user = authenticate_user(session, form_data.username, form_data.password)
     if not user:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "hide_navbar": True, "error": "Invalid login"},
-            block_name="error_toast",
-        )
+        raise ToastException("Invalid login", "error")
 
     # only admins can use the backup forms login
     login_type = auth_config.get_login_type(session)
     if login_type == LoginTypeEnum.oidc and not user.root:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "hide_navbar": True, "error": "Not root admin"},
-            block_name="error_toast",
-        )
+        raise ToastException("Not root admin", "error")
 
     request.session["sub"] = form_data.username
     return Response(
