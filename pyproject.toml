@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.pyright]
 include = ["**/*.py"]
-exclude = ["**/__pycache__", "**/.venv"]
+exclude = ["**/__pycache__", "**/.venv", "**/.direnv"]
 ignore = []
 
 typeCheckingMode = "strict"
