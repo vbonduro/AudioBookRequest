@@ -6,23 +6,24 @@ from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
-from app.internal.models import EventEnum, GroupEnum, Notification, User
-from app.internal.prowlarr.indexer_categories import indexer_categories
-from app.internal.notifications import send_notification
-from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
-from app.util.auth import (
+from app.internal.auth.config import LoginTypeEnum, auth_config
+from app.internal.auth.authentication import (
     DetailedUser,
-    LoginTypeEnum,
-    auth_config,
     create_user,
     get_authenticated_user,
     is_correct_password,
     raise_for_invalid_password,
 )
+from app.internal.auth.oidc_config import oidc_config
+from app.internal.models import EventEnum, GroupEnum, Notification, User
+from app.internal.notifications import send_notification
+from app.internal.prowlarr.indexer_categories import indexer_categories
+from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
+from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response
+from app.util.time import Minute
 
 router = APIRouter(prefix="/settings")
 
@@ -91,11 +92,12 @@ def read_users(
     session: Annotated[Session, Depends(get_session)],
 ):
     users = session.exec(select(User)).all()
+    is_oidc = auth_config.get_login_type(session) == LoginTypeEnum.oidc
     return template_response(
         "settings_page/users.html",
         request,
         admin_user,
-        {"page": "users", "users": users},
+        {"page": "users", "users": users, "is_oidc": is_oidc},
     )
 
 
@@ -474,7 +476,6 @@ def remove_indexer_flag(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
 ):
-    # TODO: very bad concurrency here
     flags = quality_config.get_indexer_flags(session)
     flags = [f for f in flags if f.flag != flag]
     quality_config.set_indexer_flags(session, flags)
@@ -609,7 +610,6 @@ async def execute_notification(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
-    client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     notification = session.exec(
         select(Notification).where(Notification.id == notification_id)
@@ -632,6 +632,7 @@ def read_security(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    error: Optional[str] = None,
 ):
     return template_response(
         "settings_page/security.html",
@@ -642,6 +643,14 @@ def read_security(
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
             "min_password_length": auth_config.get_min_password_length(session),
+            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint") or "",
+            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret") or "",
+            "oidc_client_id": oidc_config.get(session, "oidc_client_id") or "",
+            "oidc_scope": oidc_config.get(session, "oidc_scope") or "",
+            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim")
+            or "",
+            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim") or "",
+            "error": error,
         },
     )
 
@@ -658,40 +667,71 @@ def reset_auth_secret(
 
 
 @router.post("/security")
-def update_security(
+async def update_security(
     login_type: Annotated[LoginTypeEnum, Form()],
-    access_token_expiry: Annotated[int, Form()],
-    min_password_length: Annotated[int, Form()],
     request: Request,
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    access_token_expiry: Optional[int] = Form(None),
+    min_password_length: Optional[int] = Form(None),
+    oidc_endpoint: Optional[str] = Form(None),
+    oidc_client_id: Optional[str] = Form(None),
+    oidc_client_secret: Optional[str] = Form(None),
+    oidc_scope: Optional[str] = Form(None),
+    oidc_username_claim: Optional[str] = Form(None),
+    oidc_group_claim: Optional[str] = Form(None),
 ):
-    if access_token_expiry < 1:
+    def error_response(error: str):
         return template_response(
             "settings_page/security.html",
             request,
             admin_user,
-            {"error": "Access token expiry can't be 0 or negative"},
+            {"error": error},
             block_name="error_toast",
             headers={"HX-Retarget": "#message"},
         )
 
-    if min_password_length < 1:
-        return template_response(
-            "settings_page/security.html",
-            request,
-            admin_user,
-            {"error": "Minimum password length can't be 0 or negative"},
-            block_name="error_toast",
-            headers={"HX-Retarget": "#message"},
-        )
+    if (
+        login_type in [LoginTypeEnum.basic, LoginTypeEnum.forms]
+        and min_password_length is not None
+    ):
+        if min_password_length < 1:
+            return error_response("Minimum password length can't be 0 or negative")
+        else:
+            auth_config.set_min_password_length(session, min_password_length)
+
+    if access_token_expiry is not None:
+        if access_token_expiry < 1:
+            return error_response("Access token expiry can't be 0 or negative")
+        else:
+            auth_config.set_access_token_expiry_minutes(
+                session, Minute(access_token_expiry)
+            )
+
+    if login_type == LoginTypeEnum.oidc:
+        if oidc_endpoint:
+            await oidc_config.set_endpoint(session, client_session, oidc_endpoint)
+        if oidc_client_id:
+            oidc_config.set(session, "oidc_client_id", oidc_client_id)
+        if oidc_client_secret:
+            oidc_config.set(session, "oidc_client_secret", oidc_client_secret)
+        if oidc_scope:
+            oidc_config.set(session, "oidc_scope", oidc_scope)
+        if oidc_username_claim:
+            oidc_config.set(session, "oidc_username_claim", oidc_username_claim)
+
+        if oidc_group_claim is not None:
+            oidc_config.set(session, "oidc_group_claim", oidc_group_claim)
+
+        error_message = await oidc_config.validate(session, client_session)
+        if error_message:
+            return error_response(error_message)
 
     old = auth_config.get_login_type(session)
     auth_config.set_login_type(session, login_type)
-    auth_config.set_access_token_expiry_minutes(session, access_token_expiry)
-    auth_config.set_min_password_length(session, min_password_length)
     return template_response(
         "settings_page/security.html",
         request,
@@ -700,6 +740,12 @@ def update_security(
             "page": "security",
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+            "oidc_client_id": oidc_config.get(session, "oidc_client_id", ""),
+            "oidc_scope": oidc_config.get(session, "oidc_scope", ""),
+            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim", ""),
+            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
+            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret", ""),
+            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint", ""),
             "success": "Settings updated",
         },
         block_name="form",

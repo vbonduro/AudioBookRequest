@@ -25,6 +25,12 @@ class User(BaseModel, table=True):
         sa_column_kwargs={"server_default": "untrusted"},
     )
     root: bool = False
+
+    # TODO: Add last_login
+    # last_login: datetime = Field(
+    #     default_factory=datetime.now, sa_column_kwargs={"server_default": "now()"}
+    # )
+
     """
     untrusted: Requests need to be manually reviewed
     trusted: Requests are automatically downloaded if possible
