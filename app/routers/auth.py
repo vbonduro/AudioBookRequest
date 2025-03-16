@@ -1,8 +1,9 @@
 import base64
+import logging
 import secrets
 import time
 from typing import Annotated, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin
 
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
@@ -26,6 +27,8 @@ from app.util.templates import templates
 from app.util.toast import ToastException
 
 router = APIRouter(prefix="/auth")
+
+logger = logging.getLogger(__name__)
 
 
 @router.get("/login")
@@ -57,11 +60,16 @@ async def login(
         if not client_id:
             raise InvalidOIDCConfiguration("Missing OIDC client ID")
 
-        base_url = str(request.base_url).rstrip("/")
+        auth_redirect_uri = urljoin(str(request.url), "/auth/oidc")
+
+        logger.info(f"Redirecting to OIDC login: {authorize_endpoint}")
+        logger.info(f"Redirect URI: {auth_redirect_uri}")
+        logger.debug(f"{request.url.is_secure = }")
+
         params = {
             "response_type": "code",
             "client_id": client_id,
-            "redirect_uri": f"{base_url}/auth/oidc",
+            "redirect_uri": auth_redirect_uri,
             "scope": scope,
             "state": redirect_uri,
         }
@@ -147,14 +155,14 @@ async def login_oidc(
     if not username_claim:
         raise InvalidOIDCConfiguration("Missing OIDC username claim")
 
-    base_url = str(request.base_url).rstrip("/")
+    auth_redirect_uri = urljoin(str(request.url), "/auth/oidc")
 
     data = {
         "grant_type": "authorization_code",
         "code": code,
         "client_id": client_id,
         "client_secret": client_secret,
-        "redirect_uri": f"{base_url}/auth/oidc",
+        "redirect_uri": auth_redirect_uri,
     }
     async with client_session.post(
         token_endpoint,
