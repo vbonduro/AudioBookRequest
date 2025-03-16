@@ -13,6 +13,7 @@ class ApplicationSettings(BaseModel):
     openapi_enabled: bool = False
     config_dir: str = "/config"
     port: int = 8000
+    version: str = "local"
 
 
 class Settings(BaseSettings):

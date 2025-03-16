@@ -63,7 +63,7 @@ class oidcConfig(StringConfigCache[oidcConfigKey]):
                 return "Failed to fetch OIDC configuration"
             data = await response.json()
 
-        config_scope = (self.get(session, "oidc_scope") or "").split(" ")
+        config_scope = self.get(session, "oidc_scope", "").split(" ")
         provider_scope = data.get("scopes_supported")
         if not provider_scope or not all(
             scope in provider_scope for scope in config_scope

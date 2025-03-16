@@ -1,6 +1,9 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        - VERSION=local
     volumes:
       - ./config:/config
     ports:
