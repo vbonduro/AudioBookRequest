@@ -14,6 +14,7 @@ class ApplicationSettings(BaseModel):
     config_dir: str = "/config"
     port: int = 8000
     version: str = "local"
+    log_level: str = "INFO"
 
 
 class Settings(BaseSettings):

@@ -1,3 +1,5 @@
+import logging
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus, urlencode
 
@@ -20,6 +22,16 @@ from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
 from app.util.templates import templates
 from app.util.toast import ToastException
+
+logger = logging.getLogger(__name__)
+logging.getLogger("uvicorn").handlers.clear()
+file_handler = logging.FileHandler(Settings().app.config_dir / Path("abr.log"))
+stream_handler = logging.StreamHandler()
+logging.basicConfig(
+    level=Settings().app.log_level,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[file_handler, stream_handler],
+)
 
 with open_session() as session:
     auth_secret = auth_config.get_auth_secret(session)

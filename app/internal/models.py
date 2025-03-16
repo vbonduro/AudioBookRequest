@@ -178,14 +178,6 @@ class Config(BaseModel, table=True):
     value: str
 
 
-# TODO: add logs
-class Log(BaseModel):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_username: str
-    message: str
-    timestamp: datetime = Field(default_factory=datetime.now)
-
-
 class EventEnum(str, Enum):
     on_new_request = "onNewRequest"
     on_successful_download = "onSuccessfulDownload"
