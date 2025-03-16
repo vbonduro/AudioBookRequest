@@ -127,6 +127,7 @@ class ManualBookRequest(BaseModel, table=True):
             nullable=False,
         ),
     )
+    downloaded: bool = False
 
     class Config:  # pyright: ignore[reportIncompatibleVariableOverride]
         arbitrary_types_allowed = True
