@@ -110,6 +110,32 @@ async def downloaded(
     )
 
 
+@router.patch("/downloaded/{asin}")
+async def update_downloaded(
+    request: Request,
+    asin: str,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    books = session.exec(select(BookRequest).where(BookRequest.asin == asin)).all()
+    for book in books:
+        book.downloaded = True
+        session.add(book)
+    session.commit()
+
+    username = None if admin_user.is_admin() else admin_user.username
+    books = get_wishlist_books(session, username, "not_downloaded")
+    return template_response(
+        "wishlist_page/wishlist.html",
+        request,
+        admin_user,
+        {"books": books, "page": "wishlist"},
+        block_name="book_wishlist",
+    )
+
+
 @router.get("/manual")
 async def manual(
     request: Request,
@@ -142,7 +168,9 @@ async def downloaded_manual(
         session.add(book)
         session.commit()
 
-    books = session.exec(select(ManualBookRequest)).all()
+    books = session.exec(
+        select(ManualBookRequest).order_by(asc(ManualBookRequest.downloaded))
+    ).all()
     return template_response(
         "wishlist_page/manual.html",
         request,
