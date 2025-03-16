@@ -42,9 +42,12 @@ class oidcConfig(StringConfigCache[oidcConfigKey]):
                 )
                 self.set(session, "oidc_token_endpoint", data["token_endpoint"])
                 self.set(session, "oidc_userinfo_endpoint", data["userinfo_endpoint"])
-                self.set(
-                    session, "oidc_end_session_endpoint", data["end_session_endpoint"]
-                )
+                if "end_session_endpoint" in data:
+                    self.set(
+                        session,
+                        "oidc_end_session_endpoint",
+                        data["end_session_endpoint"],
+                    )
 
     async def validate(
         self, session: Session, client_session: ClientSession
