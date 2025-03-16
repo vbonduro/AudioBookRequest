@@ -30,6 +30,8 @@ router = APIRouter(prefix="/auth")
 
 logger = logging.getLogger(__name__)
 
+STATE_RANDOM_BYTES = 16
+
 
 @router.get("/login")
 async def login(
@@ -51,41 +53,47 @@ async def login(
     except (HTTPException, RequiresLoginException):
         pass
 
-    if login_type == LoginTypeEnum.oidc and not backup:
-        authorize_endpoint = oidc_config.get(session, "oidc_authorize_endpoint")
-        client_id = oidc_config.get(session, "oidc_client_id")
-        scope = oidc_config.get(session, "oidc_scope") or "openid"
-        if not authorize_endpoint:
-            raise InvalidOIDCConfiguration("Missing OIDC endpoint")
-        if not client_id:
-            raise InvalidOIDCConfiguration("Missing OIDC client ID")
+    if login_type != LoginTypeEnum.oidc or backup:
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "hide_navbar": True,
+                "redirect_uri": redirect_uri,
+                "backup": backup,
+            },
+        )
 
-        auth_redirect_uri = urljoin(str(request.url), "/auth/oidc")
-        if oidc_config.get_redirect_https(session):
-            auth_redirect_uri = auth_redirect_uri.replace("http:", "https:")
+    authorize_endpoint = oidc_config.get(session, "oidc_authorize_endpoint")
+    client_id = oidc_config.get(session, "oidc_client_id")
+    scope = oidc_config.get(session, "oidc_scope") or "openid"
+    if not authorize_endpoint:
+        raise InvalidOIDCConfiguration("Missing OIDC endpoint")
+    if not client_id:
+        raise InvalidOIDCConfiguration("Missing OIDC client ID")
 
-        logger.info(f"Redirecting to OIDC login: {authorize_endpoint}")
-        logger.info(f"Redirect URI: {auth_redirect_uri}")
-        logger.debug(f"{request.url.is_secure = }")
+    auth_redirect_uri = urljoin(str(request.url), "/auth/oidc")
+    if oidc_config.get_redirect_https(session):
+        auth_redirect_uri = auth_redirect_uri.replace("http:", "https:")
 
-        params = {
-            "response_type": "code",
-            "client_id": client_id,
-            "redirect_uri": auth_redirect_uri,
-            "scope": scope,
-            "state": redirect_uri,
-        }
-        return RedirectResponse(f"{authorize_endpoint}?" + urlencode(params))
+    logger.info(f"Redirecting to OIDC login: {authorize_endpoint}")
+    logger.info(f"Redirect URI: {auth_redirect_uri}")
 
-    return templates.TemplateResponse(
-        "login.html",
-        {
-            "request": request,
-            "hide_navbar": True,
-            "redirect_uri": redirect_uri,
-            "backup": backup,
-        },
+    # Authelia requires the state to be at least 8 chars. We solely use it to keep track of the redirect URI.
+    # https://github.com/markbeep/AudioBookRequest/issues/62
+    random_str = base64.encodebytes(secrets.token_bytes(2 * STATE_RANDOM_BYTES)).decode(
+        "utf-8"
     )
+    longer_redirect_uri = redirect_uri + random_str[:STATE_RANDOM_BYTES]
+
+    params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": auth_redirect_uri,
+        "scope": scope,
+        "state": longer_redirect_uri,
+    }
+    return RedirectResponse(f"{authorize_endpoint}?" + urlencode(params))
 
 
 @router.post("/logout")
@@ -228,6 +236,9 @@ async def login_oidc(
 
     request.session["sub"] = username
     request.session["exp"] = expires
+
+    if state:
+        state = state[:-STATE_RANDOM_BYTES]
 
     # We can't redirect server side, because that results in an infinite loop.
     # The session token is never correctly set causing any other endpoint to
