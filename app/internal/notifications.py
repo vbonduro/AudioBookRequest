@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from aiohttp import ClientSession
@@ -5,6 +6,8 @@ from sqlmodel import Session, select
 
 from app.internal.models import BookRequest, EventEnum, ManualBookRequest, Notification
 from app.util.db import open_session
+
+logger = logging.getLogger(__name__)
 
 
 def replace_variables(
@@ -137,5 +140,5 @@ async def send_manual_notification(
                 response.raise_for_status()
                 return await response.json()
     except Exception as e:
-        print("Failed to send notification", e)
+        logger.error("Failed to send notification", e)
         return None

@@ -152,6 +152,7 @@ spec:
 | `ABR_APP__DEBUG`           | If to enable debug mode. Not recommended for production.                                                                                                                                  | false     |
 | `ABR_APP__OPENAPI_ENABLED` | If set to `true`, enables an OpenAPI specs page on `/docs`.                                                                                                                               | false     |
 | `ABR_APP__CONFIG_DIR`      | The directory path where persistant data and configuration is stored. If ran using Docker or Kubernetes, this is the location a volume should be mounted to.                              | /config   |
+| `ABR_APP__LOG_LEVEL`       | One of `DEBUG`, `INFO`, `WARN`, `ERROR`.                                                                                                                                                  | INFO      |
 | `ABR_DB__SQLITE_PATH`      | If relative, path and name of the sqlite database in relation to `ABR_APP__CONFIG_DIR`. If absolute (path starts with `/`), the config dir is ignored and only the absolute path is used. | db.sqlite |
 
 ---
