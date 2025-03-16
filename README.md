@@ -1,3 +1,7 @@
+![GitHub Release](https://img.shields.io/github/v/release/markbeep/AudioBookRequest)
+
+[![Discord](https://dcbadge.limes.pink/api/server/https://discord.gg/SsFRXWMg7s)](https://discord.gg/SsFRXWMg7s)
+
 ![Header](/media/AudioBookRequestIcon.png)
 
 Your tool for handling audiobook requests on a Plex/Audiobookshelf/Jellyfin instance.
