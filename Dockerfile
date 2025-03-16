@@ -37,6 +37,8 @@ COPY app/ app/
 RUN /bin/tailwindcss -i styles/globals.css -o static/globals.css -m
 
 ENV ABR_APP__PORT=8000
+ARG VERSION
+ENV ABR_APP__VERSION=$VERSION
 
 CMD alembic upgrade heads && fastapi run --port $ABR_APP__PORT
 

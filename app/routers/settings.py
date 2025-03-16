@@ -6,7 +6,6 @@ from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
-from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.auth.authentication import (
     DetailedUser,
     create_user,
@@ -14,7 +13,9 @@ from app.internal.auth.authentication import (
     is_correct_password,
     raise_for_invalid_password,
 )
+from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.auth.oidc_config import oidc_config
+from app.internal.env_settings import Settings
 from app.internal.models import EventEnum, GroupEnum, Notification, User
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.indexer_categories import indexer_categories
@@ -35,7 +36,10 @@ def read_account(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     return template_response(
-        "settings_page/account.html", request, user, {"page": "account"}
+        "settings_page/account.html",
+        request,
+        user,
+        {"page": "account", "version": Settings().app.version},
     )
 
 
@@ -84,7 +88,12 @@ def read_users(
         "settings_page/users.html",
         request,
         admin_user,
-        {"page": "users", "users": users, "is_oidc": is_oidc},
+        {
+            "page": "users",
+            "users": users,
+            "is_oidc": is_oidc,
+            "version": Settings().app.version,
+        },
     )
 
 
@@ -215,6 +224,7 @@ def read_prowlarr(
             "indexer_categories": indexer_categories,
             "selected_categories": selected,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
+            "version": Settings().app.version,
         },
     )
 
@@ -304,6 +314,7 @@ def read_download(
             "name_ratio": name_ratio,
             "title_ratio": title_ratio,
             "indexer_flags": flags,
+            "version": Settings().app.version,
         },
     )
 
@@ -443,6 +454,7 @@ def read_notifications(
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
+            "version": Settings().app.version,
         },
     )
 
@@ -579,13 +591,13 @@ def read_security(
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
             "min_password_length": auth_config.get_min_password_length(session),
-            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint") or "",
-            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret") or "",
-            "oidc_client_id": oidc_config.get(session, "oidc_client_id") or "",
-            "oidc_scope": oidc_config.get(session, "oidc_scope") or "",
-            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim")
-            or "",
-            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim") or "",
+            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint", ""),
+            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret", ""),
+            "oidc_client_id": oidc_config.get(session, "oidc_client_id", ""),
+            "oidc_scope": oidc_config.get(session, "oidc_scope", ""),
+            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim", ""),
+            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
+            "version": Settings().app.version,
         },
     )
 
