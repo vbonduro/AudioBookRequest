@@ -74,7 +74,7 @@ jobs:
           else
             echo "::set-output name=tags::${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest:nightly"
             github_sha_hash=${{ github.sha }}
-            echo "::set-output name=version::${github_sha_hash:0:7}"
+            echo "::set-output name=version::nightly:${github_sha_hash:0:7}"
           fi
 
       - name: Build and push
