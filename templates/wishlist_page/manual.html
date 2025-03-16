@@ -50,16 +50,38 @@
         <td>
           <!--prettier-ignore -->
           <button
-              title="Remove"
-              class="btn btn-square"
-              {% if not user.is_admin() %}disabled{% endif %}
-              hx-delete="/wishlist/manual/{{ book.id }}"
-              hx-swap="outerHTML"
-              hx-target="#book-table-body"
-              hx-disabled-elt="this"
-            >
-              {% include 'icons/ban.html' %}
-            </button>
+            title="Remove"
+            class="btn btn-square"
+            {% if not user.is_admin() %}disabled{% endif %}
+            hx-delete="/wishlist/manual/{{ book.id }}"
+            hx-swap="outerHTML"
+            hx-target="#book-table-body"
+            hx-disabled-elt="this"
+          >
+            {% include 'icons/ban.html' %}
+          </button>
+          {% if book.downloaded %}
+          <button
+            class="btn btn-square btn-ghost bg-success text-neutral/20"
+            disabled
+            title="Done"
+          >
+            {% include 'icons/checkmark.html' %}
+          </button>
+          {% else %}
+          <!--prettier-ignore -->
+          <button
+            class="btn btn-square"
+            title="Done"
+            {% if not user.is_admin() %}disabled{% endif %}
+            hx-patch="/wishlist/manual/{{ book.id }}"
+            hx-swap="outerHTML"
+            hx-target="#book-table-body"
+            hx-disabled-elt="this"
+          >
+            {% include 'icons/checkmark.html' %}
+          </button>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

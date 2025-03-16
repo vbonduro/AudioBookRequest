@@ -13,7 +13,7 @@ from fastapi import (
     Response,
 )
 from fastapi.responses import RedirectResponse
-from sqlmodel import Session, col, select
+from sqlmodel import Session, asc, col, select
 
 from app.internal.models import (
     BookRequest,
@@ -27,7 +27,6 @@ from app.internal.prowlarr.prowlarr import (
     start_download,
 )
 from app.internal.query import query_sources
-from app.internal.ranking.quality import quality_config
 from app.internal.auth.authentication import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.db import get_session, open_session
@@ -117,17 +116,39 @@ async def manual(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
-    books = session.exec(select(ManualBookRequest)).all()
-    auto_download = quality_config.get_auto_download(session)
+    books = session.exec(
+        select(ManualBookRequest).order_by(asc(ManualBookRequest.downloaded))
+    ).all()
     return template_response(
         "wishlist_page/manual.html",
         request,
         user,
-        {
-            "books": books,
-            "page": "manual",
-            "auto_download": auto_download,
-        },
+        {"books": books, "page": "manual"},
+    )
+
+
+@router.patch("/manual/{id}")
+async def downloaded_manual(
+    request: Request,
+    id: uuid.UUID,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    book = session.get(ManualBookRequest, id)
+    if book:
+        book.downloaded = True
+        session.add(book)
+        session.commit()
+
+    books = session.exec(select(ManualBookRequest)).all()
+    return template_response(
+        "wishlist_page/manual.html",
+        request,
+        admin_user,
+        {"books": books, "page": "manual"},
+        block_name="book_wishlist",
     )
 
 
@@ -146,12 +167,11 @@ async def delete_manual(
         session.commit()
 
     books = session.exec(select(ManualBookRequest)).all()
-    auto_download = quality_config.get_auto_download(session)
     return template_response(
         "wishlist_page/manual.html",
         request,
         admin_user,
-        {"books": books, "page": "manual", "auto_download": auto_download},
+        {"books": books, "page": "manual"},
         block_name="book_wishlist",
     )
 
