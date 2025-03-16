@@ -569,7 +569,6 @@ def read_security(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
-    error: Optional[str] = None,
 ):
     return template_response(
         "settings_page/security.html",
@@ -587,7 +586,6 @@ def read_security(
             "oidc_username_claim": oidc_config.get(session, "oidc_username_claim")
             or "",
             "oidc_group_claim": oidc_config.get(session, "oidc_group_claim") or "",
-            "error": error,
         },
     )
 
