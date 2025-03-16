@@ -597,6 +597,8 @@ def read_security(
             "oidc_scope": oidc_config.get(session, "oidc_scope", ""),
             "oidc_username_claim": oidc_config.get(session, "oidc_username_claim", ""),
             "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
+            "oidc_redirect_https": oidc_config.get_redirect_https(session),
+            "oidc_logout_url": oidc_config.get(session, "oidc_logout_url", ""),
             "version": Settings().app.version,
         },
     )
@@ -630,6 +632,8 @@ async def update_security(
     oidc_scope: Optional[str] = Form(None),
     oidc_username_claim: Optional[str] = Form(None),
     oidc_group_claim: Optional[str] = Form(None),
+    oidc_redirect_https: Optional[bool] = Form(False),
+    oidc_logout_url: Optional[str] = Form(None),
 ):
     if (
         login_type in [LoginTypeEnum.basic, LoginTypeEnum.forms]
@@ -661,7 +665,14 @@ async def update_security(
             oidc_config.set(session, "oidc_scope", oidc_scope)
         if oidc_username_claim:
             oidc_config.set(session, "oidc_username_claim", oidc_username_claim)
-
+        if oidc_redirect_https is not None:
+            oidc_config.set(
+                session,
+                "oidc_redirect_https",
+                "true" if oidc_redirect_https else "",
+            )
+        if oidc_logout_url:
+            oidc_config.set(session, "oidc_logout_url", oidc_logout_url)
         if oidc_group_claim is not None:
             oidc_config.set(session, "oidc_group_claim", oidc_group_claim)
 
@@ -685,6 +696,8 @@ async def update_security(
             "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
             "oidc_client_secret": oidc_config.get(session, "oidc_client_secret", ""),
             "oidc_endpoint": oidc_config.get(session, "oidc_endpoint", ""),
+            "oidc_redirect_https": oidc_config.get_redirect_https(session),
+            "oidc_logout_url": oidc_config.get(session, "oidc_logout_url", ""),
             "success": "Settings updated",
         },
         block_name="form",

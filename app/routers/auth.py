@@ -61,6 +61,8 @@ async def login(
             raise InvalidOIDCConfiguration("Missing OIDC client ID")
 
         auth_redirect_uri = urljoin(str(request.url), "/auth/oidc")
+        if oidc_config.get_redirect_https(session):
+            auth_redirect_uri = auth_redirect_uri.replace("http:", "https:")
 
         logger.info(f"Redirecting to OIDC login: {authorize_endpoint}")
         logger.info(f"Redirect URI: {auth_redirect_uri}")
@@ -96,11 +98,11 @@ async def logout(
 
     login_type = auth_config.get_login_type(session)
     if login_type == LoginTypeEnum.oidc:
-        end_session_endpoint = oidc_config.get(session, "oidc_end_session_endpoint")
-        if end_session_endpoint:
+        logout_url = oidc_config.get(session, "oidc_logout_url")
+        if logout_url:
             return Response(
                 status_code=status.HTTP_204_NO_CONTENT,
-                headers={"HX-Redirect": end_session_endpoint},
+                headers={"HX-Redirect": logout_url},
             )
     return Response(
         status_code=status.HTTP_204_NO_CONTENT, headers={"HX-Redirect": "/login"}
@@ -156,6 +158,8 @@ async def login_oidc(
         raise InvalidOIDCConfiguration("Missing OIDC username claim")
 
     auth_redirect_uri = urljoin(str(request.url), "/auth/oidc")
+    if oidc_config.get_redirect_https(session):
+        auth_redirect_uri = auth_redirect_uri.replace("http:", "https:")
 
     data = {
         "grant_type": "authorization_code",
