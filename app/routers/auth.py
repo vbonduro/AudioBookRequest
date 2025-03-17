@@ -78,7 +78,7 @@ async def login(
     logger.info(f"Redirecting to OIDC login: {authorize_endpoint}")
     logger.info(f"Redirect URI: {auth_redirect_uri}")
 
-    state = jwt.encode(
+    state = jwt.encode(  # pyright: ignore[reportUnknownMemberType]
         {"redirect_uri": redirect_uri},
         auth_config.get_auth_secret(session),
         algorithm="HS256",
@@ -236,7 +236,7 @@ async def login_oidc(
     request.session["exp"] = expires
 
     if state:
-        decoded = jwt.decode(
+        decoded = jwt.decode(  # pyright: ignore[reportUnknownMemberType]
             state,
             auth_config.get_auth_secret(session),
             algorithms=["HS256"],
