@@ -120,7 +120,7 @@
   {% if mam_active %}
   <form
     class="join w-full"
-    hx-put="/settings/mam/deactivate"
+    hx-put="/settings/indexer/mam/deactivate"
   >
     <!-- prettier-ignore -->
     <button id="mam-toggle-button" class="join-item btn">
@@ -130,7 +130,7 @@
   <label for="mam-id">mam_id</label>
   <form
     class="join w-full"
-    hx-put="/settings/mam/mam_id"
+    hx-put="/settings/indexer/mam/mam_id"
     hx-disabled-elt="#mam-id-button"
   >
     <!-- prettier-ignore -->
@@ -151,7 +151,7 @@
   {% else %}
   <form
     class="join w-full"
-    hx-put="/settings/mam/activate"
+    hx-put="/settings/indexer/mam/activate"
     hx-disabled-elt="#mam-id-button"
   >
     <!-- prettier-ignore -->

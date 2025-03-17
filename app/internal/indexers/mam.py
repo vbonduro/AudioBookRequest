@@ -13,12 +13,9 @@ from app.internal.models import (
 )
 from app.util.cache import SimpleCache, StringConfigCache
 
+from app.internal.indexers.base import BaseIndexer, IndexerMissconfigured
+
 logger = logging.getLogger(__name__)
-
-
-class MamMisconfigured(ValueError):
-    pass
-
 
 MamConfigKey = Literal["mam_session_id", "mam_source_ttl", "mam_active"]
 
@@ -26,7 +23,7 @@ MamConfigKey = Literal["mam_session_id", "mam_source_ttl", "mam_active"]
 class MamConfig(StringConfigCache[MamConfigKey]):
     def raise_if_invalid(self, session: Session):
         if not self.get_session_id(session):
-            raise MamMisconfigured("mam_id not set")
+            raise IndexerMissconfigured("mam_id not set")
 
     def is_valid(self, session: Session) -> bool:
         return (
@@ -49,106 +46,122 @@ class MamConfig(StringConfigCache[MamConfigKey]):
     def is_active(self, session: Session) -> bool:
         return self.get(session, "mam_active") == "True"
 
-    def set_active(self, session: Session, state: bool):
+    def set_active(self, session: Session, state: bool) -> bool:
         self.set(session, "mam_active", str(state))
+        return state
 
 
-mam_config = MamConfig()
-mam_source_cache = SimpleCache[dict[str, TorrentSource]]()
+class MamIndexer(BaseIndexer[MamConfigKey]):
+    _config = MamConfig()
+    mam_source_cache = SimpleCache[dict[str, TorrentSource]]()
 
+    def get_config(self):
+        return self._config
 
-def flush_Mam_cache():
-    mam_source_cache.flush()
+    def is_active(self):
+        return self._config.is_active(self.session)
 
+    def set_active(self, state: bool) -> bool:
+        return self.get_config().set_active(self.session, state)
 
-# Downloading is still handled via prowlarr.
+    def valid_config(self):
+        return self._config.is_valid(self.session)
 
+    async def query_mam(
+        self,
+        client_session: ClientSession,
+        query: Optional[str],
+        force_refresh: bool = False,
+    ) -> dict[str, TorrentSource]:
+        if not query:
+            return dict()
 
-async def query_mam(
-    session: Session,
-    client_session: ClientSession,
-    query: Optional[str],
-    force_refresh: bool = False,
-) -> dict[str, TorrentSource]:
-    if not query:
-        return dict()
+        session_id = self._config.get_session_id(self.session)
+        assert session_id is not None
 
-    session_id = mam_config.get_session_id(session)
-    assert session_id is not None
+        if not force_refresh:
+            source_ttl = self._config.get_source_ttl(self.session)
+            cached_sources = self.mam_source_cache.get(source_ttl, "mam", query)
+            if cached_sources:
+                return cached_sources
+        params: dict[str, Any] = {
+            "tor[text]": query,  # book title + author(s)
+            "tor[main_cat]": [13],  # MAM audiobook category
+            "tor[searchIn]": "torrents",
+            "tor[srchIn][author]": "true",
+            "tor[srchIn][title]": "true",
+            "tor[searchType]": "active",  # only search for torrents with at least 1 seeder.
+            "startNumber": 0,
+            "perpage": 100,
+        }
 
-    if not force_refresh:
-        source_ttl = mam_config.get_source_ttl(session)
-        cached_sources = mam_source_cache.get(source_ttl, "mam_" + query)
-        if cached_sources:
-            return cached_sources
-    params: dict[str, Any] = {
-        "tor[text]": query,  # book title + author(s)
-        "tor[main_cat]": [13],  # MAM audiobook category
-        "tor[searchIn]": "torrents",
-        "tor[srchIn][author]": "true",
-        "tor[srchIn][title]": "true",
-        "tor[searchType]": "active",  # only search for torrents with at least 1 seeder.
-        "startNumber": 0,
-        "perpage": 100,
-    }
-
-    base_url = "https://www.myanonamouse.net"
-    url = urljoin(
-        base_url, f"/tor/js/loadSearchJSONbasic.php?{urlencode(params, doseq=True)}"
-    )
-
-    logger.info("Querying Mam: %s", url)
-
-    async with client_session.get(url, cookies={"mam_id": session_id}) as response:
-        search_results = await response.json()
-    # Storing in dict for faster retrieval by guid
-    sources: dict[str, TorrentSource] = dict()
-
-    for result in search_results["data"]:
-        # TODO reduce to just authors / narrator unless there is a use for the other data.
-        sources.update(
-            {
-                f'https://www.myanonamouse.net/t/{result["id"]}': TorrentSource(
-                    protocol="torrent",
-                    guid=f'https://www.myanonamouse.net/t/{result["id"]}',
-                    indexer_id=-1,  # We don't know MAM's id within prowlarr.
-                    indexer="MyAnonamouse",
-                    title=result["title"],
-                    seeders=result.get("seeders", 0),
-                    leechers=result.get("leechers", 0),
-                    size=-1,
-                    info_url=f'https://www.myanonamouse.net/t/{result["id"]}',
-                    indexer_flags=(
-                        ["freeleech"] if result["personal_freeleech"] == 1 else []
-                    ),  # TODO add differentiate between freeleech and VIP freeleech availible flags in result: [free, fl_vip, personal_freeleech]
-                    publish_date=datetime.fromisoformat(result["added"]),
-                    authors=(
-                        list(json.loads(result["author_info"]).values())
-                        if result["author_info"]
-                        else []
-                    ),
-                    narrators=(
-                        list(json.loads(result["narrator_info"]).values())
-                        if result["narrator_info"]
-                        else []
-                    ),
-                )
-            }
+        base_url = "https://www.myanonamouse.net"
+        url = urljoin(
+            base_url, f"/tor/js/loadSearchJSONbasic.php?{urlencode(params, doseq=True)}"
         )
 
-    mam_source_cache.set(sources, "mam_" + query)
+        logger.info("Querying Mam: %s", url)
 
-    return sources
+        async with client_session.get(url, cookies={"mam_id": session_id}) as response:
+            search_results = await response.json()
+        # Storing in dict for faster retrieval by guid
+        sources: dict[str, TorrentSource] = dict()
 
+        for result in search_results["data"]:
+            # TODO reduce to just authors / narrator unless there is a use for the other data.
+            sources.update(
+                {
+                    f'https://www.myanonamouse.net/t/{result["id"]}': TorrentSource(
+                        protocol="torrent",
+                        guid=f'https://www.myanonamouse.net/t/{result["id"]}',
+                        indexer_id=-1,  # We don't know MAM's id within prowlarr.
+                        indexer="MyAnonamouse",
+                        title=result["title"],
+                        seeders=result.get("seeders", 0),
+                        leechers=result.get("leechers", 0),
+                        size=-1,
+                        info_url=f'https://www.myanonamouse.net/t/{result["id"]}',
+                        indexer_flags=(
+                            ["freeleech"] if result["personal_freeleech"] == 1 else []
+                        ),  # TODO add differentiate between freeleech and VIP freeleech availible flags in result: [free, fl_vip, personal_freeleech]
+                        publish_date=datetime.fromisoformat(result["added"]),
+                        authors=(
+                            list(json.loads(result["author_info"]).values())
+                            if result["author_info"]
+                            else []
+                        ),
+                        narrators=(
+                            list(json.loads(result["narrator_info"]).values())
+                            if result["narrator_info"]
+                            else []
+                        ),
+                    )
+                }
+            )
 
-def inject_mam_metadata(
-    prowlarrData: list[ProwlarrSource], mamData: dict[str, TorrentSource]
-) -> list[ProwlarrSource]:
-    for p in prowlarrData:
-        m = mamData.get(p.guid)
-        if m is None:
-            continue
-        p.authors = m.authors
-        p.narrators = m.narrators
+        self.mam_source_cache.set(sources, "mam", query)
 
-    return prowlarrData
+        return sources
+
+    async def enrichResults(
+        self,
+        client_session: ClientSession,
+        query: str,
+        results: list[ProwlarrSource],
+        force_refresh: bool = False,
+    ) -> list[ProwlarrSource]:
+        if not self.is_active() or not self.valid_config():
+            # Consider raising an error, we should only call active indexers.
+            return results
+        mam_sources = await self.query_mam(
+            client_session,
+            query,
+            force_refresh=force_refresh,
+        )
+        for r in results:
+            e = mam_sources.get(r.guid)
+            if e is None:
+                continue
+            r.authors = e.authors
+            r.narrators = e.narrators
+        return results
