@@ -285,10 +285,6 @@ def vaguely_exist_in_title(words: list[str], title: str, name_exists_ratio: int)
     )
 
 
-def get_intersection_length(a: list[str], b: list[str]):
-    return len(set(a).intersection(set(b)))
-
-
 def exists_in_title(word: str, title: str, title_exists_ratio: int) -> bool:
     return (
         fuzz.partial_ratio(word, title, processor=utils.default_process)
