@@ -165,15 +165,17 @@ Suggestions are always welcome. Do note though that a big goal is to keep this p
 
 Virtual environments help isolate any installed packages to this directory. Project was made with `Python 3.11`. Any python version above 3.9 _should_ work, but if there are any problems use `>= 3.11`.
 
+For improved dependency management, `uv` is used instead of `pip`.
+
 ```sh
-python -m venv .venv
+uv venv .venv
 
 source .venv/bin/activate # sh/bash
 source .venv/bin/activate.fish # fish
 .venv\Scripts\activate.bat # cmd
 .venv\Scripts\Activate.ps1 # powershell
 
-pip install -r requirements.txt
+uv sync
 ```
 
 For local development, environment variables can be added to `.env.local` and they'll be used wherever required.
@@ -183,7 +185,7 @@ For local development, environment variables can be added to `.env.local` and th
 [Alembic](https://alembic.sqlalchemy.org/en/latest/) is used to create database migrations. Run the following before starting up the application for the first time. It will initialize the directory if non-existant, create the database file as well as execute any required migrations.
 
 ```sh
-alembic upgrade heads
+uv run alembic upgrade heads
 ```
 
 _In case of any model changes, remember to create migrations using `alembic revision --autogenerate -m "<message>"`._
@@ -195,7 +197,7 @@ Running the application is best done in multiple terminals:
 1. Start FastAPI dev mode:
 
 ```sh
-fastapi dev
+uv run fastapi dev
 ```
 
 Website can be visited at http://localhost:8000.
@@ -204,7 +206,7 @@ Website can be visited at http://localhost:8000.
 
 ```sh
 npm i
-tailwindcss -i styles/globals.css -o static/globals.css --watch
+uv run tailwindcss -i styles/globals.css -o static/globals.css --watch
 # Alternatively npx can be used to run tailwindcss
 npx @tailwindcss/cli@4 -i styles/globals.css -o static/globals.css --watch
 ```
