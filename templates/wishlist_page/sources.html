@@ -43,12 +43,14 @@
       <tbody>
         {% for source in sources %}
         <tr
-          class="text-xs lg:text-sm {% if loop.index==1 %}bg-success{% endif %}"
+          class="text-xs lg:text-sm {% if loop.index==1 %}bg-success dark:text-gray-700{% endif %}"
         >
           <th>{{ loop.index }}</th>
 
           <td>
-            <a href="{{ source.info_url }}" class="link">{{ source.title }}</a>
+            {% if source.info_url %}<a href="{{ source.info_url }}" class="link"
+              >{{ source.title }}</a
+            >{% else %}{{ source.title }}{% endif %}
           </td>
           {% if mam_active %}
           <td>{{ source.authors|join(', ') }}</td>

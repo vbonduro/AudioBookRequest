@@ -35,10 +35,23 @@ L = TypeVar("L", bound=str)
 class StringConfigCache(Generic[L], ABC):
     _cache: dict[L, str] = {}
 
+    @overload
     def get(self, session: Session, key: L) -> Optional[str]:
+        pass
+
+    @overload
+    def get(self, session: Session, key: L, default: str) -> str:
+        pass
+
+    def get(
+        self, session: Session, key: L, default: Optional[str] = None
+    ) -> Optional[str]:
         if key in self._cache:
             return self._cache[key]
-        return session.exec(select(Config.value).where(Config.key == key)).one_or_none()
+        return (
+            session.exec(select(Config.value).where(Config.key == key)).one_or_none()
+            or default
+        )
 
     def set(self, session: Session, key: L, value: str):
         old = session.exec(select(Config).where(Config.key == key)).one_or_none()
@@ -59,7 +72,7 @@ class StringConfigCache(Generic[L], ABC):
             del self._cache[key]
 
     @overload
-    def get_int(self, session: Session, key: L, default: None = None) -> Optional[int]:
+    def get_int(self, session: Session, key: L) -> Optional[int]:
         pass
 
     @overload

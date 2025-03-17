@@ -6,25 +6,28 @@ from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
-from app.internal.models import EventEnum, GroupEnum, Notification, User
-from app.internal.prowlarr.indexer_categories import indexer_categories
-from app.internal.notifications import send_notification
-from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
-from app.internal.indexers.mam import mam_config
 
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
-from app.util.auth import (
+from app.internal.auth.authentication import (
     DetailedUser,
-    LoginTypeEnum,
-    auth_config,
     create_user,
     get_authenticated_user,
     is_correct_password,
     raise_for_invalid_password,
 )
+from app.internal.auth.config import LoginTypeEnum, auth_config
+from app.internal.auth.oidc_config import oidc_config
+from app.internal.env_settings import Settings
+from app.internal.models import EventEnum, GroupEnum, Notification, User
+from app.internal.notifications import send_notification
+from app.internal.prowlarr.indexer_categories import indexer_categories
+from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
+from app.internal.indexers.mam import mam_config
+from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response
+from app.util.time import Minute
+from app.util.toast import ToastException
 
 router = APIRouter(prefix="/settings")
 
@@ -35,7 +38,10 @@ def read_account(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     return template_response(
-        "settings_page/account.html", request, user, {"page": "account"}
+        "settings_page/account.html",
+        request,
+        user,
+        {"page": "account", "version": Settings().app.version},
     )
 
 
@@ -49,25 +55,11 @@ def change_password(
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
     if not is_correct_password(user, old_password):
-        return template_response(
-            "settings_page/account.html",
-            request,
-            user,
-            {"page": "account", "error": "Old password is incorrect"},
-            block_name="error",
-            headers={"HX-Retarget": "#error"},
-        )
+        raise ToastException("Old password is incorrect", "error")
     try:
         raise_for_invalid_password(session, password, confirm_password)
     except HTTPException as e:
-        return template_response(
-            "settings_page/account.html",
-            request,
-            user,
-            {"page": "account", "error": e.detail},
-            block_name="error",
-            headers={"HX-Retarget": "#error"},
-        )
+        raise ToastException(e.detail, "error")
 
     new_user = create_user(user.username, password, user.group)
     old_user = session.exec(select(User).where(User.username == user.username)).one()
@@ -93,11 +85,17 @@ def read_users(
     session: Annotated[Session, Depends(get_session)],
 ):
     users = session.exec(select(User)).all()
+    is_oidc = auth_config.get_login_type(session) == LoginTypeEnum.oidc
     return template_response(
         "settings_page/users.html",
         request,
         admin_user,
-        {"page": "users", "users": users},
+        {
+            "page": "users",
+            "users": users,
+            "is_oidc": is_oidc,
+            "version": Settings().app.version,
+        },
     )
 
 
@@ -113,49 +111,21 @@ def create_new_user(
     ],
 ):
     if username.strip() == "":
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Invalid username"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Invalid username", "error")
 
     try:
         raise_for_invalid_password(session, password, ignore_confirm=True)
     except HTTPException as e:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": e.detail},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException(e.detail, "error")
 
     if group not in GroupEnum.__members__:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Invalid group selected"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Invalid group selected", "error")
 
     group = GroupEnum[group]
 
     user = session.exec(select(User).where(User.username == username)).first()
     if user:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Username already exists"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Username already exists", "error")
 
     user = create_user(username, password, group)
     session.add(user)
@@ -182,26 +152,11 @@ def delete_user(
     ],
 ):
     if username == admin_user.username:
-        users = session.exec(select(User)).all()
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Cannot delete own user"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Cannot delete own user", "error")
 
     user = session.exec(select(User).where(User.username == username)).one_or_none()
     if user and user.root:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Cannot delete root user"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Cannot delete root user", "error")
 
     if user:
         session.delete(user)
@@ -230,14 +185,7 @@ def update_user(
 ):
     user = session.exec(select(User).where(User.username == username)).one_or_none()
     if user and user.root:
-        return template_response(
-            "settings_page/users.html",
-            request,
-            admin_user,
-            {"error": "Cannot change root user"},
-            block_name="toast_block",
-            headers={"HX-Retarget": "#toast-block"},
-        )
+        raise ToastException("Cannot change root user's group", "error")
 
     if user:
         user.group = group
@@ -280,6 +228,7 @@ def read_prowlarr(
             "indexer_categories": indexer_categories,
             "selected_categories": selected,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
+            "version": Settings().app.version,
             "mam_active": mam_is_active,
             "mam_id": mam_id,
         },
@@ -405,6 +354,7 @@ def read_download(
             "name_ratio": name_ratio,
             "title_ratio": title_ratio,
             "indexer_flags": flags,
+            "version": Settings().app.version,
         },
     )
 
@@ -514,7 +464,6 @@ def remove_indexer_flag(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
 ):
-    # TODO: very bad concurrency here
     flags = quality_config.get_indexer_flags(session)
     flags = [f for f in flags if f.flag != flag]
     quality_config.set_indexer_flags(session, flags)
@@ -545,6 +494,7 @@ def read_notifications(
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
+            "version": Settings().app.version,
         },
     )
 
@@ -649,7 +599,6 @@ async def execute_notification(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
-    client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     notification = session.exec(
         select(Notification).where(Notification.id == notification_id)
@@ -682,6 +631,15 @@ def read_security(
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
             "min_password_length": auth_config.get_min_password_length(session),
+            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint", ""),
+            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret", ""),
+            "oidc_client_id": oidc_config.get(session, "oidc_client_id", ""),
+            "oidc_scope": oidc_config.get(session, "oidc_scope", ""),
+            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim", ""),
+            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
+            "oidc_redirect_https": oidc_config.get_redirect_https(session),
+            "oidc_logout_url": oidc_config.get(session, "oidc_logout_url", ""),
+            "version": Settings().app.version,
         },
     )
 
@@ -698,40 +656,72 @@ def reset_auth_secret(
 
 
 @router.post("/security")
-def update_security(
+async def update_security(
     login_type: Annotated[LoginTypeEnum, Form()],
-    access_token_expiry: Annotated[int, Form()],
-    min_password_length: Annotated[int, Form()],
     request: Request,
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    access_token_expiry: Optional[int] = Form(None),
+    min_password_length: Optional[int] = Form(None),
+    oidc_endpoint: Optional[str] = Form(None),
+    oidc_client_id: Optional[str] = Form(None),
+    oidc_client_secret: Optional[str] = Form(None),
+    oidc_scope: Optional[str] = Form(None),
+    oidc_username_claim: Optional[str] = Form(None),
+    oidc_group_claim: Optional[str] = Form(None),
+    oidc_redirect_https: Optional[bool] = Form(False),
+    oidc_logout_url: Optional[str] = Form(None),
 ):
-    if access_token_expiry < 1:
-        return template_response(
-            "settings_page/security.html",
-            request,
-            admin_user,
-            {"error": "Access token expiry can't be 0 or negative"},
-            block_name="error_toast",
-            headers={"HX-Retarget": "#message"},
-        )
+    if (
+        login_type in [LoginTypeEnum.basic, LoginTypeEnum.forms]
+        and min_password_length is not None
+    ):
+        if min_password_length < 1:
+            raise ToastException(
+                "Minimum password length can't be 0 or negative", "error"
+            )
+        else:
+            auth_config.set_min_password_length(session, min_password_length)
 
-    if min_password_length < 1:
-        return template_response(
-            "settings_page/security.html",
-            request,
-            admin_user,
-            {"error": "Minimum password length can't be 0 or negative"},
-            block_name="error_toast",
-            headers={"HX-Retarget": "#message"},
-        )
+    if access_token_expiry is not None:
+        if access_token_expiry < 1:
+            raise ToastException("Access token expiry can't be 0 or negative", "error")
+        else:
+            auth_config.set_access_token_expiry_minutes(
+                session, Minute(access_token_expiry)
+            )
+
+    if login_type == LoginTypeEnum.oidc:
+        if oidc_endpoint:
+            await oidc_config.set_endpoint(session, client_session, oidc_endpoint)
+        if oidc_client_id:
+            oidc_config.set(session, "oidc_client_id", oidc_client_id)
+        if oidc_client_secret:
+            oidc_config.set(session, "oidc_client_secret", oidc_client_secret)
+        if oidc_scope:
+            oidc_config.set(session, "oidc_scope", oidc_scope)
+        if oidc_username_claim:
+            oidc_config.set(session, "oidc_username_claim", oidc_username_claim)
+        if oidc_redirect_https is not None:
+            oidc_config.set(
+                session,
+                "oidc_redirect_https",
+                "true" if oidc_redirect_https else "",
+            )
+        if oidc_logout_url:
+            oidc_config.set(session, "oidc_logout_url", oidc_logout_url)
+        if oidc_group_claim is not None:
+            oidc_config.set(session, "oidc_group_claim", oidc_group_claim)
+
+        error_message = await oidc_config.validate(session, client_session)
+        if error_message:
+            raise ToastException(error_message, "error")
 
     old = auth_config.get_login_type(session)
     auth_config.set_login_type(session, login_type)
-    auth_config.set_access_token_expiry_minutes(session, access_token_expiry)
-    auth_config.set_min_password_length(session, min_password_length)
     return template_response(
         "settings_page/security.html",
         request,
@@ -740,6 +730,14 @@ def update_security(
             "page": "security",
             "login_type": auth_config.get_login_type(session),
             "access_token_expiry": auth_config.get_access_token_expiry_minutes(session),
+            "oidc_client_id": oidc_config.get(session, "oidc_client_id", ""),
+            "oidc_scope": oidc_config.get(session, "oidc_scope", ""),
+            "oidc_username_claim": oidc_config.get(session, "oidc_username_claim", ""),
+            "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
+            "oidc_client_secret": oidc_config.get(session, "oidc_client_secret", ""),
+            "oidc_endpoint": oidc_config.get(session, "oidc_endpoint", ""),
+            "oidc_redirect_https": oidc_config.get_redirect_https(session),
+            "oidc_logout_url": oidc_config.get(session, "oidc_logout_url", ""),
             "success": "Settings updated",
         },
         block_name="form",

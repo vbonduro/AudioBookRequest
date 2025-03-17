@@ -25,6 +25,12 @@ class User(BaseModel, table=True):
         sa_column_kwargs={"server_default": "untrusted"},
     )
     root: bool = False
+
+    # TODO: Add last_login
+    # last_login: datetime = Field(
+    #     default_factory=datetime.now, sa_column_kwargs={"server_default": "now()"}
+    # )
+
     """
     untrusted: Requests need to be manually reviewed
     trusted: Requests are automatically downloaded if possible
@@ -72,8 +78,12 @@ class BookSearchResult(BaseBook):
 
 
 class BookWishlistResult(BaseBook):
-    amount_requested: int = 0
+    requested_by: list[str] = []
     download_error: Optional[str] = None
+
+    @property
+    def amount_requested(self):
+        return len(self.requested_by)
 
 
 class BookRequest(BaseBook, table=True):
@@ -117,6 +127,7 @@ class ManualBookRequest(BaseModel, table=True):
             nullable=False,
         ),
     )
+    downloaded: bool = False
 
     class Config:  # pyright: ignore[reportIncompatibleVariableOverride]
         arbitrary_types_allowed = True
@@ -131,7 +142,7 @@ class BaseSource(BaseModel):
     narrators: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     size: int  # in bytes
     publish_date: datetime
-    info_url: str
+    info_url: Optional[str]
     indexer_flags: list[str]
     download_url: Optional[str] = None
     magnet_url: Optional[str] = None
@@ -167,14 +178,6 @@ class Indexer(BaseModel, table=True):
 class Config(BaseModel, table=True):
     key: str = Field(primary_key=True)
     value: str
-
-
-# TODO: add logs
-class Log(BaseModel):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_username: str
-    message: str
-    timestamp: datetime = Field(default_factory=datetime.now)
 
 
 class EventEnum(str, Enum):

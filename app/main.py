@@ -1,28 +1,56 @@
+import logging
+from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware import Middleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 
+from app.internal.auth.authentication import RequiresLoginException, auth_config
+from app.internal.auth.oidc_config import InvalidOIDCConfiguration
+from app.internal.auth.session_middleware import (
+    DynamicSessionMiddleware,
+    middleware_linker,
+)
 from app.internal.env_settings import Settings
 from app.internal.models import User
-from app.routers import root, search, settings, wishlist
-from app.util.auth import RequiresLoginException
+from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
+from app.util.templates import templates
+from app.util.toast import ToastException
+
+logger = logging.getLogger(__name__)
+logging.getLogger("uvicorn").handlers.clear()
+file_handler = logging.FileHandler(Settings().app.config_dir / Path("abr.log"))
+stream_handler = logging.StreamHandler()
+logging.basicConfig(
+    level=Settings().app.log_level,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[file_handler, stream_handler],
+)
+
+with open_session() as session:
+    auth_secret = auth_config.get_auth_secret(session)
 
 app = FastAPI(
     title="AudioBookRequest",
     debug=Settings().app.debug,
     openapi_url="/openapi.json" if Settings().app.openapi_enabled else None,
+    middleware=[
+        Middleware(DynamicSessionMiddleware, auth_secret, middleware_linker),
+        Middleware(GZipMiddleware),
+    ],
 )
 
-
+app.include_router(auth.router)
 app.include_router(root.router)
 app.include_router(search.router)
-app.include_router(wishlist.router)
 app.include_router(settings.router)
+app.include_router(wishlist.router)
 
 user_exists = False
 
@@ -30,15 +58,45 @@ user_exists = False
 @app.exception_handler(RequiresLoginException)
 async def redirect_to_login(request: Request, exc: RequiresLoginException):
     if request.method == "GET":
+        params: dict[str, str] = {}
         if exc.detail:
-            return RedirectResponse(f"/login?error={quote_plus(exc.detail)}")
-        return RedirectResponse("/login")
+            params["error"] = exc.detail
+        path = request.url.path
+        if path != "/" and not path.startswith("/login"):
+            params["redirect_uri"] = path
+        return RedirectResponse("/login?" + urlencode(params))
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@app.exception_handler(InvalidOIDCConfiguration)
+async def redirect_to_invalid_oidc(request: Request, exc: InvalidOIDCConfiguration):
+    path = "/auth/invalid-oidc"
+    if exc.detail:
+        path += f"?error={quote_plus(exc.detail)}"
+    return RedirectResponse(path)
+
+
+@app.exception_handler(ToastException)
+async def raise_toast(request: Request, exc: ToastException):
+    context: dict[str, Request | str] = {"request": request}
+    if exc.type == "error":
+        context["toast_error"] = exc.message
+    elif exc.type == "success":
+        context["toast_success"] = exc.message
+    elif exc.type == "info":
+        context["toast_info"] = exc.message
+
+    return templates.TemplateResponse(
+        "base.html",
+        context,
+        block_name="toast_block",
+        headers={"HX-Retarget": "#toast-block"},
+    )
 
 
 @app.middleware("http")

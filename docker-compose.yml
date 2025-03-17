@@ -1,0 +1,10 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        - VERSION=local
+    volumes:
+      - ./config:/config
+    ports:
+      - "8000:8000"

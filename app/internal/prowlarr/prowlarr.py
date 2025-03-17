@@ -1,8 +1,9 @@
 import json
 import logging
 from datetime import datetime
+import posixpath
 from typing import Any, Literal, Optional
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
@@ -96,7 +97,7 @@ async def start_download(
     api_key = prowlarr_config.get_api_key(session)
     assert base_url is not None and api_key is not None
 
-    url = urljoin(base_url, "/api/v1/search")
+    url = posixpath.join(base_url, "api/v1/search")
     logger.debug("Starting download for %s", guid)
     async with client_session.post(
         url,
@@ -104,7 +105,6 @@ async def start_download(
         headers={"X-Api-Key": api_key},
     ) as response:
         if not response.ok:
-            print(response)
             logger.error("Failed to start download for %s: %s", guid, response)
             await send_all_notifications(
                 EventEnum.on_failed_download,
@@ -157,7 +157,7 @@ async def query_prowlarr(
     if indexer_ids is not None:
         params["indexerIds"] = indexer_ids
 
-    url = urljoin(base_url, f"/api/v1/search?{urlencode(params, doseq=True)}")
+    url = posixpath.join(base_url, f"api/v1/search?{urlencode(params, doseq=True)}")
 
     logger.info("Querying prowlarr: %s", url)
 
@@ -169,44 +169,53 @@ async def query_prowlarr(
 
     sources: list[ProwlarrSource] = []
     for result in search_results:
-        if result["protocol"] not in ["torrent", "usenet"]:
-            print("Skipping source with unknown protocol", result["protocol"])
-            continue
-        if result["protocol"] == "torrent":
-            sources.append(
-                TorrentSource(
-                    protocol="torrent",
-                    guid=result["guid"],
-                    indexer_id=result["indexerId"],
-                    indexer=result["indexer"],
-                    title=result["title"],
-                    seeders=result.get("seeders", 0),
-                    leechers=result.get("leechers", 0),
-                    size=result.get("size", 0),
-                    info_url=result["infoUrl"],
-                    indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
-                    download_url=result.get("downloadUrl"),
-                    magnet_url=result.get("magnetUrl"),
-                    publish_date=datetime.fromisoformat(result["publishDate"]),
+        try:
+            if result["protocol"] not in ["torrent", "usenet"]:
+                logger.info(
+                    "Skipping source with unknown protocol %s", result["protocol"]
                 )
-            )
-        else:
-            sources.append(
-                UsenetSource(
-                    protocol="usenet",
-                    guid=result["guid"],
-                    indexer_id=result["indexerId"],
-                    indexer=result["indexer"],
-                    title=result["title"],
-                    grabs=result.get("grabs"),
-                    size=result.get("size", 0),
-                    info_url=result["infoUrl"],
-                    indexer_flags=[x.lower() for x in result.get("indexerFlags", [])],
-                    download_url=result.get("downloadUrl"),
-                    magnet_url=result.get("magnetUrl"),
-                    publish_date=datetime.fromisoformat(result["publishDate"]),
+                continue
+            if result["protocol"] == "torrent":
+                sources.append(
+                    TorrentSource(
+                        protocol="torrent",
+                        guid=result["guid"],
+                        indexer_id=result["indexerId"],
+                        indexer=result["indexer"],
+                        title=result["title"],
+                        seeders=result.get("seeders", 0),
+                        leechers=result.get("leechers", 0),
+                        size=result.get("size", 0),
+                        info_url=result.get("infoUrl"),
+                        indexer_flags=[
+                            x.lower() for x in result.get("indexerFlags", [])
+                        ],
+                        download_url=result.get("downloadUrl"),
+                        magnet_url=result.get("magnetUrl"),
+                        publish_date=datetime.fromisoformat(result["publishDate"]),
+                    )
                 )
-            )
+            else:
+                sources.append(
+                    UsenetSource(
+                        protocol="usenet",
+                        guid=result["guid"],
+                        indexer_id=result["indexerId"],
+                        indexer=result["indexer"],
+                        title=result["title"],
+                        grabs=result.get("grabs"),
+                        size=result.get("size", 0),
+                        info_url=result.get("infoUrl"),
+                        indexer_flags=[
+                            x.lower() for x in result.get("indexerFlags", [])
+                        ],
+                        download_url=result.get("downloadUrl"),
+                        magnet_url=result.get("magnetUrl"),
+                        publish_date=datetime.fromisoformat(result["publishDate"]),
+                    )
+                )
+        except KeyError as e:
+            logger.error("Failed to parse source: %s. KeyError: %s", result, e)
 
     prowlarr_source_cache.set(sources, query)
 

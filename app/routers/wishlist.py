@@ -1,3 +1,4 @@
+from collections import defaultdict
 import uuid
 from typing import Annotated, Literal, Optional
 
@@ -12,8 +13,7 @@ from fastapi import (
     Response,
 )
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func
-from sqlmodel import Session, col, select
+from sqlmodel import Session, asc, col, select
 
 from app.internal.models import (
     BookRequest,
@@ -28,8 +28,7 @@ from app.internal.prowlarr.prowlarr import (
 )
 from app.internal.indexers.mam import mam_config
 from app.internal.query import query_sources
-from app.internal.ranking.quality import quality_config
-from app.util.auth import DetailedUser, get_authenticated_user
+from app.internal.auth.authentication import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.db import get_session, open_session
 from app.util.templates import template_response
@@ -42,23 +41,32 @@ def get_wishlist_books(
     username: Optional[str] = None,
     response_type: Literal["all", "downloaded", "not_downloaded"] = "all",
 ) -> list[BookWishlistResult]:
-    query = select(
-        BookRequest, func.count(col(BookRequest.user_username)).label("count")
-    )
+    """
+    Gets the books that have been requested. If a username is given only the books requested by that
+    user are returned. If no username is given, all book requests are returned.
+    """
     if username:
-        query = query.where(BookRequest.user_username == username)
+        query = select(BookRequest).where(BookRequest.user_username == username)
     else:
-        query = query.where(col(BookRequest.user_username).is_not(None))
+        query = select(BookRequest).where(col(BookRequest.user_username).is_not(None))
 
-    book_requests = session.exec(
-        query.select_from(BookRequest).group_by(BookRequest.asin)
-    ).all()
+    book_requests = session.exec(query).all()
 
+    # group by asin and aggregate all usernames
+    usernames: dict[str, list[str]] = defaultdict(list)
+    distinct_books: dict[str, BookRequest] = {}
+    for book in book_requests:
+        if book.asin not in distinct_books:
+            distinct_books[book.asin] = book
+        if book.user_username:
+            usernames[book.asin].append(book.user_username)
+
+    # add information of what users requested the book
     books: list[BookWishlistResult] = []
     downloaded: list[BookWishlistResult] = []
-    for book, count in book_requests:
+    for asin, book in distinct_books.items():
         b = BookWishlistResult.model_validate(book)
-        b.amount_requested = count
+        b.requested_by = usernames[asin]
         if b.downloaded:
             downloaded.append(b)
         else:
@@ -103,23 +111,73 @@ async def downloaded(
     )
 
 
+@router.patch("/downloaded/{asin}")
+async def update_downloaded(
+    request: Request,
+    asin: str,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    books = session.exec(select(BookRequest).where(BookRequest.asin == asin)).all()
+    for book in books:
+        book.downloaded = True
+        session.add(book)
+    session.commit()
+
+    username = None if admin_user.is_admin() else admin_user.username
+    books = get_wishlist_books(session, username, "not_downloaded")
+    return template_response(
+        "wishlist_page/wishlist.html",
+        request,
+        admin_user,
+        {"books": books, "page": "wishlist"},
+        block_name="book_wishlist",
+    )
+
+
 @router.get("/manual")
 async def manual(
     request: Request,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
     session: Annotated[Session, Depends(get_session)],
 ):
-    books = session.exec(select(ManualBookRequest)).all()
-    auto_download = quality_config.get_auto_download(session)
+    books = session.exec(
+        select(ManualBookRequest).order_by(asc(ManualBookRequest.downloaded))
+    ).all()
     return template_response(
         "wishlist_page/manual.html",
         request,
         user,
-        {
-            "books": books,
-            "page": "manual",
-            "auto_download": auto_download,
-        },
+        {"books": books, "page": "manual"},
+    )
+
+
+@router.patch("/manual/{id}")
+async def downloaded_manual(
+    request: Request,
+    id: uuid.UUID,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    book = session.get(ManualBookRequest, id)
+    if book:
+        book.downloaded = True
+        session.add(book)
+        session.commit()
+
+    books = session.exec(
+        select(ManualBookRequest).order_by(asc(ManualBookRequest.downloaded))
+    ).all()
+    return template_response(
+        "wishlist_page/manual.html",
+        request,
+        admin_user,
+        {"books": books, "page": "manual"},
+        block_name="book_wishlist",
     )
 
 
@@ -138,12 +196,11 @@ async def delete_manual(
         session.commit()
 
     books = session.exec(select(ManualBookRequest)).all()
-    auto_download = quality_config.get_auto_download(session)
     return template_response(
         "wishlist_page/manual.html",
         request,
         admin_user,
-        {"books": books, "page": "manual", "auto_download": auto_download},
+        {"books": books, "page": "manual"},
         block_name="book_wishlist",
     )
 

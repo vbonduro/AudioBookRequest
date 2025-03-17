@@ -13,6 +13,8 @@ class ApplicationSettings(BaseModel):
     openapi_enabled: bool = False
     config_dir: str = "/config"
     port: int = 8000
+    version: str = "local"
+    log_level: str = "INFO"
 
 
 class Settings(BaseSettings):
@@ -20,7 +22,7 @@ class Settings(BaseSettings):
         env_prefix="ABR_",
         env_nested_delimiter="__",
         nested_model_default_partial_update=True,
-        env_file=".env.local",
+        env_file=(".env.local", ".env"),
     )
 
     db: DBSettings = DBSettings()
