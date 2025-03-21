@@ -8,12 +8,12 @@ COPY package-lock.json package-lock.json
 RUN npm install
 
 # Setup python
-FROM python:3.11-alpine AS linux-amd64
+FROM python:3.12-alpine AS linux-amd64
 WORKDIR /app
 RUN apk add --no-cache curl gcompat build-base
 RUN curl https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-x64-musl -L -o /bin/tailwindcss
 
-FROM python:3.11-alpine AS linux-arm64
+FROM python:3.12-alpine AS linux-arm64
 WORKDIR /app
 RUN apk add --no-cache curl gcompat build-base
 RUN curl https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-arm64-musl -L -o /bin/tailwindcss
@@ -21,11 +21,11 @@ RUN curl https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/ta
 FROM ${TARGETOS}-${TARGETARCH}${TARGETVARIANT}
 RUN chmod +x /bin/tailwindcss
 
-COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt
-
-
 COPY --from=0 /app/node_modules/ node_modules/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+COPY uv.lock pyproject.toml /app
+RUN uv sync --frozen --no-cache
 
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
@@ -40,5 +40,5 @@ ENV ABR_APP__PORT=8000
 ARG VERSION
 ENV ABR_APP__VERSION=$VERSION
 
-CMD alembic upgrade heads && fastapi run --port $ABR_APP__PORT
+CMD /app/.venv/bin/alembic upgrade heads && /app/.venv/bin/fastapi run --port $ABR_APP__PORT
 

@@ -1,7 +1,7 @@
 import asyncio
 import time
 from datetime import datetime
-from typing import Any, Generic, Literal, Optional, TypeVar
+from typing import Any, Literal, Optional
 from urllib.parse import urlencode
 
 import pydantic
@@ -62,10 +62,7 @@ class CacheQuery(pydantic.BaseModel, frozen=True):
     audible_region: audible_region_type
 
 
-T = TypeVar("T")
-
-
-class CacheResult(pydantic.BaseModel, Generic[T], frozen=True):
+class CacheResult[T](pydantic.BaseModel, frozen=True):
     value: T
     timestamp: float
 

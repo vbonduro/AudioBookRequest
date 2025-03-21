@@ -163,7 +163,7 @@ Suggestions are always welcome. Do note though that a big goal is to keep this p
 
 ## Local Development
 
-Virtual environments help isolate any installed packages to this directory. Project was made with `Python 3.11`. Any python version above 3.9 _should_ work, but if there are any problems use `>= 3.11`.
+Virtual environments help isolate any installed packages to this directory. Project was made with `Python 3.12` and uses new generics introduced in 3.12. Older python versions might not work or could have incorrect typing.
 
 For improved dependency management, `uv` is used instead of `pip`.
 
