@@ -57,10 +57,8 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
         if not configurations.mam_active:
             return
 
-        query = request.title + " " + " ".join(request.authors)
-
         params: dict[str, Any] = {
-            "tor[text]": query,  # book title + author(s)
+            "tor[text]": request.title,
             "tor[main_cat]": [13],  # MAM audiobook category
             "tor[searchIn]": "torrents",
             "tor[srchIn][author]": "true",
@@ -77,15 +75,20 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
 
         session_id = configurations.mam_session_id
 
-        logger.info("Mam: Querying: %s", url)
-
         async with container.client_session.get(
             url, cookies={"mam_id": session_id}
         ) as response:
+            if response.status == 403:
+                logger.error("Mam: Failed to authenticate: %s", await response.text())
+                return
             if not response.ok:
-                logger.error("Mam: Failed to query: %s", response.text)
+                logger.error("Mam: Failed to query: %s", await response.text())
                 return
             search_results = await response.json()
+
+        if "error" in search_results:
+            logger.error("Mam: Error in response: %s", search_results["error"])
+            return
 
         for result in search_results["data"]:
             self.results[str(result["id"])] = result

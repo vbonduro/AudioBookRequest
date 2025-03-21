@@ -769,4 +769,6 @@ async def update_indexers(
             else:
                 indexer_configuration_cache.set(session, key, str(value))
 
+    flush_prowlarr_cache()
+
     raise ToastException("Indexers updated", "success")
