@@ -1,16 +1,13 @@
 import time
 from abc import ABC
-from typing import Generic, Optional, TypeVar, overload
+from typing import Optional, overload
 
 from sqlmodel import Session, select
 
 from app.internal.models import Config
 
-T = TypeVar("T")
 
-
-# TODO: determine if we want to use the DB as well or not
-class SimpleCache(Generic[T]):
+class SimpleCache[T]:
     _cache: dict[tuple[str, ...], tuple[int, T]] = {}
 
     def get(self, source_ttl: int, *query: str) -> Optional[T]:
@@ -29,10 +26,7 @@ class SimpleCache(Generic[T]):
         self._cache = {}
 
 
-L = TypeVar("L", bound=str)
-
-
-class StringConfigCache(Generic[L], ABC):
+class StringConfigCache[L: str](ABC):
     _cache: dict[L, str] = {}
 
     @overload

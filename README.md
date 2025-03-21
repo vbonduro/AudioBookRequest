@@ -1,6 +1,6 @@
-![GitHub Release](https://img.shields.io/github/v/release/markbeep/AudioBookRequest)
-
-[![Discord](https://dcbadge.limes.pink/api/server/https://discord.gg/SsFRXWMg7s)](https://discord.gg/SsFRXWMg7s)
+![GitHub Release](https://img.shields.io/github/v/release/markbeep/AudioBookRequest?style=for-the-badge)
+![Python Version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fmarkbeep%2FAudioBookRequest%2Fmain%2Fpyproject.toml&style=for-the-badge&logo=python)
+![Discord](https://img.shields.io/discord/1350874252282171522?style=for-the-badge&logo=discord&link=https%3A%2F%2Fdiscord.gg%2FSsFRXWMg7s)
 
 ![Header](/media/AudioBookRequestIcon.png)
 
@@ -163,17 +163,13 @@ Suggestions are always welcome. Do note though that a big goal is to keep this p
 
 ## Local Development
 
-Virtual environments help isolate any installed packages to this directory. Project was made with `Python 3.11`. Any python version above 3.9 _should_ work, but if there are any problems use `>= 3.11`.
+Virtual environments help isolate any installed packages to this directory. Project was made with `Python 3.12` and uses new generics introduced in 3.12. Older python versions might not work or could have incorrect typing.
+
+For improved dependency management, `uv` is used instead of `pip`.
 
 ```sh
-python -m venv .venv
-
-source .venv/bin/activate # sh/bash
-source .venv/bin/activate.fish # fish
-.venv\Scripts\activate.bat # cmd
-.venv\Scripts\Activate.ps1 # powershell
-
-pip install -r requirements.txt
+# This creates the venv as well as installs all dependencies
+uv sync
 ```
 
 For local development, environment variables can be added to `.env.local` and they'll be used wherever required.
@@ -183,7 +179,7 @@ For local development, environment variables can be added to `.env.local` and th
 [Alembic](https://alembic.sqlalchemy.org/en/latest/) is used to create database migrations. Run the following before starting up the application for the first time. It will initialize the directory if non-existant, create the database file as well as execute any required migrations.
 
 ```sh
-alembic upgrade heads
+uv run alembic upgrade heads
 ```
 
 _In case of any model changes, remember to create migrations using `alembic revision --autogenerate -m "<message>"`._
@@ -195,7 +191,7 @@ Running the application is best done in multiple terminals:
 1. Start FastAPI dev mode:
 
 ```sh
-fastapi dev
+uv run fastapi dev
 ```
 
 Website can be visited at http://localhost:8000.
@@ -204,7 +200,7 @@ Website can be visited at http://localhost:8000.
 
 ```sh
 npm i
-tailwindcss -i styles/globals.css -o static/globals.css --watch
+uv run tailwindcss -i styles/globals.css -o static/globals.css --watch
 # Alternatively npx can be used to run tailwindcss
 npx @tailwindcss/cli@4 -i styles/globals.css -o static/globals.css --watch
 ```
