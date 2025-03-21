@@ -53,15 +53,12 @@ async def query_sources(
         if not book:
             raise HTTPException(status_code=500, detail="Book asin error")
 
-        query = book.title + " " + " ".join(book.authors)
-
         sources = await query_prowlarr(
             session,
             client_session,
-            query,
+            book,
             force_refresh=force_refresh,
         )
-
         ranked = await rank_sources(session, client_session, sources, book)
 
         # start download if requested

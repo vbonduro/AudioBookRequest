@@ -178,15 +178,29 @@ class CompareSource:
         return int(b_title) - int(a_title)
 
     def _compare_authors(self, a: RankSource, b: RankSource, next_compare: int) -> int:
-        a_score = vaguely_exist_in_title(
-            self.book.authors,
-            a.source.title,
-            quality_config.get_name_exists_ratio(self.session),
+        a_score = max(
+            vaguely_exist_in_title(
+                self.book.authors,
+                a.source.title,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
+            fuzzy_author_narrator_match(
+                a.source.book_metadata.authors,
+                self.book.authors,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
         )
-        b_score = vaguely_exist_in_title(
-            self.book.authors,
-            b.source.title,
-            quality_config.get_name_exists_ratio(self.session),
+        b_score = max(
+            vaguely_exist_in_title(
+                self.book.authors,
+                b.source.title,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
+            fuzzy_author_narrator_match(
+                b.source.book_metadata.authors,
+                self.book.authors,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
         )
         if a_score == b_score:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
@@ -195,15 +209,29 @@ class CompareSource:
     def _compare_narrators(
         self, a: RankSource, b: RankSource, next_compare: int
     ) -> int:
-        a_score = vaguely_exist_in_title(
-            self.book.narrators,
-            a.source.title,
-            quality_config.get_name_exists_ratio(self.session),
+        a_score = max(
+            vaguely_exist_in_title(
+                self.book.narrators,
+                a.source.title,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
+            fuzzy_author_narrator_match(
+                a.source.book_metadata.narrators,
+                self.book.narrators,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
         )
-        b_score = vaguely_exist_in_title(
-            self.book.narrators,
-            b.source.title,
-            quality_config.get_name_exists_ratio(self.session),
+        b_score = max(
+            vaguely_exist_in_title(
+                self.book.narrators,
+                b.source.title,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
+            fuzzy_author_narrator_match(
+                b.source.book_metadata.narrators,
+                self.book.narrators,
+                quality_config.get_name_exists_ratio(self.session),
+            ),
         )
         if a_score == b_score:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
@@ -224,6 +252,28 @@ class CompareSource:
             return int((a.source.publish_date - b.source.publish_date).total_seconds())
         # With torrents: older => better
         return int((b.source.publish_date - a.source.publish_date).total_seconds())
+
+
+def fuzzy_author_narrator_match(
+    source_people: list[str], book_people: list[str], name_exists_ratio: int
+) -> int:
+    """Calculate a fuzzy matching score between two lists of author/narrator names."""
+    if not source_people or not book_people:
+        return 0
+    score = 0
+    for book_person in book_people:
+        best_match = 0
+        for source_person in source_people:
+            match_score = fuzz.token_set_ratio(
+                book_person, source_person, processor=utils.default_process
+            )
+            best_match = max(best_match, match_score)
+
+        # Only count matches above threshold
+        if best_match > name_exists_ratio:
+            score += 1
+
+    return score
 
 
 def vaguely_exist_in_title(words: list[str], title: str, name_exists_ratio: int) -> int:

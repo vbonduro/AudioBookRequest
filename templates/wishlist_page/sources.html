@@ -28,6 +28,8 @@
         <tr>
           <th></th>
           <th>title</th>
+          <th>author(s)</th>
+          <th>narrator(s)</th>
           <th>indexer</th>
           <th>flags</th>
           <th>seed / leech (or grabs)</th>
@@ -48,6 +50,10 @@
               >{{ source.title }}</a
             >{% else %}{{ source.title }}{% endif %}
           </td>
+          <!-- prettier-ignore -->
+          <td>{% if source.book_metadata.authors %}{{ source.book_metadata.authors|join(', ') }}{% endif %}</td>
+          <!-- prettier-ignore -->
+          <td>{% if source.book_metadata.narrators %}{{ source.book_metadata.narrators|join(', ') }}{% endif %}</td>
           <td>{{ source.indexer }}</td>
           <td>{{ source.indexer_flags|join(', ') }}</td>
           {% if source.protocol == "torrent" %}

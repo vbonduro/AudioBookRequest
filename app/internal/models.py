@@ -133,6 +133,16 @@ class ManualBookRequest(BaseModel, table=True):
         arbitrary_types_allowed = True
 
 
+class BookMetadata(BaseModel):
+    """extra metadata that can be added to sources to better rank them"""
+
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    authors: list[str] = []
+    narrators: list[str] = []
+    filetype: Optional[str] = None
+
+
 class BaseSource(BaseModel):
     guid: str
     indexer_id: int
@@ -144,6 +154,8 @@ class BaseSource(BaseModel):
     indexer_flags: list[str]
     download_url: Optional[str] = None
     magnet_url: Optional[str] = None
+
+    book_metadata: BookMetadata = BookMetadata()
 
     @property
     def size_MB(self):

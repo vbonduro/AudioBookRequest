@@ -1,0 +1,116 @@
+import logging
+from typing import Any, Generic, Optional, TypeVar
+
+from pydantic import BaseModel
+from sqlmodel import Session
+
+from app.util.cache import StringConfigCache
+
+logger = logging.getLogger(__name__)
+
+
+T = TypeVar("T", str, int, bool, float, None)
+
+
+class IndexerConfiguration(BaseModel, Generic[T]):
+    display_name: str
+    description: Optional[str] = None
+    default: Optional[T] = None
+    required: bool = False
+    type: type[T]
+
+    def is_str(self) -> bool:
+        return self.type is str
+
+    def is_float(self) -> bool:
+        return self.type is float
+
+    def is_int(self) -> bool:
+        return self.type is int
+
+    def is_bool(self) -> bool:
+        return self.type is bool
+
+
+class Configurations(BaseModel):
+    """
+    The configurations to use for an indexer.
+    Any fields of type `IndexerConfiguration` will
+    be passed in as a `ValuedConfigurations` object
+    to the setup method of the indexer and input
+    fields will be generated for them on the frontend.
+    """
+
+    pass
+
+
+class ValuedConfigurations:
+    """
+    Field names need to be unique across all indexers
+    and match up with the fields of the `Configurations` object.
+    """
+
+    pass
+
+
+class ConfigurationException(ValueError):
+    pass
+
+
+class MissingRequiredException(ConfigurationException):
+    pass
+
+
+class InvalidTypeException(ConfigurationException):
+    pass
+
+
+indexer_configuration_cache = StringConfigCache[str]()
+
+
+def create_valued_configuration(
+    config: Configurations,
+    session: Session,
+    *,
+    check_required: bool = True,
+) -> ValuedConfigurations:
+    """
+    Using a configuration class, it retrieves the values from
+    the cache/db and handle setting the default values as well
+    as raising exceptions for required fields.
+    """
+
+    valued = ValuedConfigurations()
+
+    configurations = vars(config)
+    for key, _value in configurations.items():
+        if not isinstance(_value, IndexerConfiguration):
+            logger.debug("Skipping %s", key)
+            continue
+        value: IndexerConfiguration[Any] = _value
+
+        config_value = indexer_configuration_cache.get(session, key)
+        if config_value is None:
+            config_value = value.default
+
+        if check_required and value.required and config_value is None:
+            raise MissingRequiredException(f"Configuration {key} is required")
+
+        if config_value is None:
+            setattr(valued, key, None)
+        elif value.type is str:
+            setattr(valued, key, config_value)
+        elif value.type is int:
+            try:
+                setattr(valued, key, int(config_value))
+            except ValueError:
+                raise InvalidTypeException(f"Configuration {key} must be an integer")
+        elif value.type is float:
+            try:
+                setattr(valued, key, float(config_value))
+            except ValueError:
+                raise InvalidTypeException(f"Configuration {key} must be a float")
+        elif value.type is bool:
+            setattr(valued, key, bool(config_value))
+
+    return valued

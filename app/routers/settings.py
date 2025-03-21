@@ -16,6 +16,9 @@ from app.internal.auth.authentication import (
 from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.auth.oidc_config import oidc_config
 from app.internal.env_settings import Settings
+from app.internal.indexers.abstract import SessionContainer
+from app.internal.indexers.configuration import indexer_configuration_cache
+from app.internal.indexers.indexer_util import IndexerContext, get_indexer_contexts
 from app.internal.models import EventEnum, GroupEnum, Notification, User
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.indexer_categories import indexer_categories
@@ -703,3 +706,67 @@ async def update_security(
         block_name="form",
         headers={} if old == login_type else {"HX-Refresh": "true"},
     )
+
+
+@router.get("/indexers")
+async def read_indexers(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+):
+    contexts = await get_indexer_contexts(
+        SessionContainer(session=session, client_session=client_session),
+        check_required=False,
+    )
+
+    return template_response(
+        "settings_page/indexers.html",
+        request,
+        admin_user,
+        {
+            "page": "indexers",
+            "indexers": contexts,
+            "version": Settings().app.version,
+        },
+    )
+
+
+@router.post("/indexers")
+async def update_indexers(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    indexer_select: Annotated[str, Form()],
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+):
+    contexts = await get_indexer_contexts(
+        SessionContainer(session=session, client_session=client_session),
+        check_required=False,
+    )
+
+    updated_context: Optional[IndexerContext] = None
+    for context in contexts:
+        if context.indexer.name == indexer_select:
+            updated_context = context
+            break
+
+    if not updated_context:
+        raise ToastException("Indexer not found", "error")
+
+    form_values = await request.form()
+
+    for key, value in form_values.items():
+        if key in updated_context.configuration and type(value) is str:
+            if updated_context.configuration[key].type is bool:
+                indexer_configuration_cache.set(
+                    session, key, "true" if value == "on" else ""
+                )
+            else:
+                indexer_configuration_cache.set(session, key, str(value))
+
+    raise ToastException("Indexers updated", "success")

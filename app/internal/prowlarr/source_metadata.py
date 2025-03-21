@@ -1,0 +1,39 @@
+import asyncio
+import logging
+from types import CoroutineType
+from typing import Any
+
+from app.internal.indexers.abstract import SessionContainer
+from app.internal.indexers.indexer_util import get_indexer_contexts
+from app.internal.models import BookRequest, ProwlarrSource
+
+logger = logging.getLogger(__name__)
+
+
+async def edit_source_metadata(
+    book_request: BookRequest,
+    sources: list[ProwlarrSource],
+    container: SessionContainer,
+):
+    contexts = await get_indexer_contexts(container)
+
+    coros = [
+        context.indexer.setup(book_request, container, context.valued)
+        for context in contexts
+    ]
+    exceptions = await asyncio.gather(*coros, return_exceptions=True)
+    for exc in exceptions:
+        if exc:
+            logger.error("Failed to setup indexer: %s", exc)
+
+    coros: list[CoroutineType[Any, Any, None]] = []
+    for source in sources:
+        for context in contexts:
+            if await context.indexer.is_matching_source(source, container):
+                coros.append(context.indexer.edit_source_metadata(source, container))
+                break
+
+    exceptions = await asyncio.gather(*coros, return_exceptions=True)
+    for exc in exceptions:
+        if exc:
+            logger.error("Failed to edit source metadata: %s", exc)

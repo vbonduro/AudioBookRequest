@@ -1,10 +1,6 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Security</title>
-<script
-  defer
-  src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
-></script>
-{% endblock %} {% block content %}
+{% include 'scripts/alpinejs.html' %} {% endblock %} {% block content %}
 <div class="flex flex-col">
   {% block form %}
   <form
