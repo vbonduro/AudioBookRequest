@@ -13,11 +13,23 @@ T = TypeVar("T", str, int, bool, float, None)
 
 
 class IndexerConfiguration(BaseModel, Generic[T]):
-    dislay_name: str
+    display_name: str
     description: Optional[str] = None
     default: Optional[T] = None
     required: bool = False
     type: type[T]
+
+    def is_str(self) -> bool:
+        return self.type is str
+
+    def is_float(self) -> bool:
+        return self.type is float
+
+    def is_int(self) -> bool:
+        return self.type is int
+
+    def is_bool(self) -> bool:
+        return self.type is bool
 
 
 class Configurations(BaseModel):
@@ -53,11 +65,14 @@ class InvalidTypeException(ConfigurationException):
     pass
 
 
-cache = StringConfigCache[str]()
+indexer_configuration_cache = StringConfigCache[str]()
 
 
 def create_valued_configuration(
-    config: Configurations, session: Session
+    config: Configurations,
+    session: Session,
+    *,
+    check_required: bool = True,
 ) -> ValuedConfigurations:
     """
     Using a configuration class, it retrieves the values from
@@ -74,11 +89,11 @@ def create_valued_configuration(
             continue
         value: IndexerConfiguration[Any] = _value
 
-        config_value = cache.get(session, key)
+        config_value = indexer_configuration_cache.get(session, key)
         if config_value is None:
             config_value = value.default
 
-        if value.required and config_value is None:
+        if check_required and value.required and config_value is None:
             raise MissingRequiredException(f"Configuration {key} is required")
 
         if config_value is None:

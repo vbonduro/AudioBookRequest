@@ -23,16 +23,23 @@ logger = logging.getLogger(__name__)
 class MamConfigurations(Configurations):
     mam_session_id: IndexerConfiguration[str] = IndexerConfiguration(
         type=str,
-        dislay_name="MAM Session ID",
+        display_name="MAM Session ID",
         required=True,
+    )
+    mam_active: IndexerConfiguration[bool] = IndexerConfiguration(
+        type=bool,
+        display_name="MAM Active",
+        default=True,
     )
 
 
 class ValuedMamConfigurations(ValuedConfigurations):
     mam_session_id: str
+    mam_active: bool
 
 
 class MamIndexer(AbstractIndexer[MamConfigurations]):
+    name = "MyAnonamouse"
     results: dict[str, dict[str, Any]] = dict()
 
     @staticmethod
@@ -47,6 +54,9 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
         container: SessionContainer,
         configurations: ValuedMamConfigurations,
     ):
+        if not configurations.mam_active:
+            return
+
         query = request.title + " " + " ".join(request.authors)
 
         params: dict[str, Any] = {
@@ -78,7 +88,7 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
             search_results = await response.json()
 
         for result in search_results["data"]:
-            self.results[result["id"]] = search_results["data"]
+            self.results[str(result["id"])] = result
         logger.info("Mam: Retrieved %d results", len(self.results))
 
     async def is_matching_source(
@@ -101,14 +111,15 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
             return
 
         # response type of authors and narrators is a stringified json object
-        source.book_metadata.authors = json.loads(
-            result.get("author_info", "[]")
-        ).values()
-        source.book_metadata.narrators = json.loads(
-            result.get("narrator_info", "[]")
-        ).values()
+        source.book_metadata.authors = list(
+            json.loads(result.get("author_info", "{}")).values()
+        )
 
-        indexer_flags: set[str] = set()
+        source.book_metadata.narrators = list(
+            json.loads(result.get("narrator_info", "{}")).values()
+        )
+
+        indexer_flags: set[str] = set(source.indexer_flags)
         if result["personal_freeleech"] == 1:
             indexer_flags.add("personal_freeleech")
             indexer_flags.add("freeleech")
@@ -120,6 +131,7 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
             indexer_flags.add("freeleech")
         if result["vip"] == 1:
             indexer_flags.add("vip")
+
         source.indexer_flags = list(indexer_flags)
 
         source.book_metadata.filetype = result["filetype"]

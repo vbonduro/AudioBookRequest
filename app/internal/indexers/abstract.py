@@ -18,6 +18,8 @@ T = TypeVar("T", bound=Configurations)
 
 
 class AbstractIndexer(ABC, Generic[T]):
+    name: str
+
     @abstractmethod
     async def setup(
         self,
