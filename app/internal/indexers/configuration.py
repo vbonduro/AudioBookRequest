@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Optional
 
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -9,10 +9,7 @@ from app.util.cache import StringConfigCache
 logger = logging.getLogger(__name__)
 
 
-T = TypeVar("T", str, int, bool, float, None)
-
-
-class IndexerConfiguration(BaseModel, Generic[T]):
+class IndexerConfiguration[T: (str, int, bool, float, None)](BaseModel):
     display_name: str
     description: Optional[str] = None
     default: Optional[T] = None

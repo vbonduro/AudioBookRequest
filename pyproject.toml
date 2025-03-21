@@ -17,7 +17,6 @@ dependencies = [
     "pydantic-settings==2.8.1",
     "pydantic-core==2.27.2",
     "pyjwt==2.10.1",
-    "pyright==1.1.396",
     "pytailwindcss==0.2.0",
     "sqlmodel==0.0.23",
     "terminaltables==3.1.10",
@@ -48,4 +47,4 @@ reportUnknownParameterType = true
 reportMissingParameterType = true
 
 [dependency-groups]
-dev = ["black>=25.1.0"]
+dev = ["black>=25.1.0", "pyright>=1.1.397"]

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from aiohttp import ClientSession
 from pydantic import BaseModel
@@ -14,10 +14,7 @@ class SessionContainer(BaseModel, arbitrary_types_allowed=True):
     client_session: ClientSession
 
 
-T = TypeVar("T", bound=Configurations)
-
-
-class AbstractIndexer(ABC, Generic[T]):
+class AbstractIndexer[T: Configurations](ABC):
     name: str
 
     @abstractmethod

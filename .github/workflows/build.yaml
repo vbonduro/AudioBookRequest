@@ -25,14 +25,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          cache: "pip"
 
-      - run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install -r requirements.txt
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.9"
+
+      - run: uv sync --all-extras --dev
 
       - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
 

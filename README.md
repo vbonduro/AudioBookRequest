@@ -168,13 +168,7 @@ Virtual environments help isolate any installed packages to this directory. Proj
 For improved dependency management, `uv` is used instead of `pip`.
 
 ```sh
-uv venv .venv
-
-source .venv/bin/activate # sh/bash
-source .venv/bin/activate.fish # fish
-.venv\Scripts\activate.bat # cmd
-.venv\Scripts\Activate.ps1 # powershell
-
+# This creates the venv as well as installs all dependencies
 uv sync
 ```
 
