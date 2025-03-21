@@ -185,7 +185,7 @@ class CompareSource:
                 quality_config.get_name_exists_ratio(self.session),
             ),
             fuzzy_author_narrator_match(
-                a.source.authors,
+                a.source.book_metadata.authors,
                 self.book.authors,
                 quality_config.get_name_exists_ratio(self.session),
             ),
@@ -197,7 +197,7 @@ class CompareSource:
                 quality_config.get_name_exists_ratio(self.session),
             ),
             fuzzy_author_narrator_match(
-                b.source.authors,
+                b.source.book_metadata.authors,
                 self.book.authors,
                 quality_config.get_name_exists_ratio(self.session),
             ),
@@ -216,7 +216,7 @@ class CompareSource:
                 quality_config.get_name_exists_ratio(self.session),
             ),
             fuzzy_author_narrator_match(
-                a.source.narrators,
+                a.source.book_metadata.narrators,
                 self.book.narrators,
                 quality_config.get_name_exists_ratio(self.session),
             ),
@@ -228,7 +228,7 @@ class CompareSource:
                 quality_config.get_name_exists_ratio(self.session),
             ),
             fuzzy_author_narrator_match(
-                b.source.narrators,
+                b.source.book_metadata.narrators,
                 self.book.narrators,
                 quality_config.get_name_exists_ratio(self.session),
             ),

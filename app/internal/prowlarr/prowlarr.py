@@ -1,20 +1,23 @@
 import json
 import logging
-from datetime import datetime
 import posixpath
+from datetime import datetime
 from typing import Any, Literal, Optional
 from urllib.parse import urlencode
 
 from aiohttp import ClientResponse, ClientSession
 from sqlmodel import Session
 
+from app.internal.indexers.abstract import SessionContainer
 from app.internal.models import (
+    BookRequest,
     EventEnum,
     ProwlarrSource,
     TorrentSource,
     UsenetSource,
 )
 from app.internal.notifications import send_all_notifications
+from app.internal.prowlarr.source_metadata import edit_source_metadata
 from app.util.cache import SimpleCache, StringConfigCache
 
 logger = logging.getLogger(__name__)
@@ -127,12 +130,11 @@ async def start_download(
 async def query_prowlarr(
     session: Session,
     client_session: ClientSession,
-    query: Optional[str],
+    book_request: BookRequest,
     indexer_ids: Optional[list[int]] = None,
     force_refresh: bool = False,
 ) -> list[ProwlarrSource]:
-    if not query:
-        return []
+    query = book_request.title
 
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)
@@ -216,6 +218,10 @@ async def query_prowlarr(
                 )
         except KeyError as e:
             logger.error("Failed to parse source: %s. KeyError: %s", result, e)
+
+    # add additional metadata using any available indexers
+    container = SessionContainer(session=session, client_session=client_session)
+    await edit_source_metadata(book_request, sources, container)
 
     prowlarr_source_cache.set(sources, query)
 
