@@ -1,17 +1,18 @@
 # what is currently being queried
 from contextlib import contextmanager
-
 import pydantic
 from aiohttp import ClientSession
 from fastapi import HTTPException
 from sqlmodel import Session, select
-
 from app.internal.models import BookRequest, ProwlarrSource
 from app.internal.prowlarr.prowlarr import (
     prowlarr_config,
     query_prowlarr,
     start_download,
 )
+
+from app.internal.indexers.mam import MamIndexer
+from app.internal.indexers.base import BaseIndexer
 from app.internal.ranking.download_ranking import rank_sources
 
 querying: set[str] = set()
@@ -61,7 +62,12 @@ async def query_sources(
             query,
             force_refresh=force_refresh,
         )
-
+        # TODO: Maybe move this list somewhere configurable?
+        # We have to list all possible types of indexers since there is no common superclass.
+        indexers: list[MamIndexer | BaseIndexer[str]] = [MamIndexer(session)]
+        for indexer in indexers:
+            if indexer.is_active() and indexer.valid_config():
+                sources = await indexer.enrichResults(client_session, query, sources)
         ranked = await rank_sources(session, client_session, sources, book)
 
         # start download if requested

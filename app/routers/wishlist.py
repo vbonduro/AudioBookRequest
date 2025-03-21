@@ -26,6 +26,7 @@ from app.internal.prowlarr.prowlarr import (
     prowlarr_config,
     start_download,
 )
+from app.internal.indexers.mam import MamIndexer
 from app.internal.query import query_sources
 from app.internal.auth.authentication import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
@@ -256,6 +257,7 @@ async def list_sources(
         {
             "book": result.book,
             "sources": result.sources,
+            "mam_active": MamIndexer(session).is_active(),
         },
     )
 

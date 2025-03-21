@@ -6,6 +6,7 @@ from aiohttp import ClientResponseError, ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from sqlmodel import Session, select
 
+
 from app.internal.auth.authentication import (
     DetailedUser,
     create_user,
@@ -20,6 +21,7 @@ from app.internal.models import EventEnum, GroupEnum, Notification, User
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
+from app.internal.indexers.mam import MamIndexer
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.connection import get_connection
 from app.util.db import get_session
@@ -212,6 +214,8 @@ def read_prowlarr(
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
     selected = set(prowlarr_config.get_categories(session))
+    mam_is_active = MamIndexer(session).is_active()
+    mam_id = MamIndexer(session).get_config().get_session_id(session)
 
     return template_response(
         "settings_page/prowlarr.html",
@@ -225,6 +229,8 @@ def read_prowlarr(
             "selected_categories": selected,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
             "version": Settings().app.version,
+            "mam_active": mam_is_active,
+            "mam_id": mam_id,
         },
     )
 
@@ -277,6 +283,40 @@ def update_indexer_categories(
         },
         block_name="category",
     )
+
+
+@router.put("/indexer/mam/mam_id")
+def update_mam_id(
+    mam_id: Annotated[str, Form()],
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+):
+    MamIndexer(session).get_config().set_mam_id(session, mam_id)
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.put("/indexer/mam/activate")
+def activate_mam(
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+):
+    MamIndexer(session).set_active(True)
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@router.put("/indexer/mam/deactivate")
+def deactivate_mam(
+    session: Annotated[Session, Depends(get_session)],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+):
+    MamIndexer(session).set_active(False)
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
 @router.get("/download")
