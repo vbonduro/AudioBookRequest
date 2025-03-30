@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from typing import Annotated, Any, Optional, cast
 
@@ -29,6 +30,8 @@ from app.util.db import get_session
 from app.util.templates import template_response
 from app.util.time import Minute
 from app.util.toast import ToastException
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings")
 
@@ -720,6 +723,7 @@ async def read_indexers(
     contexts = await get_indexer_contexts(
         SessionContainer(session=session, client_session=client_session),
         check_required=False,
+        return_disabled=True,
     )
 
     return template_response(
@@ -747,6 +751,7 @@ async def update_indexers(
     contexts = await get_indexer_contexts(
         SessionContainer(session=session, client_session=client_session),
         check_required=False,
+        return_disabled=True,
     )
 
     updated_context: Optional[IndexerContext] = None
@@ -760,14 +765,22 @@ async def update_indexers(
 
     form_values = await request.form()
 
-    for key, value in form_values.items():
-        if key in updated_context.configuration and type(value) is str:
-            if updated_context.configuration[key].type is bool:
-                indexer_configuration_cache.set(
-                    session, key, "true" if value == "on" else ""
-                )
+    for key, context in updated_context.configuration.items():
+        value = form_values.get(key)
+        if value is None:  # forms do not include false checkboxes
+            if context.type is bool:
+                value = False
             else:
-                indexer_configuration_cache.set(session, key, str(value))
+                logger.error(
+                    "Missing value for '%s' while trying to update indexer", key
+                )
+                continue
+        if context.type is bool:
+            indexer_configuration_cache.set(
+                session, key, "true" if value == "on" else ""
+            )
+        else:
+            indexer_configuration_cache.set(session, key, str(value))
 
     flush_prowlarr_cache()
 

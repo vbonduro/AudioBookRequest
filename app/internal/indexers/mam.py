@@ -48,6 +48,13 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
     ) -> MamConfigurations:
         return MamConfigurations()
 
+    async def is_active(
+        self,
+        container: SessionContainer,
+        configurations: ValuedMamConfigurations,
+    ) -> bool:
+        return configurations.mam_active
+
     async def setup(
         self,
         request: BookRequest,

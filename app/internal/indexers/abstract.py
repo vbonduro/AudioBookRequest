@@ -17,6 +17,27 @@ class SessionContainer(BaseModel, arbitrary_types_allowed=True):
 class AbstractIndexer[T: Configurations](ABC):
     name: str
 
+    @staticmethod
+    @abstractmethod
+    async def get_configurations(
+        container: SessionContainer,
+    ) -> T:
+        """
+        Returns a list of configuration options that will be configurable on the frontend.
+        """
+        pass
+
+    @abstractmethod
+    async def is_active(
+        self,
+        container: SessionContainer,
+        configurations: Any,
+    ) -> bool:
+        """
+        Returns true if the indexer is active and can be used.
+        """
+        pass
+
     @abstractmethod
     async def setup(
         self,
@@ -30,16 +51,6 @@ class AbstractIndexer[T: Configurations](ABC):
         for the indexer or if the indexer only supports
         a general search feature, it can be executed in
         this step.
-        """
-        pass
-
-    @staticmethod
-    @abstractmethod
-    async def get_configurations(
-        container: SessionContainer,
-    ) -> T:
-        """
-        Returns a list of configuration options that will be configurable on the frontend.
         """
         pass
 
