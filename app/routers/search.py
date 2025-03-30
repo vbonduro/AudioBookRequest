@@ -17,7 +17,7 @@ from app.internal import book_search
 from app.internal.book_search import (
     audible_region_type,
     audible_regions,
-    get_audnexus_book,
+    get_book_by_asin,
     list_audible_books,
 )
 from app.internal.models import (
@@ -159,7 +159,7 @@ async def add_request(
     region: Annotated[audible_region_type, Form()],
     num_results: Annotated[int, Form()] = 20,
 ):
-    book = await get_audnexus_book(client_session, asin, region)
+    book = await get_book_by_asin(client_session, asin, region)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 

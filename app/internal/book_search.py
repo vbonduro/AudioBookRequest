@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -10,10 +11,22 @@ from sqlmodel import Session, col, select
 
 from app.internal.models import BookRequest
 
+logger = logging.getLogger(__name__)
+
 REFETCH_TTL = 60 * 60 * 24 * 7  # 1 week
 
 audible_region_type = Literal[
-    "us", "ca", "uk", "au", "fr", "de", "jp", "it", "in", "es"
+    "us",
+    "ca",
+    "uk",
+    "au",
+    "fr",
+    "de",
+    "jp",
+    "it",
+    "in",
+    "es",
+    "br",
 ]
 audible_regions: dict[audible_region_type, str] = {
     "us": ".com",
@@ -26,10 +39,11 @@ audible_regions: dict[audible_region_type, str] = {
     "it": ".it",
     "in": ".in",
     "es": ".es",
+    "br": ".com.br",
 }
 
 
-async def get_audnexus_book(
+async def _get_audnexus_book(
     session: ClientSession,
     asin: str,
     region: audible_region_type,
@@ -41,6 +55,9 @@ async def get_audnexus_book(
         f"https://api.audnex.us/books/{asin}?region={region}"
     ) as response:
         if not response.ok:
+            logger.warning(
+                f"Failed to fetch book with ASIN {asin} from Audnexus: {response.status}: {response.reason}"
+            )
             return None
         book = await response.json()
     return BookRequest(
@@ -52,6 +69,51 @@ async def get_audnexus_book(
         cover_image=book.get("image"),
         release_date=datetime.fromisoformat(book["releaseDate"]),
         runtime_length_min=book["runtimeLengthMin"],
+    )
+
+
+async def _get_audimeta_book(
+    session: ClientSession,
+    asin: str,
+    region: audible_region_type,
+) -> Optional[BookRequest]:
+    """
+    https://audimeta.de/api-docs/#/book/get_book__asin_
+    """
+    async with session.get(
+        f"https://audimeta.de/book/{asin}?region={region}"
+    ) as response:
+        if not response.ok:
+            logger.warning(
+                f"Failed to fetch book with ASIN {asin} from Audimeta: {response.status}: {response.reason}"
+            )
+            return None
+        book = await response.json()
+    return BookRequest(
+        asin=book["asin"],
+        title=book["title"],
+        subtitle=book.get("subtitle"),
+        authors=[author["name"] for author in book["authors"]],
+        narrators=[narrator["name"] for narrator in book["narrators"]],
+        cover_image=book.get("imageUrl"),
+        release_date=datetime.fromisoformat(book["releaseDate"]),
+        runtime_length_min=book["lengthMinutes"] or 0,
+    )
+
+
+async def get_book_by_asin(
+    session: ClientSession,
+    asin: str,
+    audible_region: audible_region_type = "us",
+) -> Optional[BookRequest]:
+    book = await _get_audimeta_book(session, asin, audible_region)
+    if book:
+        return book
+    book = await _get_audnexus_book(session, asin, audible_region)
+    if book:
+        return book
+    logger.warning(
+        f"Failed to fetch book with ASIN {asin} from both Audnexus and Audimeta. "
     )
 
 
@@ -160,7 +222,7 @@ async def list_audible_books(
         asins.remove(key)
 
     # book ASINs we do not have => fetch and store
-    coros = [get_audnexus_book(client_session, asin, audible_region) for asin in asins]
+    coros = [get_book_by_asin(client_session, asin, audible_region) for asin in asins]
     new_books = await asyncio.gather(*coros)
     new_books = [b for b in new_books if b]
     store_new_books(session, new_books)
