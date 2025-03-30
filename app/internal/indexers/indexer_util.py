@@ -21,7 +21,10 @@ class IndexerContext(BaseModel, arbitrary_types_allowed=True):
 
 
 async def get_indexer_contexts(
-    container: SessionContainer, *, check_required: bool = True
+    container: SessionContainer,
+    *,
+    check_required: bool = True,
+    return_disabled: bool = False,
 ) -> list[IndexerContext]:
     contexts: list[IndexerContext] = []
     for Indexer in indexers:
@@ -37,9 +40,18 @@ async def get_indexer_contexts(
                 container.session,
                 check_required=check_required,
             )
+
+            indexer = Indexer()
+
+            if not return_disabled and not await indexer.is_active(
+                container, valued_configuration
+            ):
+                logger.debug("Indexer %s is disabled", Indexer.name)
+                continue
+
             contexts.append(
                 IndexerContext(
-                    indexer=Indexer(),
+                    indexer=indexer,
                     configuration=filtered_configuration,
                     valued=valued_configuration,
                 )
