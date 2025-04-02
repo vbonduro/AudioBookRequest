@@ -1,0 +1,62 @@
+name: Build and Deploy Dockerfile
+
+on:
+  push:
+    branches:
+      - nix-dockerfile
+
+env:
+  DOCKER_TAG: ${{ secrets.DOCKER_HUB_USERNAME }}/audiobookrequest
+
+jobs:
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Enable magic Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            echo $VERSION > static/version
+          else
+            github_sha_hash=${{ github.sha }}
+            echo nightly:${github_sha_hash:0:7} > static/version
+          fi
+      - name: Build Docker image using Nix
+        run: nix build ".#docker"
+
+      - name: Load image
+        run: |
+          export IMAGE_TAG=$(docker load < result | grep -Po 'Loaded image: \K.*')
+          echo "Loaded image ${IMAGE_TAG}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Push image
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            MAJOR=$(echo $VERSION | cut -d. -f1)
+            MINOR=$(echo $VERSION | cut -d. -f2)
+            PATCH=$(echo $VERSION | cut -d. -f3)
+            docker tag $IMAGE_TAG "${DOCKER_TAG}:$VERSION"
+            docker tag $IMAGE_TAG "${DOCKER_TAG}:$MAJOR.$MINOR"
+            docker tag $IMAGE_TAG "${DOCKER_TAG}:$MAJOR"
+            docker push "${DOCKER_TAG}:$VERSION"
+            docker push "${DOCKER_TAG}:$MAJOR.$MINOR"
+            docker push "${DOCKER_TAG}:$MAJOR"
+          else
+            docker tag $IMAGE_TAG "${DOCKER_TAG}:nix-test"
+            docker push "${DOCKER_TAG}:nix-test"
+          fi
