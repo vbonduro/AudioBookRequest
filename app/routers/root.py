@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -19,46 +20,64 @@ from app.util.templates import templates
 router = APIRouter()
 
 
+root = Path("static")
+
+
 @router.get("/globals.css")
 def read_globals_css():
-    return FileResponse("static/globals.css", media_type="text/css")
+    return FileResponse(root / "globals.css", media_type="text/css")
 
 
 @router.get("/nouislider.css")
 def read_nouislider_css():
-    return FileResponse("static/nouislider.min.css", media_type="text/css")
+    return FileResponse(root / "nouislider.min.css", media_type="text/css")
 
 
 @router.get("/nouislider.js")
 def read_nouislider_js():
-    return FileResponse("static/nouislider.min.js", media_type="text/javascript")
+    return FileResponse(root / "nouislider.min.js", media_type="text/javascript")
 
 
 @router.get("/apple-touch-icon.png")
 def read_apple_touch_icon():
-    return FileResponse("static/apple-touch-icon.png", media_type="image/png")
+    return FileResponse(root / "apple-touch-icon.png", media_type="image/png")
 
 
 @router.get("/favicon-32x32.png")
 def read_favicon_32():
-    return FileResponse("static/favicon-32x32.png", media_type="image/png")
+    return FileResponse(root / "favicon-32x32.png", media_type="image/png")
 
 
 @router.get("/favicon-16x16.png")
 def read_favicon_16():
-    return FileResponse("static/favicon-16x16.png", media_type="image/png")
+    return FileResponse(root / "favicon-16x16.png", media_type="image/png")
 
 
 @router.get("/site.webmanifest")
 def read_site_webmanifest():
     return FileResponse(
-        "static/site.webmanifest", media_type="application/manifest+json"
+        root / "site.webmanifest", media_type="application/manifest+json"
     )
+
+
+@router.get("/htmx.js")
+def read_htmx():
+    return FileResponse(root / "htmx.js", media_type="application/javascript")
+
+
+@router.get("/htmx-preload.js")
+def read_htmx_preload():
+    return FileResponse(root / "htmx-preload.js", media_type="application/javascript")
+
+
+@router.get("/alpine.js")
+def read_alpinejs():
+    return FileResponse(root / "alpine.js", media_type="application/javascript")
 
 
 @router.get("/favicon.svg")
 def read_favicon_svg():
-    return FileResponse("static/favicon.svg", media_type="image/svg+xml")
+    return FileResponse(root / "favicon.svg", media_type="image/svg+xml")
 
 
 @router.get("/")
