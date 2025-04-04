@@ -111,7 +111,8 @@ async def redirect_to_init(request: Request, call_next: Any):
     global user_exists
     if (
         not user_exists
-        and request.url.path not in ["/init", "/globals.css"]
+        and request.url.path != "/init"
+        and not request.url.path.startswith("/static")
         and request.method == "GET"
     ):
         with open_session() as session:

@@ -81,6 +81,18 @@
                 exec ${default}/bin/fastapi run --port $ABR_APP__PORT
               '';
               gitignore = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
+              htmx-preload = builtins.fetchurl {
+                url = "https://unpkg.com/htmx-ext-preload@2.1.0/preload.js";
+                sha256 = "sha256:1bfkr60i20aj16vbwz2nv1q5fmmmzmc52i2aqn5cx6xihbmwy7nd";
+              };
+              htmx = builtins.fetchurl {
+                url = "https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js";
+                sha256 = "sha256:0ixlixv36rrfzj97g2w0q6jxbg0x1rswgvvd2vrpjm13r2jxs2g2";
+              };
+              alpinejs = builtins.fetchurl {
+                url = "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js";
+                sha256 = "sha256:1lqa3v5p7pwz3599xnxf5bwxf17bbmqxcqz3cpgj32a8ab9fxl9y";
+              };
             in
 
             pkgs.dockerTools.buildImage {
@@ -97,6 +109,10 @@
                   cp -r ${gitignore}/templates $out/app/templates
                   cp -r ${gitignore}/static/* $out/app/static
                   cp -r ${gitignore}/app $out/app/app
+
+                  cp ${htmx-preload} $out/app/static/htmx-preload.js
+                  cp ${htmx} $out/app/static/htmx.js
+                  cp ${alpinejs} $out/app/static/alpine.js
                 '';
               };
 
