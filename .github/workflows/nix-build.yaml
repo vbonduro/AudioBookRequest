@@ -1,4 +1,4 @@
-name: Build and Deploy Dockerfile
+name: Build Nix Docker Image
 
 on:
   push:

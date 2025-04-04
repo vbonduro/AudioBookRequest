@@ -22,6 +22,7 @@ from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
 from app.util.templates import templates
 from app.util.toast import ToastException
+from app.util.fetch_js import fetch_scripts
 
 logger = logging.getLogger(__name__)
 logging.getLogger("uvicorn").handlers.clear()
@@ -32,6 +33,9 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[file_handler, stream_handler],
 )
+
+# intialize js dependencies or throw an error if not in debug mode
+fetch_scripts(Settings().app.debug)
 
 with open_session() as session:
     auth_secret = auth_config.get_auth_secret(session)
@@ -107,7 +111,8 @@ async def redirect_to_init(request: Request, call_next: Any):
     global user_exists
     if (
         not user_exists
-        and request.url.path not in ["/init", "/globals.css"]
+        and request.url.path != "/init"
+        and not request.url.path.startswith("/static")
         and request.method == "GET"
     ):
         with open_session() as session:

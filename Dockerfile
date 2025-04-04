@@ -34,6 +34,8 @@ COPY templates/ templates/
 COPY app/ app/
 
 RUN /bin/tailwindcss -i static/tw.css -o static/globals.css -m
+# Fetch all the required js files
+RUN uv run python /app/app/util/fetch_js.py
 
 ENV ABR_APP__PORT=8000
 ARG VERSION

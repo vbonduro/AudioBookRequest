@@ -24,6 +24,7 @@ dependencies = [
     "urllib3==2.3.0",
     "rapidfuzz>=3.12.2",
     "python-multipart>=0.0.20",
+    "requests>=2.32.3",
 ]
 
 # setuptools by default expects a "src" folder structure

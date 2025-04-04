@@ -5,16 +5,9 @@
     {% block head %}
     <title>AudioBookRequest</title>
     {% endblock %}
-    <link rel="stylesheet" href="/globals.css" />
-    <script
-      src="https://unpkg.com/htmx.org@2.0.4"
-      integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://unpkg.com/htmx-ext-preload@2.1.0"
-      crossorigin="anonymous"
-    ></script>
+    <link rel="stylesheet" href="/static/globals.css" />
+    <script src="/static/htmx.js"></script>
+    <script defer src="/static/htmx-preload.js"></script>
     <script>
       const setTheme = theme => {
         if (!theme) {
@@ -46,11 +39,30 @@
     </script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="icon" sizes="any" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="manifest" href="/site.webmanifest" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/static/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      sizes="any"
+      type="image/svg+xml"
+      href="/static/favicon.svg"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/static/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/static/favicon-16x16.png"
+    />
+    <link rel="manifest" href="/static/site.webmanifest" />
 
     {% include 'scripts/toast.html' %}
   </head>
