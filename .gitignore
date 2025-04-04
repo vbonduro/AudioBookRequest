@@ -6,3 +6,4 @@ __pycache__
 static/globals.css
 config
 node_modules
+result

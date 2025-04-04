@@ -200,9 +200,9 @@ Website can be visited at http://localhost:8000.
 
 ```sh
 npm i
-uv run tailwindcss -i styles/globals.css -o static/globals.css --watch
+uv run tailwindcss -i static/tw.css -o static/globals.css --watch
 # Alternatively npx can be used to run tailwindcss
-npx @tailwindcss/cli@4 -i styles/globals.css -o static/globals.css --watch
+npx @tailwindcss/cli@4 -i static/tw.css -o static/globals.css --watch
 ```
 
 3. _Optional:_ Start browser-sync. This hot reloads the website when the html template or python files are modified:

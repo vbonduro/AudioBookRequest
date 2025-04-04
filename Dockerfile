@@ -29,12 +29,11 @@ RUN uv sync --frozen --no-cache
 
 COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
-COPY styles/ styles/
 COPY static/ static/
 COPY templates/ templates/
 COPY app/ app/
 
-RUN /bin/tailwindcss -i styles/globals.css -o static/globals.css -m
+RUN /bin/tailwindcss -i static/tw.css -o static/globals.css -m
 
 ENV ABR_APP__PORT=8000
 ARG VERSION
