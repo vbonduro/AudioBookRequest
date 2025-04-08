@@ -93,6 +93,14 @@
                 url = "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js";
                 sha256 = "sha256:1lqa3v5p7pwz3599xnxf5bwxf17bbmqxcqz3cpgj32a8ab9fxl9y";
               };
+              toastifyjs = builtins.fetchurl {
+                url = "https://cdn.jsdelivr.net/npm/toastify-js";
+                sha256 = "sha256:0v22qkipd2y4z08qkl8hd28d0bgjahn9q08nx05bxfg282zgxavg";
+              };
+              toastifycss = builtins.fetchurl {
+                url = "https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css";
+                sha256 = "sha256:13z5076jlvy1p4fqmmvic3ywbi153jrs0hy8mrl1z45s2js2qgpf";
+              };
             in
 
             pkgs.dockerTools.buildImage {
@@ -113,6 +121,8 @@
                   cp ${htmx-preload} $out/app/static/htmx-preload.js
                   cp ${htmx} $out/app/static/htmx.js
                   cp ${alpinejs} $out/app/static/alpine.js
+                  cp ${toastifyjs} $out/app/static/toastify.js
+                  cp ${toastifycss} $out/app/static/toastify.css
                 '';
               };
 

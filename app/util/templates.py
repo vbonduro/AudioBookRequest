@@ -6,12 +6,14 @@ from jinja2_fragments.fastapi import Jinja2Blocks
 from starlette.background import BackgroundTask
 
 from app.internal.auth.authentication import DetailedUser
+from app.internal.env_settings import Settings
 
 templates = Jinja2Blocks(directory="templates")
 templates.env.filters["quote_plus"] = lambda u: quote_plus(u)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 templates.env.filters["zfill"] = lambda val, num: str(val).zfill(num)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 templates.env.globals["vars"] = vars  # pyright: ignore[reportUnknownMemberType]
 templates.env.globals["getattr"] = getattr  # pyright: ignore[reportUnknownMemberType]
+templates.env.globals["version"] = Settings().app.version  # pyright: ignore[reportUnknownMemberType]
 
 
 @overload
