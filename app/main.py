@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus, urlencode
 
@@ -26,12 +25,11 @@ from app.util.fetch_js import fetch_scripts
 
 logger = logging.getLogger(__name__)
 logging.getLogger("uvicorn").handlers.clear()
-file_handler = logging.FileHandler(Settings().app.config_dir / Path("abr.log"))
 stream_handler = logging.StreamHandler()
 logging.basicConfig(
     level=Settings().app.log_level,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[file_handler, stream_handler],
+    handlers=[stream_handler],
 )
 
 # intialize js dependencies or throw an error if not in debug mode

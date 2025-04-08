@@ -3,11 +3,7 @@
 {% endblock %} {% block body %}
 
 <div class="w-screen p-2 md:p-4 lg:p-8 flex flex-col gap-2">
-  <a
-    preload
-    href="/wishlist#{{ book.asin|quote_plus }}"
-    class="w-fit btn btn-ghost"
-  >
+  <a preload href="/wishlist#{{ book.asin }}" class="w-fit btn btn-ghost">
     &lt; Back to wishlist
   </a>
   <h1 class="text-3xl font-bold">Sources for {{ book.title }}</h1>
@@ -75,7 +71,7 @@
                 type="checkbox"
                 hx-trigger="click"
                 hx-target="this"
-                hx-post="/wishlist/sources/{{ book.asin|quote_plus }}"
+                hx-post="/wishlist/sources/{{ book.asin }}"
                 hx-include="#form-{{ loop.index }}"
                 hx-on::after-request="if (event.detail.successful) this.disabled = true"
               />
