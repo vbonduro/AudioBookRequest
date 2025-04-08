@@ -59,7 +59,7 @@
           <div class="flex flex-col">
             <a
               preload
-              href="/search?q={{ (book.title+' ' +(book.authors|join(',')))|quote_plus }}"
+              href="/search?q={{ book.title+' ' +(book.authors|join(',')) }}"
               class="font-bold text-primary line-clamp-4"
               title="{{ book.title }}"
               >{{ book.title }}</a
@@ -88,7 +88,7 @@
           <a
             preload
               title="Torrent Sources"
-              href="/wishlist/sources/{{ book.asin|quote_plus }}"
+              href="/wishlist/sources/{{ book.asin }}"
               {% if not user.is_admin() %}disabled{% endif %}
               class="btn btn-square"
               >{% include 'icons/list.html' %}</a
@@ -112,7 +112,7 @@
               class="btn btn-square"
               {% endif %}
               {% if not user.can_download() or book.downloaded %}disabled{% endif %}
-              hx-post="/wishlist/auto-download/{{ book.asin|quote_plus }}"
+              hx-post="/wishlist/auto-download/{{ book.asin }}"
               hx-swap="outerHTML"
               hx-target="#book-table-body"
               hx-disabled-elt="this"

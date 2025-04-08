@@ -84,7 +84,7 @@
               name="group"
               class="select w-full"
               required {% if u.root %}disabled{% endif %}
-              hx-patch="/settings/user/{{ u.username|quote_plus }}"
+              hx-patch="/settings/user/{{ u.username }}"
               hx-trigger="change"
               hx-disabled-elt="this"
               hx-target="#user-list"
@@ -122,7 +122,7 @@
                   <button class="btn">Cancel</button>
                   <button
                     class="btn bg-primary"
-                    hx-delete="/settings/user/{{ u.username|quote_plus }}"
+                    hx-delete="/settings/user/{{ u.username }}"
                     hx-disabled-elt="this"
                     hx-target="#user-list"
                     hx-swap="outerHTML"
