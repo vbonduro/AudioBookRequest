@@ -9,6 +9,8 @@ files = {
     "htmx-preload.js": "https://unpkg.com/htmx-ext-preload@2.1.0/preload.js",
     "htmx.js": "https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js",
     "alpine.js": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+    "toastify.js": "https://cdn.jsdelivr.net/npm/toastify-js",
+    "toastify.css": "https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css",
 }
 
 

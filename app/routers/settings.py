@@ -98,7 +98,6 @@ def read_users(
             "page": "users",
             "users": users,
             "is_oidc": is_oidc,
-            "version": Settings().app.version,
         },
     )
 
@@ -230,7 +229,6 @@ def read_prowlarr(
             "indexer_categories": indexer_categories,
             "selected_categories": selected,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
-            "version": Settings().app.version,
         },
     )
 
@@ -320,7 +318,6 @@ def read_download(
             "name_ratio": name_ratio,
             "title_ratio": title_ratio,
             "indexer_flags": flags,
-            "version": Settings().app.version,
         },
     )
 
@@ -460,7 +457,6 @@ def read_notifications(
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
-            "version": Settings().app.version,
         },
     )
 
@@ -605,7 +601,6 @@ def read_security(
             "oidc_group_claim": oidc_config.get(session, "oidc_group_claim", ""),
             "oidc_redirect_https": oidc_config.get_redirect_https(session),
             "oidc_logout_url": oidc_config.get(session, "oidc_logout_url", ""),
-            "version": Settings().app.version,
         },
     )
 
@@ -733,7 +728,6 @@ async def read_indexers(
         {
             "page": "indexers",
             "indexers": contexts,
-            "version": Settings().app.version,
         },
     )
 
