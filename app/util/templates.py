@@ -12,6 +12,9 @@ templates.env.filters["zfill"] = lambda val, num: str(val).zfill(num)  # pyright
 templates.env.globals["vars"] = vars  # pyright: ignore[reportUnknownMemberType]
 templates.env.globals["getattr"] = getattr  # pyright: ignore[reportUnknownMemberType]
 templates.env.globals["version"] = Settings().app.version  # pyright: ignore[reportUnknownMemberType]
+templates.env.globals["json_regexp"] = (  # pyright: ignore[reportUnknownMemberType]
+    r'^\{\s*(?:"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*(?:,\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*)*)?\}$'
+)
 
 
 @overload

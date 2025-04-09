@@ -461,6 +461,80 @@ def read_notifications(
     )
 
 
+def _list_notifications(request: Request, session: Session, admin_user: DetailedUser):
+    notifications = session.exec(select(Notification)).all()
+    event_types = [e.value for e in EventEnum]
+    notifications = session.exec(select(Notification)).all()
+    event_types = [e.value for e in EventEnum]
+    return template_response(
+        "settings_page/notifications.html",
+        request,
+        admin_user,
+        {
+            "page": "notifications",
+            "notifications": notifications,
+            "event_types": event_types,
+        },
+        block_name="notfications_block",
+    )
+
+
+def _upsert_notification(
+    request: Request,
+    name: str,
+    apprise_url: str,
+    title_template: str,
+    body_template: str,
+    event_type: str,
+    headers: str,
+    admin_user: DetailedUser,
+    session: Session,
+    notification_id: Optional[uuid.UUID] = None,
+):
+    if not headers:
+        headers = "{}"
+    try:
+        headers_json = json.loads(headers)
+        if not isinstance(headers_json, dict) or any(
+            not isinstance(v, str) for v in cast(dict[str, Any], headers_json).values()
+        ):
+            raise ValueError()
+        headers_json = cast(dict[str, str], headers_json)
+    except (json.JSONDecodeError, ValueError):
+        raise ToastException("Invalid headers JSON", "error")
+
+    try:
+        event_enum = EventEnum(event_type)
+    except ValueError:
+        raise ToastException("Invalid event type", "error")
+
+    if notification_id:
+        notification = session.get(Notification, notification_id)
+        if not notification:
+            raise ToastException("Notification not found", "error")
+        notification.name = name
+        notification.apprise_url = apprise_url
+        notification.event = event_enum
+        notification.title_template = title_template
+        notification.body_template = body_template
+        notification.headers = headers_json
+        notification.enabled = True
+    else:
+        notification = Notification(
+            name=name,
+            apprise_url=apprise_url,
+            event=event_enum,
+            title_template=title_template,
+            body_template=body_template,
+            headers=headers_json,
+            enabled=True,
+        )
+    session.add(notification)
+    session.commit()
+
+    return _list_notifications(request, session, admin_user)
+
+
 @router.post("/notification")
 def add_notification(
     request: Request,
@@ -475,57 +549,65 @@ def add_notification(
     ],
     session: Annotated[Session, Depends(get_session)],
 ):
-    if not headers:
-        headers = "{}"
-    try:
-        headers_json = json.loads(headers)
-        if not isinstance(headers_json, dict) or any(
-            not isinstance(v, str) for v in cast(dict[str, Any], headers_json).values()
-        ):
-            raise ValueError()
-        headers_json = cast(dict[str, str], headers_json)
-    except (json.JSONDecodeError, ValueError):
-        return template_response(
-            "settings_page/notifications.html",
-            request,
-            admin_user,
-            {"page": "notifications", "error": "Invalid headers JSON"},
-            block_name="form_error",
-        )
-
-    try:
-        event_enum = EventEnum(event_type)
-    except ValueError:
-        return template_response(
-            "settings_page/notifications.html",
-            request,
-            admin_user,
-            {"page": "notifications", "error": "Invalid event type"},
-            block_name="form_error",
-        )
-
-    notification = Notification(
+    return _upsert_notification(
+        request=request,
         name=name,
         apprise_url=apprise_url,
-        event=event_enum,
         title_template=title_template,
         body_template=body_template,
-        headers=headers_json,
-        enabled=True,
+        event_type=event_type,
+        headers=headers,
+        admin_user=admin_user,
+        session=session,
     )
+
+
+@router.put("/notification/{notification_id}")
+def update_notification(
+    request: Request,
+    notification_id: uuid.UUID,
+    name: Annotated[str, Form()],
+    apprise_url: Annotated[str, Form()],
+    title_template: Annotated[str, Form()],
+    body_template: Annotated[str, Form()],
+    event_type: Annotated[str, Form()],
+    headers: Annotated[str, Form()],
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    return _upsert_notification(
+        request=request,
+        name=name,
+        apprise_url=apprise_url,
+        title_template=title_template,
+        body_template=body_template,
+        event_type=event_type,
+        headers=headers,
+        admin_user=admin_user,
+        session=session,
+        notification_id=notification_id,
+    )
+
+
+@router.patch("/notification/{notification_id}/enable")
+def toggle_notification(
+    request: Request,
+    notification_id: uuid.UUID,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    notification = session.get_one(Notification, notification_id)
+    if not notification:
+        raise ToastException("Notification not found", "error")
+    notification.enabled = not notification.enabled
     session.add(notification)
     session.commit()
 
-    notifications = session.exec(select(Notification)).all()
-
-    return template_response(
-        "settings_page/notifications.html",
-        request,
-        admin_user,
-        {"page": "notifications", "notifications": notifications},
-        block_name="notfications_block",
-        headers={"HX-Retarget": "#notification-list"},
-    )
+    return _list_notifications(request, session, admin_user)
 
 
 @router.delete("/notification/{notification_id}")
@@ -537,25 +619,17 @@ def delete_notification(
     ],
     session: Annotated[Session, Depends(get_session)],
 ):
-    notifications = session.exec(select(Notification)).all()
-    for notif in notifications:
-        if notif.id == notification_id:
-            session.delete(notif)
-            session.commit()
-            break
-    notifications = session.exec(select(Notification)).all()
+    notification = session.get_one(Notification, notification_id)
+    if not notification:
+        raise ToastException("Notification not found", "error")
+    session.delete(notification)
+    session.commit()
 
-    return template_response(
-        "settings_page/notifications.html",
-        request,
-        admin_user,
-        {"page": "notifications", "notifications": notifications},
-        block_name="notfications_block",
-    )
+    return _list_notifications(request, session, admin_user)
 
 
 @router.post("/notification/{notification_id}")
-async def execute_notification(
+async def test_notification(
     notification_id: uuid.UUID,
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))

@@ -57,6 +57,8 @@ async def send_all_notifications(
             select(Notification).where(Notification.event == event_type)
         ).all()
         for notification in notifications:
+            if not notification.enabled:
+                continue
             await send_notification(
                 session=session,
                 notification=notification,
