@@ -461,6 +461,24 @@ def read_notifications(
     )
 
 
+def _list_notifications(request: Request, session: Session, admin_user: DetailedUser):
+    notifications = session.exec(select(Notification)).all()
+    event_types = [e.value for e in EventEnum]
+    notifications = session.exec(select(Notification)).all()
+    event_types = [e.value for e in EventEnum]
+    return template_response(
+        "settings_page/notifications.html",
+        request,
+        admin_user,
+        {
+            "page": "notifications",
+            "notifications": notifications,
+            "event_types": event_types,
+        },
+        block_name="notfications_block",
+    )
+
+
 def _upsert_notification(
     request: Request,
     name: str,
@@ -514,19 +532,7 @@ def _upsert_notification(
     session.add(notification)
     session.commit()
 
-    notifications = session.exec(select(Notification)).all()
-    event_types = [e.value for e in EventEnum]
-    return template_response(
-        "settings_page/notifications.html",
-        request,
-        admin_user,
-        {
-            "page": "notifications",
-            "notifications": notifications,
-            "event_types": event_types,
-        },
-        block_name="notfications_block",
-    )
+    return _list_notifications(request, session, admin_user)
 
 
 @router.post("/notification")
@@ -585,6 +591,25 @@ def update_notification(
     )
 
 
+@router.patch("/notification/{notification_id}/enable")
+def toggle_notification(
+    request: Request,
+    notification_id: uuid.UUID,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+):
+    notification = session.get_one(Notification, notification_id)
+    if not notification:
+        raise ToastException("Notification not found", "error")
+    notification.enabled = not notification.enabled
+    session.add(notification)
+    session.commit()
+
+    return _list_notifications(request, session, admin_user)
+
+
 @router.delete("/notification/{notification_id}")
 def delete_notification(
     request: Request,
@@ -594,25 +619,17 @@ def delete_notification(
     ],
     session: Annotated[Session, Depends(get_session)],
 ):
-    notifications = session.exec(select(Notification)).all()
-    for notif in notifications:
-        if notif.id == notification_id:
-            session.delete(notif)
-            session.commit()
-            break
-    notifications = session.exec(select(Notification)).all()
+    notification = session.get_one(Notification, notification_id)
+    if not notification:
+        raise ToastException("Notification not found", "error")
+    session.delete(notification)
+    session.commit()
 
-    return template_response(
-        "settings_page/notifications.html",
-        request,
-        admin_user,
-        {"page": "notifications", "notifications": notifications},
-        block_name="notfications_block",
-    )
+    return _list_notifications(request, session, admin_user)
 
 
 @router.post("/notification/{notification_id}")
-async def execute_notification(
+async def test_notification(
     notification_id: uuid.UUID,
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
