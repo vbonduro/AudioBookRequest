@@ -15,6 +15,7 @@ from app.internal.auth.authentication import (
     raise_for_invalid_password,
 )
 from app.internal.auth.config import LoginTypeEnum, auth_config
+from app.internal.env_settings import Settings
 from app.internal.models import GroupEnum
 from app.util.db import get_session
 from app.util.templates import templates
@@ -30,7 +31,7 @@ etag_cache: dict[PathLike[str] | str, str] = {}
 def add_cache_headers(func: Callable[..., FileResponse]):
     def wrapper(v: str):
         file = func()
-        if not (etag := etag_cache.get(file.path)):
+        if not (etag := etag_cache.get(file.path)) or Settings().app.debug:
             with open(file.path, "rb") as f:
                 etag = hashlib.sha1(f.read(), usedforsecurity=False).hexdigest()
             etag_cache[file.path] = etag
