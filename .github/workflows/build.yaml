@@ -31,6 +31,11 @@ jobs:
         with:
           version: "0.6.9"
 
+      - name: Install sqlite3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sqlite3
+
       - run: uv sync --all-extras --dev
 
       - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
@@ -38,6 +43,11 @@ jobs:
       - uses: jakebailey/pyright-action@v2
         with:
           extra-args: app # only check apps dir
+
+      - name: Check Alembic Migrations
+        run: |
+          uv run alembic upgrade heads
+          uv run alembic check
 
   build:
     needs: test

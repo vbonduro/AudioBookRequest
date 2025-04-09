@@ -95,11 +95,11 @@
               };
               toastifyjs = builtins.fetchurl {
                 url = "https://cdn.jsdelivr.net/npm/toastify-js";
-                sha256 = "sha256:0v22qkipd2y4z08qkl8hd28d0bgjahn9q08nx05bxfg282zgxavg";
+                sha256 = "sha256:06mcmh3gl8mv5c4js767crpz010wrf8hyk47cm1i3hbcf9j195n2";
               };
               toastifycss = builtins.fetchurl {
                 url = "https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css";
-                sha256 = "sha256:13z5076jlvy1p4fqmmvic3ywbi153jrs0hy8mrl1z45s2js2qgpf";
+                sha256 = "sha256:1rgc3cx546vzkyzb3z5g7bpkdvlma7r0jwhp9mnx20f3rhfl7lwb";
               };
             in
 
