@@ -22,7 +22,7 @@
     <h1 class="text-3xl font-bold text-left">Search</h1>
     <a
       preload
-      href="/search/manual"
+      href="{{base_url}}/search/manual"
       title="Manually add request"
       class="btn btn- flex items-center justify-center"
     >
@@ -42,7 +42,7 @@
         spellcheck="false"
         autocomplete="off"
         list="search-suggestions"
-        hx-get="/search/suggestions?region={{ selected_region }}"
+        hx-get="{{base_url}}/search/suggestions?region={{ selected_region }}"
         hx-target="#search-suggestions"
         hx-swap="outerHTML"
         hx-trigger="keyup changed delay:250ms"
@@ -95,7 +95,7 @@
           <!-- prettier-ignore -->
           <button
             class="absolute top-0 right-0 rounded-none rounded-bl-md btn-sm btn btn-square items-center justify-center flex {% if book.downloaded or book.already_requested %}btn-ghost bg-success text-neutral/20{% else %}btn-info{% endif %}"
-            hx-post="/search/request/{{ book.asin }}"
+            hx-post="{{base_url}}/search/request/{{ book.asin }}"
             hx-disabled-elt="this"
             hx-target="#book-results"
             hx-include="this"
@@ -161,7 +161,8 @@
       <span class="text-sm"
         >No audiobooks were found. Do note, that internally Audible is used for
         searching. If the book doesn't exist on Audible it'll have to be added
-        <a class="link" preload href="/search/manual">manually</a>.</span
+        <a class="link" preload href="{{base_url}}/search/manual">manually</a
+        >.</span
       >
       {% else %}
       <span class="text-xl font-semibold">Perform a search</span>

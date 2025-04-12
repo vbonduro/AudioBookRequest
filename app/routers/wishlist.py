@@ -12,7 +12,6 @@ from fastapi import (
     Request,
     Response,
 )
-from fastapi.responses import RedirectResponse
 from sqlmodel import Session, asc, col, select
 
 from app.internal.models import (
@@ -30,6 +29,7 @@ from app.internal.query import query_sources
 from app.internal.auth.authentication import DetailedUser, get_authenticated_user
 from app.util.connection import get_connection
 from app.util.db import get_session, open_session
+from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import template_response
 
 router = APIRouter(prefix="/wishlist")
@@ -239,7 +239,7 @@ async def list_sources(
     try:
         prowlarr_config.raise_if_invalid(session)
     except ProwlarrMisconfigured:
-        return RedirectResponse(
+        return BaseUrlRedirectResponse(
             "/settings/prowlarr?prowlarr_misconfigured=1", status_code=302
         )
 

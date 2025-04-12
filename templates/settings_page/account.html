@@ -3,7 +3,7 @@
 <form
   id="change-password-form"
   class="flex flex-col gap-2"
-  hx-post="/settings/account/password"
+  hx-post="{{base_url}}/settings/account/password"
   hx-target="this"
 >
   {% if success %}

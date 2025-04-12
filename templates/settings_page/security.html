@@ -5,7 +5,7 @@
   {% block form %}
   <form
     class="flex flex-col gap-2"
-    hx-post="/settings/security"
+    hx-post="{{base_url}}/settings/security"
     hx-disabled-elt="#save-button"
     hx-target="this"
     x-data="{ loginType: '{{ login_type.value }}' }"
@@ -218,7 +218,7 @@
           Make sure all the settings are correct. In the case of a
           miconfiguration, you can log in at
           <a
-            href="/login?backup=1"
+            href="{{base_url}}/login?backup=1"
             class="font-mono link whitespace-nowrap inline-block"
             >/login?backup=1</a
           >
@@ -248,7 +248,7 @@
     <button
       type="button"
       class="btn btn-error"
-      hx-post="/settings/security/reset-auth"
+      hx-post="{{base_url}}/settings/security/reset-auth"
       hx-confirm="Are you sure you want to reset the authentication secret? This will invalidate everyone's login session forcing them to log in again."
       hx-target="this"
     >

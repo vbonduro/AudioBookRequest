@@ -15,6 +15,7 @@ templates.env.globals["version"] = Settings().app.version  # pyright: ignore[rep
 templates.env.globals["json_regexp"] = (  # pyright: ignore[reportUnknownMemberType]
     r'^\{\s*(?:"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*(?:,\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*)*)?\}$'
 )
+templates.env.globals["base_url"] = Settings().app.base_url.rstrip("/")  # pyright: ignore[reportUnknownMemberType]
 
 
 @overload

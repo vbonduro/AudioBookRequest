@@ -11,7 +11,7 @@
 <form
   id="create-user-form"
   class="flex flex-col gap-2"
-  hx-post="/settings/user"
+  hx-post="{{base_url}}/settings/user"
   hx-target="#user-list"
   hx-on::after-request="if (event.detail.successful && event.detail.target?.id === 'user-list') this.reset()"
   hx-swap="outerHTML"
@@ -84,7 +84,7 @@
               name="group"
               class="select w-full"
               required {% if u.root %}disabled{% endif %}
-              hx-patch="/settings/user/{{ u.username }}"
+              hx-patch="{{base_url}}/settings/user/{{ u.username }}"
               hx-trigger="change"
               hx-disabled-elt="this"
               hx-target="#user-list"
@@ -122,7 +122,7 @@
                   <button class="btn">Cancel</button>
                   <button
                     class="btn bg-primary"
-                    hx-delete="/settings/user/{{ u.username }}"
+                    hx-delete="{{base_url}}/settings/user/{{ u.username }}"
                     hx-disabled-elt="this"
                     hx-target="#user-list"
                     hx-swap="outerHTML"

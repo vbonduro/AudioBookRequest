@@ -12,7 +12,7 @@
   <label for="prowlarr-api-key">API Key</label>
   <form
     class="join w-full"
-    hx-put="/settings/prowlarr/api-key"
+    hx-put="{{base_url}}/settings/prowlarr/api-key"
     hx-disabled-elt="#api-button"
   >
     <!-- prettier-ignore -->
@@ -33,7 +33,7 @@
   <label for="prowlarr-base-url" class="pt-2">Base URL</label>
   <form
     class="join w-full"
-    hx-put="/settings/prowlarr/base-url"
+    hx-put="{{base_url}}/settings/prowlarr/base-url"
     hx-disabled-elt="#base-url-button"
   >
     <input
@@ -55,7 +55,7 @@
     id="category-select"
     class="flex flex-col gap-1"
     x-data="{ selected: [{{ selected_categories|join(',') }}].sort(), categories: {{ indexer_categories }}, dirty: false }"
-    hx-put="/settings/prowlarr/category"
+    hx-put="{{base_url}}/settings/prowlarr/category"
     hx-disabled-elt="#category-submit-button"
     hx-target="this"
     hx-swap="outerHTML"

@@ -26,7 +26,8 @@
       <span>
         No manual book requests on your wishlist. Add some books by heading to
         the
-        <a preload class="link" href="/search/manual">search</a> tab.
+        <a preload class="link" href="{{base_url}}/search/manual">search</a>
+        tab.
       </span>
     </div>
 
@@ -55,7 +56,7 @@
               title="Remove"
               class="btn btn-square"
               {% if not user.is_admin() %}disabled{% endif %}
-              hx-delete="/wishlist/manual/{{ book.id }}"
+              hx-delete="{{base_url}}/wishlist/manual/{{ book.id }}"
               hx-swap="outerHTML"
               hx-target="#book-table-body"
               hx-disabled-elt="this"
@@ -76,7 +77,7 @@
               class="btn btn-square"
               title="Set as downloaded"
               {% if not user.is_admin() %}disabled{% endif %}
-              hx-patch="/wishlist/manual/{{ book.id }}"
+              hx-patch="{{base_url}}/wishlist/manual/{{ book.id }}"
               hx-swap="outerHTML"
               hx-target="#book-table-body"
               hx-disabled-elt="this"

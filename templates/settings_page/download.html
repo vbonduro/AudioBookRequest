@@ -1,7 +1,10 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Download</title>
-<link href="/static/nouislider.css?v={{ version }}" rel="stylesheet" />
-<script src="/static/nouislider.js?v={{ version }}"></script>
+<link
+  href="{{base_url}}/static/nouislider.css?v={{ version }}"
+  rel="stylesheet"
+/>
+<script src="{{base_url}}/static/nouislider.js?v={{ version }}"></script>
 <script>
   const createSlider = (sliderId, fromId, toId, start, stop) => {
     const slider = document.getElementById(sliderId);
@@ -37,7 +40,7 @@
   {% block form %}
   <form
     class="flex flex-col gap-2"
-    hx-post="/settings/download"
+    hx-post="{{base_url}}/settings/download"
     hx-disabled-elt="#save-button"
     hx-target="this"
   >
@@ -279,7 +282,7 @@
   {% block flags %}
   <form
     id="flags-form"
-    hx-post="/settings/download/indexer-flag"
+    hx-post="{{base_url}}/settings/download/indexer-flag"
     hx-target="this"
     hx-disabled-elt="#add-button"
   >
@@ -329,7 +332,7 @@
               title="Delete flag"
               type="button"
               class="btn btn-square delete-button"
-              hx-delete="/settings/download/indexer-flag/{{ flag.flag }}"
+              hx-delete="{{base_url}}/settings/download/indexer-flag/{{ flag.flag }}"
               hx-disabled-elt=".delete-button"
               hx-target="#flags-form"
             >
@@ -352,7 +355,7 @@
     <button
       type="button"
       class="btn btn-error"
-      hx-delete="/settings/download"
+      hx-delete="{{base_url}}/settings/download"
       hx-disabled-elt="this"
     >
       Reset download settings
