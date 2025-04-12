@@ -10,7 +10,7 @@
   {% block form %}
   <form
     class="flex flex-col gap-2 w-full max-w-[40rem]"
-    hx-post="/search/manual"
+    hx-post="{{base_url}}/search/manual"
     hx-target="this"
     hx-swap="outerHTML"
     hx-disabled-elt="#submit-button"

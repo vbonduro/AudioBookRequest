@@ -15,6 +15,7 @@ class ApplicationSettings(BaseModel):
     port: int = 8000
     version: str = "local"
     log_level: str = "INFO"
+    base_url: str = ""
 
 
 class Settings(BaseSettings):

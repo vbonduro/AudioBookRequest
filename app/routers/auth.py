@@ -8,7 +8,6 @@ from urllib.parse import urlencode, urljoin
 import jwt
 from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
@@ -24,6 +23,7 @@ from app.internal.auth.oidc_config import InvalidOIDCConfiguration, oidc_config
 from app.internal.models import GroupEnum, User
 from app.util.connection import get_connection
 from app.util.db import get_session
+from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import templates
 from app.util.toast import ToastException
 
@@ -41,14 +41,14 @@ async def login(
 ):
     login_type = auth_config.get(session, "login_type")
     if login_type in [LoginTypeEnum.basic, LoginTypeEnum.none]:
-        return RedirectResponse(redirect_uri)
+        return BaseUrlRedirectResponse(redirect_uri)
     if login_type != LoginTypeEnum.oidc and backup:
         backup = False
 
     try:
         await get_authenticated_user()(request, session)
         # already logged in
-        return RedirectResponse(redirect_uri)
+        return BaseUrlRedirectResponse(redirect_uri)
     except (HTTPException, RequiresLoginException):
         pass
 
@@ -91,7 +91,7 @@ async def login(
         "scope": scope,
         "state": state,
     }
-    return RedirectResponse(f"{authorize_endpoint}?" + urlencode(params))
+    return BaseUrlRedirectResponse(f"{authorize_endpoint}?" + urlencode(params))
 
 
 @router.post("/logout")

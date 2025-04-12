@@ -8,7 +8,7 @@
   <form
     id="add-notification-form"
     class="flex flex-col gap-2"
-    hx-post="/settings/notification"
+    hx-post="{{base_url}}/settings/notification"
     hx-target="#notification-list"
     hx-swap="outerHTML"
     hx-on::after-request="if (event.detail.successful && event.detail.target?.id === 'notification-list') this.reset()"
@@ -128,7 +128,7 @@
             <button
               title="Test"
               class="btn btn-square"
-              hx-post="/settings/notification/{{n.id}}"
+              hx-post="{{base_url}}/settings/notification/{{n.id}}"
               hx-disabled-elt="this"
             >
               {% include 'icons/test-pipe.html' %}
@@ -143,7 +143,7 @@
             <button
               title="{{ 'Enabled' if n.enabled else 'Disabled' }}"
               class="btn btn-square {{ 'btn-success' if n.enabled else 'btn-error' }}"
-              hx-patch="/settings/notification/{{n.id}}/enable"
+              hx-patch="{{base_url}}/settings/notification/{{n.id}}/enable"
               hx-disabled-elt="this"
               hx-target="#notification-list"
               hx-swap="outerHTML"
@@ -155,7 +155,7 @@
             <button
               title="Delete"
               class="btn btn-error btn-square"
-              hx-delete="/settings/notification/{{n.id}}"
+              hx-delete="{{base_url}}/settings/notification/{{n.id}}"
               hx-target="#notification-list"
               hx-swap="outerHTML"
               hx-confirm="Are you sure you want to delete this notification? ({{n.name}})"
@@ -174,7 +174,7 @@
     <form
       x-data="{ name: '{{n.name}}', event: '{{n.event.value}}', apprise_url: '{{n.apprise_url}}', headers: '{{n.headers}}', title_template: '{{n.title_template}}', body_template: '{{n.body_template}}' }"
       class="flex flex-col gap-2"
-      hx-put="/settings/notification/{{n.id}}"
+      hx-put="{{base_url}}/settings/notification/{{n.id}}"
       hx-target="#notification-list"
       hx-swap="outerHTML"
       id="edit-notification-form"

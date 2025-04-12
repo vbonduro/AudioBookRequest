@@ -5,7 +5,7 @@ from typing import Annotated, Callable
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from sqlmodel import Session
 
 from app.internal.auth.authentication import (
@@ -18,6 +18,7 @@ from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.env_settings import Settings
 from app.internal.models import GroupEnum
 from app.util.db import get_session
+from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import templates
 
 router = APIRouter()
@@ -129,7 +130,7 @@ def read_root(
     request: Request,
     user: Annotated[DetailedUser, Depends(get_authenticated_user())],
 ):
-    return RedirectResponse("/search")
+    return BaseUrlRedirectResponse("/search")
     # TODO: create a root page
     # return templates.TemplateResponse(
     #     "root.html",
@@ -179,4 +180,4 @@ def create_init(
 
 @router.get("/login")
 def redirect_login(request: Request):
-    return RedirectResponse("/auth/login?" + urlencode(request.query_params))
+    return BaseUrlRedirectResponse("/auth/login?" + urlencode(request.query_params))

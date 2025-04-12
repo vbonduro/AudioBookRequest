@@ -26,9 +26,9 @@
       <span>
         {% if page.__eq__("wishlist") %} No books on your wishlist. Add some
         books by heading to the
-        <a preload class="link" href="/search">search</a> tab {% elif
-        page.__eq__("downloaded") %} No books have been downloaded yet. {% endif
-        %}
+        <a preload class="link" href="{{base_url}}/search">search</a> tab {%
+        elif page.__eq__("downloaded") %} No books have been downloaded yet. {%
+        endif %}
       </span>
     </div>
     {% endif %}
@@ -59,7 +59,7 @@
           <div class="flex flex-col">
             <a
               preload
-              href="/search?q={{ book.title+' ' +(book.authors|join(',')) }}"
+              href="{{base_url}}/search?q={{ book.title+' ' +(book.authors|join(',')) }}"
               class="font-bold text-primary line-clamp-4"
               title="{{ book.title }}"
               >{{ book.title }}</a
@@ -88,7 +88,7 @@
           <a
             preload
               title="Torrent Sources"
-              href="/wishlist/sources/{{ book.asin }}"
+              href="{{base_url}}/wishlist/sources/{{ book.asin }}"
               {% if not user.is_admin() %}disabled{% endif %}
               class="btn btn-square"
               >{% include 'icons/list.html' %}</a
@@ -112,7 +112,7 @@
               class="btn btn-square"
               {% endif %}
               {% if not user.can_download() or book.downloaded %}disabled{% endif %}
-              hx-post="/wishlist/auto-download/{{ book.asin }}"
+              hx-post="{{base_url}}/wishlist/auto-download/{{ book.asin }}"
               hx-swap="outerHTML"
               hx-target="#book-table-body"
               hx-disabled-elt="this"
@@ -125,7 +125,7 @@
               title="Remove"
               class="btn btn-square"
               {% if not user.is_admin() %}disabled{% endif %}
-              hx-delete="/search/request/{{ book.asin }}{% if page.__eq__('downloaded') %}?downloaded=true{% endif %}"
+              hx-delete="{{base_url}}/search/request/{{ book.asin }}{% if page.__eq__('downloaded') %}?downloaded=true{% endif %}"
               hx-swap="outerHTML"
               hx-target="#book-table-body"
               hx-disabled-elt="this"
@@ -144,7 +144,7 @@
           <button
             class="btn btn-square"
             title="Set as downloaded"
-            hx-patch="/wishlist/downloaded/{{ book.asin }}"
+            hx-patch="{{base_url}}/wishlist/downloaded/{{ book.asin }}"
             hx-swap="outerHTML"
             hx-target="#book-table-body"
             hx-disabled-elt="this"

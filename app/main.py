@@ -5,7 +5,6 @@ from urllib.parse import quote_plus, urlencode
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware import Middleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlmodel import select
 
@@ -19,6 +18,7 @@ from app.internal.env_settings import Settings
 from app.internal.models import User
 from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
+from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import templates
 from app.util.toast import ToastException
 from app.util.fetch_js import fetch_scripts
@@ -46,6 +46,7 @@ app = FastAPI(
         Middleware(DynamicSessionMiddleware, auth_secret, middleware_linker),
         Middleware(GZipMiddleware),
     ],
+    root_path=Settings().app.base_url.rstrip("/"),
 )
 
 app.include_router(auth.router)
@@ -66,7 +67,7 @@ async def redirect_to_login(request: Request, exc: RequiresLoginException):
         path = request.url.path
         if path != "/" and not path.startswith("/login"):
             params["redirect_uri"] = path
-        return RedirectResponse("/login?" + urlencode(params))
+        return BaseUrlRedirectResponse("/login?" + urlencode(params))
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,7 +81,7 @@ async def redirect_to_invalid_oidc(request: Request, exc: InvalidOIDCConfigurati
     path = "/auth/invalid-oidc"
     if exc.detail:
         path += f"?error={quote_plus(exc.detail)}"
-    return RedirectResponse(path)
+    return BaseUrlRedirectResponse(path)
 
 
 @app.exception_handler(ToastException)
@@ -116,10 +117,10 @@ async def redirect_to_init(request: Request, call_next: Any):
         with open_session() as session:
             user_count = session.exec(select(func.count()).select_from(User)).one()
             if user_count == 0:
-                return RedirectResponse("/init")
+                return BaseUrlRedirectResponse("/init")
             else:
                 user_exists = True
     elif user_exists and request.url.path.startswith("/init"):
-        return RedirectResponse("/")
+        return BaseUrlRedirectResponse("/")
     response = await call_next(request)
     return response
