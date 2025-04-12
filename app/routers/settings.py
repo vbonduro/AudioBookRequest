@@ -636,9 +636,7 @@ async def test_notification(
     ],
     session: Annotated[Session, Depends(get_session)],
 ):
-    notification = session.exec(
-        select(Notification).where(Notification.id == notification_id)
-    ).one_or_none()
+    notification = session.get(Notification, notification_id)
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
 

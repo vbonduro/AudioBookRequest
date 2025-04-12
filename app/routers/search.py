@@ -1,6 +1,6 @@
 from typing import Annotated, Optional
 
-import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from aiohttp import ClientSession
 from fastapi import (
     APIRouter,
@@ -26,11 +26,10 @@ from app.internal.models import (
     EventEnum,
     GroupEnum,
     ManualBookRequest,
-    Notification,
 )
 from app.internal.notifications import (
+    send_all_manual_notifications,
     send_all_notifications,
-    send_manual_notification,
 )
 from app.internal.prowlarr.prowlarr import prowlarr_config
 from app.internal.query import query_sources
@@ -169,7 +168,7 @@ async def add_request(
     try:
         session.add(book)
         session.commit()
-    except sa.exc.IntegrityError:
+    except IntegrityError:
         pass  # ignore if already exists
 
     background_task.add_task(
@@ -293,16 +292,12 @@ async def add_manual(
     session.expunge_all()  # so that we can pass down the object without the session
     session.commit()
 
-    notifications = session.exec(
-        select(Notification).where(Notification.event == EventEnum.on_new_request)
-    ).all()
-    for notif in notifications:
-        background_task.add_task(
-            send_manual_notification,
-            notification=notif,
-            book=book_request,
-            requester_username=user.username,
-        )
+    background_task.add_task(
+        send_all_manual_notifications,
+        event_type=EventEnum.on_new_request,
+        book_request=book_request,
+    )
+
     auto_download = quality_config.get_auto_download(session)
 
     return template_response(

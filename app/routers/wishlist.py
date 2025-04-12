@@ -17,8 +17,13 @@ from sqlmodel import Session, asc, col, select
 from app.internal.models import (
     BookRequest,
     BookWishlistResult,
+    EventEnum,
     GroupEnum,
     ManualBookRequest,
+)
+from app.internal.notifications import (
+    send_all_manual_notifications,
+    send_all_notifications,
 )
 from app.internal.prowlarr.prowlarr import (
     ProwlarrMisconfigured,
@@ -118,12 +123,22 @@ async def update_downloaded(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    background_task: BackgroundTasks,
 ):
     books = session.exec(select(BookRequest).where(BookRequest.asin == asin)).all()
+    requested_by = [book.user_username for book in books if book.user_username]
     for book in books:
         book.downloaded = True
         session.add(book)
     session.commit()
+
+    if len(requested_by) > 0:
+        background_task.add_task(
+            send_all_notifications,
+            event_type=EventEnum.on_successful_download,
+            requester_username=", ".join(requested_by),
+            book_asin=asin,
+        )
 
     username = None if admin_user.is_admin() else admin_user.username
     books = get_wishlist_books(session, username, "not_downloaded")
@@ -161,16 +176,24 @@ async def downloaded_manual(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    background_task: BackgroundTasks,
 ):
-    book = session.get(ManualBookRequest, id)
-    if book:
-        book.downloaded = True
-        session.add(book)
+    book_request = session.get(ManualBookRequest, id)
+    if book_request:
+        book_request.downloaded = True
+        session.add(book_request)
         session.commit()
+
+        background_task.add_task(
+            send_all_manual_notifications,
+            event_type=EventEnum.on_successful_download,
+            book_request=book_request,
+        )
 
     books = session.exec(
         select(ManualBookRequest).order_by(asc(ManualBookRequest.downloaded))
     ).all()
+
     return template_response(
         "wishlist_page/manual.html",
         request,
