@@ -46,28 +46,6 @@ def replace_variables(
     return title, body
 
 
-async def send_all_notifications(
-    event_type: EventEnum,
-    requester_username: Optional[str] = None,
-    book_asin: Optional[str] = None,
-    other_replacements: dict[str, str] = {},
-):
-    with open_session() as session:
-        notifications = session.exec(
-            select(Notification).where(Notification.event == event_type)
-        ).all()
-        for notification in notifications:
-            if not notification.enabled:
-                continue
-            await send_notification(
-                session=session,
-                notification=notification,
-                requester_username=requester_username,
-                book_asin=book_asin,
-                other_replacements=other_replacements,
-            )
-
-
 async def send_notification(
     session: Session,
     notification: Notification,
@@ -99,6 +77,10 @@ async def send_notification(
             other_replacements,
         )
 
+        logger.info(
+            f"Sending notification to {notification.apprise_url} with title: '{title}', event type: {notification.event.value}"
+        )
+
         async with client_session.post(
             notification.apprise_url,
             json={
@@ -109,6 +91,28 @@ async def send_notification(
         ) as response:
             response.raise_for_status()
             return await response.json()
+
+
+async def send_all_notifications(
+    event_type: EventEnum,
+    requester_username: Optional[str] = None,
+    book_asin: Optional[str] = None,
+    other_replacements: dict[str, str] = {},
+):
+    with open_session() as session:
+        notifications = session.exec(
+            select(Notification).where(
+                Notification.event == event_type, Notification.enabled
+            )
+        ).all()
+        for notification in notifications:
+            await send_notification(
+                session=session,
+                notification=notification,
+                requester_username=requester_username,
+                book_asin=book_asin,
+                other_replacements=other_replacements,
+            )
 
 
 async def send_manual_notification(
@@ -131,6 +135,10 @@ async def send_manual_notification(
                 other_replacements,
             )
 
+            logger.info(
+                f"Sending manual notification to {notification.apprise_url} with title: '{title}', event type: {notification.event.value}"
+            )
+
             async with client_session.post(
                 notification.apprise_url,
                 json={
@@ -144,3 +152,23 @@ async def send_manual_notification(
     except Exception as e:
         logger.error("Failed to send notification", e)
         return None
+
+
+async def send_all_manual_notifications(
+    event_type: EventEnum,
+    book_request: ManualBookRequest,
+    other_replacements: dict[str, str] = {},
+):
+    with open_session() as session:
+        notifications = session.exec(
+            select(Notification).where(
+                Notification.event == event_type, Notification.enabled
+            )
+        ).all()
+        for notif in notifications:
+            await send_manual_notification(
+                notification=notif,
+                book=book_request,
+                requester_username=book_request.user_username,
+                other_replacements=other_replacements,
+            )
