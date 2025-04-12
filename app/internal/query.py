@@ -69,6 +69,7 @@ async def query_sources(
             book,
             force_refresh=force_refresh,
             only_return_if_cached=only_return_if_cached,
+            indexer_ids=prowlarr_config.get_indexers(session),
         )
         if sources is None:
             return QueryResult(

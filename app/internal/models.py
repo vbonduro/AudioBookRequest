@@ -1,9 +1,11 @@
 # pyright: reportUnknownVariableType=false
+import json
 import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal, Optional, Union
 
+import pydantic
 from sqlmodel import JSON, Column, DateTime, Field, SQLModel, UniqueConstraint, func
 
 
@@ -178,10 +180,10 @@ ProwlarrSource = Annotated[
 ]
 
 
-class Indexer(BaseModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class Indexer(pydantic.BaseModel, frozen=True):
+    id: int
     name: str
-    enabled: bool
+    enable: bool
     privacy: str
 
 
@@ -205,3 +207,7 @@ class Notification(BaseModel, table=True):
     title_template: str
     body_template: str
     enabled: bool
+
+    @property
+    def serialized_headers(self):
+        return json.dumps(self.headers)

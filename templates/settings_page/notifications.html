@@ -172,13 +172,14 @@
   {% for n in notifications %}
   <template x-if="edit === '{{n.id}}'">
     <form
-      x-data="{ name: '{{n.name}}', event: '{{n.event.value}}', apprise_url: '{{n.apprise_url}}', headers: '{{n.headers}}', title_template: '{{n.title_template}}', body_template: '{{n.body_template}}' }"
+      x-data="{ name: {{n.name|toJSstring}}, event: {{n.event.value|toJSstring}}, apprise_url: {{n.apprise_url|toJSstring}}, headers: {{n.serialized_headers|toJSstring}}, title_template: {{n.title_template|toJSstring}}, body_template: {{n.body_template|toJSstring}} }"
       class="flex flex-col gap-2"
       hx-put="{{base_url}}/settings/notification/{{n.id}}"
       hx-target="#notification-list"
       hx-swap="outerHTML"
       id="edit-notification-form"
     >
+      {{ n.name }}
       <label for="name">Name<span class="text-error">*</span></label>
       <input
         id="name"

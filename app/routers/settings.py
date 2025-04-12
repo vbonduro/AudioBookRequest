@@ -23,7 +23,11 @@ from app.internal.indexers.indexer_util import IndexerContext, get_indexer_conte
 from app.internal.models import EventEnum, GroupEnum, Notification, User
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.indexer_categories import indexer_categories
-from app.internal.prowlarr.prowlarr import flush_prowlarr_cache, prowlarr_config
+from app.internal.prowlarr.prowlarr import (
+    flush_prowlarr_cache,
+    get_indexers,
+    prowlarr_config,
+)
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
 from app.util.connection import get_connection
 from app.util.db import get_session
@@ -206,17 +210,21 @@ def update_user(
 
 
 @router.get("/prowlarr")
-def read_prowlarr(
+async def read_prowlarr(
     request: Request,
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
     prowlarr_misconfigured: Optional[Any] = None,
 ):
     prowlarr_base_url = prowlarr_config.get_base_url(session)
     prowlarr_api_key = prowlarr_config.get_api_key(session)
     selected = set(prowlarr_config.get_categories(session))
+    indexers = await get_indexers(session, client_session)
+    indexers = {id: indexer.model_dump() for id, indexer in indexers.items()}
+    selected_indexers = set(prowlarr_config.get_indexers(session))
 
     return template_response(
         "settings_page/prowlarr.html",
@@ -228,6 +236,8 @@ def read_prowlarr(
             "prowlarr_api_key": prowlarr_api_key,
             "indexer_categories": indexer_categories,
             "selected_categories": selected,
+            "indexers": json.dumps(indexers),
+            "selected_indexers": selected_indexers,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
         },
     )
@@ -280,6 +290,36 @@ def update_indexer_categories(
             "success": "Categories updated",
         },
         block_name="category",
+    )
+
+
+@router.put("/prowlarr/indexers")
+async def update_selected_indexers(
+    request: Request,
+    admin_user: Annotated[
+        DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
+    ],
+    session: Annotated[Session, Depends(get_session)],
+    client_session: Annotated[ClientSession, Depends(get_connection)],
+    indexer_ids: Annotated[list[int], Form(alias="i")] = [],
+):
+    prowlarr_config.set_indexers(session, indexer_ids)
+
+    indexers = await get_indexers(session, client_session)
+    indexers = {id: indexer.model_dump() for id, indexer in indexers.items()}
+    selected_indexers = set(prowlarr_config.get_indexers(session))
+    flush_prowlarr_cache()
+
+    return template_response(
+        "settings_page/prowlarr.html",
+        request,
+        admin_user,
+        {
+            "indexers": json.dumps(indexers),
+            "selected_indexers": selected_indexers,
+            "success": "Categories updated",
+        },
+        block_name="indexer",
     )
 
 
@@ -842,9 +882,7 @@ async def update_indexers(
                 )
                 continue
         if context.type is bool:
-            indexer_configuration_cache.set(
-                session, key, "true" if value == "on" else ""
-            )
+            indexer_configuration_cache.set_bool(session, key, value == "on")
         else:
             indexer_configuration_cache.set(session, key, str(value))
 
