@@ -9,6 +9,7 @@ from app.internal.env_settings import Settings
 
 templates = Jinja2Blocks(directory="templates")
 templates.env.filters["zfill"] = lambda val, num: str(val).zfill(num)  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
+templates.env.filters["toJSstring"] = lambda val: f"'{str(val).replace("'", "\\'")}'"  # pyright: ignore[reportUnknownLambdaType,reportUnknownMemberType,reportUnknownArgumentType]
 templates.env.globals["vars"] = vars  # pyright: ignore[reportUnknownMemberType]
 templates.env.globals["getattr"] = getattr  # pyright: ignore[reportUnknownMemberType]
 templates.env.globals["version"] = Settings().app.version  # pyright: ignore[reportUnknownMemberType]

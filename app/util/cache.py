@@ -19,6 +19,15 @@ class SimpleCache[T]:
             return None
         return sources
 
+    def get_all(self, source_ttl: int) -> dict[tuple[str, ...], T]:
+        now = int(time.time())
+
+        return {
+            query: sources
+            for query, (cached_at, sources) in self._cache.items()
+            if cached_at + source_ttl > now
+        }
+
     def set(self, sources: T, *query: str):
         self._cache[query] = (int(time.time()), sources)
 
@@ -83,3 +92,15 @@ class StringConfigCache[L: str](ABC):
 
     def set_int(self, session: Session, key: L, value: int):
         self.set(session, key, str(value))
+
+    def get_bool(self, session: Session, key: L) -> Optional[bool]:
+        try:
+            val = self.get_int(session, key)
+        except ValueError:  # incase if the db has an old bool string instead of an int
+            return False
+        if val is not None:
+            return val != 0
+        return None
+
+    def set_bool(self, session: Session, key: L, value: bool):
+        self.set_int(session, key, int(value))

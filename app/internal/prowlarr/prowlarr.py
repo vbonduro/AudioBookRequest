@@ -12,6 +12,7 @@ from app.internal.indexers.abstract import SessionContainer
 from app.internal.models import (
     BookRequest,
     EventEnum,
+    Indexer,
     ProwlarrSource,
     TorrentSource,
     UsenetSource,
@@ -32,6 +33,7 @@ ProwlarrConfigKey = Literal[
     "prowlarr_base_url",
     "prowlarr_source_ttl",
     "prowlarr_categories",
+    "prowlarr_indexers",
 ]
 
 
@@ -78,13 +80,24 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
     def set_categories(self, session: Session, categories: list[int]):
         self.set(session, "prowlarr_categories", json.dumps(categories))
 
+    def get_indexers(self, session: Session) -> list[int]:
+        indexers = self.get(session, "prowlarr_indexers")
+        if indexers is None:
+            return []
+        return json.loads(indexers)
+
+    def set_indexers(self, session: Session, indexers: list[int]):
+        self.set(session, "prowlarr_indexers", json.dumps(indexers))
+
 
 prowlarr_config = ProwlarrConfig()
 prowlarr_source_cache = SimpleCache[list[ProwlarrSource]]()
+prowlarr_indexer_cache = SimpleCache[Indexer]()
 
 
 def flush_prowlarr_cache():
     prowlarr_source_cache.flush()
+    prowlarr_indexer_cache.flush()
 
 
 async def start_download(
@@ -231,3 +244,39 @@ async def query_prowlarr(
     prowlarr_source_cache.set(sources, query)
 
     return sources
+
+
+async def get_indexers(
+    session: Session, client_session: ClientSession
+) -> dict[int, Indexer]:
+    """Fetch the list of all indexers from Prowlarr."""
+    base_url = prowlarr_config.get_base_url(session)
+    api_key = prowlarr_config.get_api_key(session)
+    assert base_url is not None and api_key is not None
+    source_ttl = prowlarr_config.get_source_ttl(session)
+
+    indexers = prowlarr_indexer_cache.get_all(source_ttl).values()
+    if len(indexers) > 0:
+        return {indexer.id: indexer for indexer in indexers}
+
+    url = posixpath.join(base_url, "api/v1/indexer")
+    logger.info("Fetching indexers from Prowlarr: %s", url)
+
+    async with client_session.get(
+        url,
+        headers={"X-Api-Key": api_key},
+    ) as response:
+        if not response.ok:
+            logger.error("Failed to fetch indexers: %s", response)
+            return {}
+
+        json_response = await response.json()
+
+        for indexer in json_response:
+            indexer_obj = Indexer.model_validate(indexer)
+            prowlarr_indexer_cache.set(indexer_obj, str(indexer_obj.id))
+
+    return {
+        indexer.id: indexer
+        for indexer in prowlarr_indexer_cache.get_all(source_ttl).values()
+    }

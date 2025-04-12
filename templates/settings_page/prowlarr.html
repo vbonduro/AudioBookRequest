@@ -106,6 +106,55 @@
       Save
     </button>
   </form>
+  {% endblock %} {% block indexer %}
+  <form
+    id="indexer-select"
+    class="flex flex-col gap-1"
+    x-data="{ selectedIndexers: [{{ selected_indexers|join(',') }}].sort(), indexers: {{ indexers }}, dirty: false }"
+    hx-put="{{base_url}}/settings/prowlarr/indexers"
+    hx-disabled-elt="#indexer-submit-button"
+    hx-target="this"
+    hx-swap="outerHTML"
+  >
+    <label for="indexers">Indexers</label>
+    <p class="text-xs opacity-60">
+      Select the indexers to use with Prowlarr. If none are selected, all
+      indexers will be used.
+    </p>
+
+    <div class="flex flex-wrap gap-1">
+      <template x-for="indexerId in selectedIndexers">
+        <div
+          class="badge badge-secondary badge-sm w-[13rem] justify-between h-fit"
+        >
+          <input type="hidden" name="i" x-bind:value="indexerId" />
+          <span x-text="indexers[indexerId].name"></span>
+          <button
+            class="cursor-pointer [&>svg]:size-4 hover:opacity-70 transition-opacity duration-150"
+            x-on:click="selectedIndexers = selectedIndexers.filter((itemId) => itemId !== indexerId); dirty = true"
+            type="button"
+          >
+            {% include 'icons/xmark.html' %}
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <select name="group" class="select w-full">
+      <template x-for="indexerId in Object.keys(indexers)">
+        <template x-if="!selectedIndexers.includes(indexerId)">
+          <option
+            x-text="indexers[indexerId].name"
+            x-on:click="selectedIndexers = [...selectedIndexers, indexerId].sort(); dirty = true"
+          ></option>
+        </template>
+      </template>
+    </select>
+
+    <button id="indexer-submit-button" x-bind:disabled="!dirty" class="btn">
+      Save
+    </button>
+  </form>
   {% endblock %}
 </div>
 {% endblock %}

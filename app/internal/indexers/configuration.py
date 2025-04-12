@@ -108,6 +108,6 @@ def create_valued_configuration(
             except ValueError:
                 raise InvalidTypeException(f"Configuration {key} must be a float")
         elif value.type is bool:
-            setattr(valued, key, bool(config_value))
+            setattr(valued, key, config_value == "1")
 
     return valued
