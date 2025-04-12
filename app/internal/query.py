@@ -1,5 +1,6 @@
 # what is currently being queried
 from contextlib import contextmanager
+from typing import Literal, Optional
 
 import pydantic
 from aiohttp import ClientSession
@@ -30,8 +31,13 @@ def manage_queried(asin: str):
 
 
 class QueryResult(pydantic.BaseModel):
-    sources: list[ProwlarrSource]
+    sources: Optional[list[ProwlarrSource]]
     book: BookRequest
+    state: Literal["ok", "querying", "uncached"]
+
+    @property
+    def ok(self) -> bool:
+        return self.state == "ok"
 
 
 async def query_sources(
@@ -41,24 +47,36 @@ async def query_sources(
     requester_username: str,
     force_refresh: bool = False,
     start_auto_download: bool = False,
+    only_return_if_cached: bool = False,
 ) -> QueryResult:
+    book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    if asin in querying:
+        return QueryResult(
+            sources=None,
+            book=book,
+            state="querying",
+        )
+
     with manage_queried(asin):
         prowlarr_config.raise_if_invalid(session)
-
-        book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
-        if not book:
-            raise HTTPException(status_code=404, detail="Book not found")
-
-        book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
-        if not book:
-            raise HTTPException(status_code=500, detail="Book asin error")
 
         sources = await query_prowlarr(
             session,
             client_session,
             book,
             force_refresh=force_refresh,
+            only_return_if_cached=only_return_if_cached,
         )
+        if sources is None:
+            return QueryResult(
+                sources=None,
+                book=book,
+                state="uncached",
+            )
+
         ranked = await rank_sources(session, client_session, sources, book)
 
         # start download if requested
@@ -85,4 +103,5 @@ async def query_sources(
         return QueryResult(
             sources=ranked,
             book=book,
+            state="ok",
         )

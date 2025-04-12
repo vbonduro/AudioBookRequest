@@ -234,6 +234,7 @@ async def list_sources(
     ],
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
+    only_body: bool = False,
 ):
     try:
         prowlarr_config.raise_if_invalid(session)
@@ -247,16 +248,22 @@ async def list_sources(
         session=session,
         client_session=client_session,
         requester_username=admin_user.username,
+        only_return_if_cached=not only_body,  # on initial load we want to respond quickly
     )
 
+    if only_body:
+        return template_response(
+            "wishlist_page/sources.html",
+            request,
+            admin_user,
+            {"result": result},
+            block_name="body",
+        )
     return template_response(
         "wishlist_page/sources.html",
         request,
         admin_user,
-        {
-            "book": result.book,
-            "sources": result.sources,
-        },
+        {"result": result},
     )
 
 

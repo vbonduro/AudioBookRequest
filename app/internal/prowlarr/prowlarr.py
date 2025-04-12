@@ -133,15 +133,20 @@ async def query_prowlarr(
     book_request: BookRequest,
     indexer_ids: Optional[list[int]] = None,
     force_refresh: bool = False,
-) -> list[ProwlarrSource]:
+    only_return_if_cached: bool = False,
+) -> Optional[list[ProwlarrSource]]:
     query = book_request.title
 
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)
     assert base_url is not None and api_key is not None
+    source_ttl = prowlarr_config.get_source_ttl(session)
+
+    if only_return_if_cached:
+        cached_sources = prowlarr_source_cache.get(source_ttl, query)
+        return cached_sources
 
     if not force_refresh:
-        source_ttl = prowlarr_config.get_source_ttl(session)
         cached_sources = prowlarr_source_cache.get(source_ttl, query)
         if cached_sources:
             return cached_sources

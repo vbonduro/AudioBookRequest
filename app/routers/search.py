@@ -134,14 +134,16 @@ async def search_suggestions(
         )
 
 
-async def background_start_query(asin: str, requester_username: str):
+async def background_start_query(
+    asin: str, requester_username: str, auto_download: bool
+):
     with open_session() as session:
         async with ClientSession() as client_session:
             await query_sources(
                 asin=asin,
                 session=session,
                 client_session=client_session,
-                start_auto_download=True,
+                start_auto_download=auto_download,
                 requester_username=requester_username,
             )
 
@@ -180,7 +182,10 @@ async def add_request(
     if quality_config.get_auto_download(session) and user.is_above(GroupEnum.trusted):
         # start querying and downloading if auto download is enabled
         background_task.add_task(
-            background_start_query, asin=asin, requester_username=user.username
+            background_start_query,
+            asin=asin,
+            requester_username=user.username,
+            auto_download=True,
         )
 
     if audible_regions.get(region) is None:
