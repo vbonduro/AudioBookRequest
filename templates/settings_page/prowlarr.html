@@ -110,18 +110,30 @@
   <form
     id="indexer-select"
     class="flex flex-col gap-1"
-    x-data="{ selectedIndexers: [{{ selected_indexers|join(',') }}].sort(), indexers: {{ indexers }}, dirty: false }"
+    x-data="{ selectedIndexers: [{{ selected_indexers|join(',') }}].sort(), indexers: {{ indexers.json_string }}, dirty: false }"
     hx-put="{{base_url}}/settings/prowlarr/indexers"
     hx-disabled-elt="#indexer-submit-button"
     hx-target="this"
     hx-swap="outerHTML"
   >
+    {% if success %}
+    <script>
+      toast("{{success|safe}}", "success");
+    </script>
+    {% endif %}
+
     <label for="indexers">Indexers</label>
     <p class="text-xs opacity-60">
       Select the indexers to use with Prowlarr. If none are selected, all
-      indexers will be used.
+      indexers will be used. {% if not indexers.ok %}
+      <span class="text-error font-semibold">
+        <br />
+        No indexers found. {{ indexers.error or "" }}
+      </span>
+      {% endif %}
     </p>
 
+    {% if indexers.ok %}
     <div class="flex flex-wrap gap-1">
       <template x-for="indexerId in selectedIndexers">
         <div
@@ -139,8 +151,10 @@
         </div>
       </template>
     </div>
+    {% endif %}
 
-    <select name="group" class="select w-full">
+    <!-- prettier-ignore -->
+    <select name="group" class="select w-full" {% if not indexers.ok %}disabled{% endif %}>
       <template x-for="indexerId in Object.keys(indexers)">
         <template x-if="!selectedIndexers.includes(indexerId)">
           <option
