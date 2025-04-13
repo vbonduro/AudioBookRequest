@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional
 from urllib.parse import urlencode
 
 from aiohttp import ClientResponse, ClientSession
+from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.internal.indexers.abstract import SessionContainer
@@ -246,37 +247,75 @@ async def query_prowlarr(
     return sources
 
 
+class IndexerResponse(BaseModel):
+    indexers: dict[int, Indexer] = {}
+    state: Literal["ok", "missingUrlKey", "failedFetch"]
+    error: Optional[str] = None
+
+    @property
+    def json_string(self) -> str:
+        return json.dumps(
+            {id: indexer.model_dump() for id, indexer in self.indexers.items()}
+        )
+
+    @property
+    def ok(self) -> bool:
+        return self.state == "ok"
+
+
 async def get_indexers(
     session: Session, client_session: ClientSession
-) -> dict[int, Indexer]:
+) -> IndexerResponse:
     """Fetch the list of all indexers from Prowlarr."""
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)
-    assert base_url is not None and api_key is not None
     source_ttl = prowlarr_config.get_source_ttl(session)
+
+    if not base_url or not api_key:
+        logger.warning("Prowlarr base url or api key not set, skipping indexer fetch")
+        return IndexerResponse(
+            state="failedFetch",
+            error="Missing Prowlarr base url or api key",
+        )
 
     indexers = prowlarr_indexer_cache.get_all(source_ttl).values()
     if len(indexers) > 0:
-        return {indexer.id: indexer for indexer in indexers}
+        return IndexerResponse(
+            indexers={indexer.id: indexer for indexer in indexers},
+            state="ok",
+        )
 
     url = posixpath.join(base_url, "api/v1/indexer")
     logger.info("Fetching indexers from Prowlarr: %s", url)
 
-    async with client_session.get(
-        url,
-        headers={"X-Api-Key": api_key},
-    ) as response:
-        if not response.ok:
-            logger.error("Failed to fetch indexers: %s", response)
-            return {}
+    try:
+        async with client_session.get(
+            url,
+            headers={"X-Api-Key": api_key},
+        ) as response:
+            if not response.ok:
+                logger.error("Failed to fetch indexers: %s", response)
+                return IndexerResponse(
+                    state="failedFetch",
+                    error=f"{response.status}: {response.reason}",
+                )
 
-        json_response = await response.json()
+            json_response = await response.json()
 
-        for indexer in json_response:
-            indexer_obj = Indexer.model_validate(indexer)
-            prowlarr_indexer_cache.set(indexer_obj, str(indexer_obj.id))
+            for indexer in json_response:
+                indexer_obj = Indexer.model_validate(indexer)
+                prowlarr_indexer_cache.set(indexer_obj, str(indexer_obj.id))
 
-    return {
-        indexer.id: indexer
-        for indexer in prowlarr_indexer_cache.get_all(source_ttl).values()
-    }
+        return IndexerResponse(
+            indexers={
+                indexer.id: indexer
+                for indexer in prowlarr_indexer_cache.get_all(source_ttl).values()
+            },
+            state="ok",
+        )
+    except Exception as e:
+        logger.error("Failed to access Prowlarr to fetch indexers: %s", e)
+        return IndexerResponse(
+            state="failedFetch",
+            error=str(e),
+        )

@@ -223,7 +223,6 @@ async def read_prowlarr(
     prowlarr_api_key = prowlarr_config.get_api_key(session)
     selected = set(prowlarr_config.get_categories(session))
     indexers = await get_indexers(session, client_session)
-    indexers = {id: indexer.model_dump() for id, indexer in indexers.items()}
     selected_indexers = set(prowlarr_config.get_indexers(session))
 
     return template_response(
@@ -236,7 +235,7 @@ async def read_prowlarr(
             "prowlarr_api_key": prowlarr_api_key,
             "indexer_categories": indexer_categories,
             "selected_categories": selected,
-            "indexers": json.dumps(indexers),
+            "indexers": indexers,
             "selected_indexers": selected_indexers,
             "prowlarr_misconfigured": True if prowlarr_misconfigured else False,
         },
@@ -252,6 +251,7 @@ def update_prowlarr_api_key(
     ],
 ):
     prowlarr_config.set_api_key(session, api_key)
+    flush_prowlarr_cache()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -264,6 +264,7 @@ def update_prowlarr_base_url(
     ],
 ):
     prowlarr_config.set_base_url(session, base_url)
+    flush_prowlarr_cache()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -306,7 +307,6 @@ async def update_selected_indexers(
     prowlarr_config.set_indexers(session, indexer_ids)
 
     indexers = await get_indexers(session, client_session)
-    indexers = {id: indexer.model_dump() for id, indexer in indexers.items()}
     selected_indexers = set(prowlarr_config.get_indexers(session))
     flush_prowlarr_cache()
 
@@ -315,9 +315,9 @@ async def update_selected_indexers(
         request,
         admin_user,
         {
-            "indexers": json.dumps(indexers),
+            "indexers": indexers,
             "selected_indexers": selected_indexers,
-            "success": "Categories updated",
+            "success": "Indexers updated",
         },
         block_name="indexer",
     )
