@@ -7,3 +7,4 @@ static/globals.css
 config
 node_modules
 result
+.ruff_cache

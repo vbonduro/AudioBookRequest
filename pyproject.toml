@@ -43,8 +43,9 @@ typeCheckingMode = "strict"
 reportUnknownParameterType = true
 reportMissingParameterType = true
 
+[tool.djlint]
+profile = "jinja"
+ignore = "H021"
+
 [dependency-groups]
-dev = [
-    "black>=25.1.0",
- "pyright==1.1.398",
-]
+dev = ["djlint>=1.36.4", "pyright==1.1.398", "ruff>=0.11.6"]

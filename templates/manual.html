@@ -1,92 +1,68 @@
-{% extends "base.html" %} {% block head %}
-<title>Manual Entry</title>
-<!-- prettier-ignore -->
-{% endblock %} {% block body %}
-<div
-  class="w-screen flex flex-col items-center justify-center p-8 overflow-x-hidden gap-4"
->
-  <h1 class="text-3xl font-bold text-left w-full">Manual Request</h1>
-
-  {% block form %}
-  <form
-    class="flex flex-col gap-2 w-full max-w-[40rem]"
-    hx-post="{{base_url}}/search/manual"
-    hx-target="this"
-    hx-swap="outerHTML"
-    hx-disabled-elt="#submit-button"
-  >
-    <p class="text-sm text-left w-full opacity-60">
-      {% if auto_download %} Manual requests do not automatically start a
-      download. They have to be manually reviewed. {% endif %}
-    </p>
-
-    {% if success %}
-    <script>
-      toast("{{success|safe}}", "success");
-    </script>
-    {% endif %}
-
-    <label for="title">Title <span class="text-error">*</span></label>
-    <input
-      id="title"
-      name="title"
-      type="text"
-      class="input w-full"
-      minlength="1"
-      required
-      placeholder="The Fellowship of the Ring"
-    />
-
-    <label for="subtitle">Subtitle</label>
-    <input
-      id="subtitle"
-      name="subtitle"
-      type="text"
-      class="input w-full"
-      placeholder="The Lord of the Rings"
-    />
-
-    <label for="author">Author(s) <span class="text-error">*</span></label>
-    <input
-      id="author"
-      name="author"
-      type="text"
-      class="input w-full"
-      minlength="1"
-      required
-      placeholder="J.R.R. Tolkien"
-    />
-
-    <label for="narrator">Narrator(s)</label>
-    <input
-      id="narrator"
-      name="narrator"
-      type="text"
-      class="input w-full"
-      placeholder="Andy Serkis"
-    />
-
-    <label for="publish-date">Publish Date</label>
-    <input
-      id="publish_date"
-      name="publish_date"
-      type="text"
-      class="input w-full"
-      placeholder="2021-09"
-    />
-
-    <label for="info">Additional Info</label>
-    <textarea
-      id="info"
-      name="info"
-      class="textarea w-full"
-      placeholder="The book about the ring"
-    ></textarea>
-
-    <button id="submit-button" class="btn btn-primary" type="submit">
-      Submit
-    </button>
-  </form>
-  {% endblock %}
-</div>
-{% endblock %}
+{% extends "base.html" %}
+{% block head %}
+  <title>Manual Entry</title>
+{% endblock head %}
+{% block body %}
+  <div class="w-screen flex flex-col items-center justify-center p-8 overflow-x-hidden gap-4">
+    <h1 class="text-3xl font-bold text-left w-full">Manual Request</h1>
+    {% block form %}
+      <form class="flex flex-col gap-2 w-full max-w-[40rem]"
+            hx-post="{{ base_url }}/search/manual"
+            hx-target="this"
+            hx-swap="outerHTML"
+            hx-disabled-elt="#submit-button">
+        <p class="text-sm text-left w-full opacity-60">
+          {% if auto_download %}
+            Manual requests do not automatically start a
+            download. They have to be manually reviewed.
+          {% endif %}
+        </p>
+        {% if success %}<script>toast("{{success|safe}}", "success");</script>{% endif %}
+        <label for="title">
+          Title <span class="text-error">*</span>
+        </label>
+        <input id="title"
+               name="title"
+               type="text"
+               class="input w-full"
+               minlength="1"
+               required
+               placeholder="The Fellowship of the Ring" />
+        <label for="subtitle">Subtitle</label>
+        <input id="subtitle"
+               name="subtitle"
+               type="text"
+               class="input w-full"
+               placeholder="The Lord of the Rings" />
+        <label for="author">
+          Author(s) <span class="text-error">*</span>
+        </label>
+        <input id="author"
+               name="author"
+               type="text"
+               class="input w-full"
+               minlength="1"
+               required
+               placeholder="J.R.R. Tolkien" />
+        <label for="narrator">Narrator(s)</label>
+        <input id="narrator"
+               name="narrator"
+               type="text"
+               class="input w-full"
+               placeholder="Andy Serkis" />
+        <label for="publish-date">Publish Date</label>
+        <input id="publish_date"
+               name="publish_date"
+               type="text"
+               class="input w-full"
+               placeholder="2021-09" />
+        <label for="info">Additional Info</label>
+        <textarea id="info"
+                  name="info"
+                  class="textarea w-full"
+                  placeholder="The book about the ring"></textarea>
+        <button id="submit-button" class="btn btn-primary" type="submit">Submit</button>
+      </form>
+    {% endblock form %}
+  </div>
+{% endblock body %}

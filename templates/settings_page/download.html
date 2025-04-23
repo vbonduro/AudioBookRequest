@@ -1,10 +1,10 @@
 {% extends "settings_page/base.html" %} {% block head %}
 <title>Settings - Download</title>
 <link
-  href="{{base_url}}/static/nouislider.css?v={{ version }}"
+  href="{{ base_url }}/static/nouislider.css?v={{ version }}"
   rel="stylesheet"
 />
-<script src="{{base_url}}/static/nouislider.js?v={{ version }}"></script>
+<script src="{{ base_url }}/static/nouislider.js?v={{ version }}"></script>
 <script>
   const createSlider = (sliderId, fromId, toId, start, stop) => {
     const slider = document.getElementById(sliderId);
@@ -32,15 +32,13 @@
     });
   };
 </script>
-{% endblock %} {% block content %}
-
+{% endblock head %} {% block content %}
 <div class="flex flex-col">
   <h2 class="text-lg">Download</h2>
-
   {% block form %}
   <form
     class="flex flex-col gap-2"
-    hx-post="{{base_url}}/settings/download"
+    hx-post="{{ base_url }}/settings/download"
     hx-disabled-elt="#save-button"
     hx-target="this"
   >
@@ -49,25 +47,19 @@
       toast("{{success|safe}}", "success");
     </script>
     {% endif %}
-
     <div
       class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200"
     >
       <label for="auto-download">Auto Download</label>
-      <!-- prettier-ignore -->
-      <input
-      id="auto-download"
-      name="auto_download"
-      type="checkbox"
-      class="checkbox"
-      {% if auto_download %}checked{% endif %}
-      />
+      <input id="auto-download"
+                 name="auto_download"
+                 type="checkbox"
+                 class="checkbox"
+                 {% if auto_download %}checked{% endif %} />
     </div>
-
     <h3 class="border-t pt-2 border-base-200">
       Quality <span class="text-xs">(kbit/s)</span>
     </h3>
-
     <div>
       <label for="flac-range">flac</label>
       <div class="flex w-full items-center">
@@ -102,7 +94,6 @@
         </script>
       </div>
     </div>
-
     <div>
       <label for="m4b-range">m4b</label>
       <div class="flex w-full items-center">
@@ -134,7 +125,6 @@
         </script>
       </div>
     </div>
-
     <div>
       <label for="mp3-range">mp3</label>
       <div class="flex w-full items-center">
@@ -166,7 +156,6 @@
         </script>
       </div>
     </div>
-
     <div>
       <label for="unknown_audio-range">Unknown Audio</label>
       <div class="flex w-full items-center">
@@ -201,7 +190,6 @@
         </script>
       </div>
     </div>
-
     <div>
       <label for="unknown-range">Unknown</label>
       <div class="flex w-full items-center">
@@ -236,7 +224,6 @@
         </script>
       </div>
     </div>
-
     <div class="w-full flex items-center justify-between">
       <label for="min-seeders">Min Seeders</label>
       <input
@@ -248,7 +235,6 @@
         value="{{ min_seeders }}"
       />
     </div>
-
     <div class="w-full flex items-center justify-between">
       <label for="name-ratio">Author/Narrator Similarity Ratio</label>
       <input
@@ -260,7 +246,6 @@
         value="{{ name_ratio }}"
       />
     </div>
-
     <div class="w-full flex items-center justify-between">
       <label for="title-ratio">Title Similarity Ratio</label>
       <input
@@ -272,17 +257,14 @@
         value="{{ title_ratio }}"
       />
     </div>
-
     <button id="save-button" type="submit" class="btn btn-primary">Save</button>
   </form>
-  {% endblock %}
-
+  {% endblock form %}
   <hr class="my-4 border-base-200" />
-
   {% block flags %}
   <form
     id="flags-form"
-    hx-post="{{base_url}}/settings/download/indexer-flag"
+    hx-post="{{ base_url }}/settings/download/indexer-flag"
     hx-target="this"
     hx-disabled-elt="#add-button"
   >
@@ -298,7 +280,6 @@
           placeholder="freeleech"
         />
       </div>
-
       <div class="flex flex-col w-full">
         <label for="flag-score">Score</label>
         <input
@@ -312,7 +293,6 @@
       </div>
       <button type="submit" class="btn btn-primary" id="add-button">Add</button>
     </div>
-
     {% if indexer_flags %}
     <table class="table">
       <thead>
@@ -332,34 +312,31 @@
               title="Delete flag"
               type="button"
               class="btn btn-square delete-button"
-              hx-delete="{{base_url}}/settings/download/indexer-flag/{{ flag.flag }}"
+              hx-delete="{{ base_url }}/settings/download/indexer-flag/{{ flag.flag }}"
               hx-disabled-elt=".delete-button"
               hx-target="#flags-form"
             >
-              {% include 'icons/trash.html' %}
+              {% include "icons/trash.html" %}
             </button>
           </td>
         </tr>
-
         {% endfor %}
       </tbody>
     </table>
     {% endif %}
   </form>
-  {% endblock %}
-
+  {% endblock flags %}
   <hr class="my-4 border-base-200" />
-
   <div class="flex flex-col gap-2">
     <h2 class="text-lg text-error">Danger Zone</h2>
     <button
       type="button"
       class="btn btn-error"
-      hx-delete="{{base_url}}/settings/download"
+      hx-delete="{{ base_url }}/settings/download"
       hx-disabled-elt="this"
     >
       Reset download settings
     </button>
   </div>
 </div>
-{% endblock %}
+{% endblock content %}

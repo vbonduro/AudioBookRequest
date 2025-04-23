@@ -1,12 +1,8 @@
-<link
-  rel="stylesheet"
-  type="text/css"
-  href="{{base_url}}/static/toastify.css?v={{ version }}"
-/>
-<script
-  type="text/javascript"
-  src="{{base_url}}/static/toastify.js?v={{ version }}"
-></script>
+<link rel="stylesheet"
+      type="text/css"
+      href="{{ base_url }}/static/toastify.css?v={{ version }}" />
+<script type="text/javascript"
+        src="{{ base_url }}/static/toastify.js?v={{ version }}"></script>
 <script>
   const toast = (message, type = "success") => {
     const classNames = {
