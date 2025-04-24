@@ -7,10 +7,10 @@ from sqlmodel import Session, select
 from app.internal.models import Config
 
 
-class SimpleCache[T]:
-    _cache: dict[tuple[str, ...], tuple[int, T]] = {}
+class SimpleCache[VT, *KTs]:
+    _cache: dict[tuple[*KTs], tuple[int, VT]] = {}
 
-    def get(self, source_ttl: int, *query: str) -> Optional[T]:
+    def get(self, source_ttl: int, *query: *KTs) -> Optional[VT]:
         hit = self._cache.get(query)
         if not hit:
             return None
@@ -19,7 +19,7 @@ class SimpleCache[T]:
             return None
         return sources
 
-    def get_all(self, source_ttl: int) -> dict[tuple[str, ...], T]:
+    def get_all(self, source_ttl: int) -> dict[tuple[*KTs], VT]:
         now = int(time.time())
 
         return {
@@ -28,7 +28,7 @@ class SimpleCache[T]:
             if cached_at + source_ttl > now
         }
 
-    def set(self, sources: T, *query: str):
+    def set(self, sources: VT, *query: *KTs):
         self._cache[query] = (int(time.time()), sources)
 
     def flush(self):

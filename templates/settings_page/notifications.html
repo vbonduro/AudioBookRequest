@@ -11,7 +11,8 @@
           hx-post="{{ base_url }}/settings/notification"
           hx-target="#notification-list"
           hx-swap="outerHTML"
-          hx-on::after-request="if (event.detail.successful && event.detail.target?.id === 'notification-list') this.reset()">
+          hx-on::after-request="if (event.detail.successful && event.detail.target?.id === 'notification-list') this.reset()"
+          x-data="{ service: '{{ service_types[0] }}' }">
       <label for="name">
         Name<span class="text-error">*</span>
       </label>
@@ -27,12 +28,30 @@
       <select id="event" name="event_type" class="select w-full" required>
         {% for e in event_types %}<option value="{{ e }}">{{ e }}</option>{% endfor %}
       </select>
-      <label for="apprise_url">
-        Apprise Notify URL
-        <span class="text-xs font-mono">(http://.../notify/c2h3fg...)</span><span class="text-error">*</span>
+      <label for="service">
+        Notification Service<span class="text-error">*</span>
       </label>
-      <input id="apprise_url"
-             name="apprise_url"
+      <select id="service"
+              name="service_type"
+              class="select w-full"
+              required
+              x-model="service">
+        {% for e in service_types %}
+          <option value="{{ e }}" {% if loop.index.__eq__(0) %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+      <template x-if="service === 'custom'">
+        <p class="text-sm font-semibold text-error">
+          For the custom service the title and body are ignored. Use the additional fields to add what you need.
+        </p>
+      </template>
+      <label for="url" class="flex gap-0 flex-col">
+        <span>Apprise Notify URL / Gotify Message URL<span class="text-error">*</span></span>
+        <br />
+        <span class="text-xs font-mono">(http://.../notify/c2h3fg...)</span>
+      </label>
+      <input id="url"
+             name="url"
              minlength="1"
              type="text"
              class="input w-full"
@@ -56,7 +75,8 @@
              minlength="1"
              type="text"
              class="input w-full"
-             required />
+             required
+             x-bind:disabled="service === 'custom'" />
       <label for="body_template">
         Body Template<span class="text-error">*</span>
       </label>
@@ -64,10 +84,20 @@
                 placeholder="New book {bookTitle} by {bookAuthors} narrated by {bookNarrators}. `Requested by {eventUser}`"
                 name="body_template"
                 class="textarea w-full"
-                required></textarea>
+                required
+                x-bind:disabled="service === 'custom'"></textarea>
+      <label for="additional_fields">
+        Additional POST fields
+        <span class="astext-xs font-mono">(JSON format, optional)</span>
+      </label>
+      <input id="additional_fields"
+             name="additional_fields"
+             type="text"
+             class="input w-full"
+             placeholder="{&quot;{eventType}&quot;: {&quot;book&quot;: &quot;{bookTitle}&quot;}}" />
       <p class="text-xs opacity-60">
         Possible event variables:
-        <span class="font-mono">eventUser, bookTitle, bookAuthors, bookNarrators</span>
+        <span class="font-mono">eventType, eventUser, bookTitle, bookAuthors, bookNarrators</span>
         <br />
         Failed download event additionally has:
         <span class="font-mono">errorStatus, errorReason</span>
@@ -98,7 +128,7 @@
                 <th>{{ loop.index }}</th>
                 <td>{{ n.name }}</td>
                 <td>{{ n.event.value }}</td>
-                <td>{{ n.apprise_url }}</td>
+                <td>{{ n.url }}</td>
                 <td class="grid grid-cols-2 min-w-[8rem] gap-1">
                   <button title="Test"
                           class="btn btn-square"
@@ -137,7 +167,7 @@
       </div>
       {% for n in notifications %}
         <template x-if="edit === '{{ n.id }}'">
-          <form x-data="{ name: {{ n.name|toJSstring }}, event: {{ n.event.value|toJSstring }}, apprise_url: {{ n.apprise_url|toJSstring }}, headers: {{ n.serialized_headers|toJSstring }}, title_template: {{ n.title_template|toJSstring }}, body_template: {{ n.body_template|toJSstring }} }"
+          <form x-data="{ name: {{ n.name|toJSstring }}, event: {{ n.event.value|toJSstring }}, service: {{ n.service.value|toJSstring }}, url: {{ n.url|toJSstring }}, headers: {{ n.serialized_headers|toJSstring }}, additional_fields: {{ n.serialized_additional_fields|toJSstring }}, title_template: {{ n.title_template|toJSstring }}, body_template: {{ n.body_template|toJSstring }} }"
                 class="flex flex-col gap-2"
                 hx-put="{{ base_url }}/settings/notification/{{ n.id }}"
                 hx-target="#notification-list"
@@ -164,17 +194,33 @@
                     x-model="event">
               {% for e in event_types %}<option value="{{ e }}">{{ e }}</option>{% endfor %}
             </select>
-            <label for="apprise_url">
-              Apprise Notify URL
-              <span class="text-xs font-mono">(http://.../notify/c2h3fg...)</span><span class="text-error">*</span>
+            <label for="service">
+              Notification Service<span class="text-error">*</span>
             </label>
-            <input id="apprise_url"
-                   name="apprise_url"
+            <select id="service"
+                    name="service_type"
+                    class="select w-full"
+                    required
+                    x-model="service">
+              {% for e in service_types %}<option value="{{ e }}">{{ e }}</option>{% endfor %}
+            </select>
+            <template x-if="service === 'custom'">
+              <p class="text-sm font-semibold text-error">
+                For the custom service the title and body are ignored. Use the additional fields to add what you need.
+              </p>
+            </template>
+            <label for="url">
+              Apprise Notify URL / Gotify Message URL<span class="text-error">*</span>
+              <br />
+              <span class="text-xs font-mono">(http://.../notify/c2h3fg...)</span>
+            </label>
+            <input id="url"
+                   name="url"
                    minlength="1"
                    type="text"
                    class="input w-full"
                    required
-                   x-model="apprise_url" />
+                   x-model="url" />
             <label for="headers">
               Headers
               <span class="astext-xs font-mono">(JSON format, optional)</span>
@@ -196,7 +242,8 @@
                    type="text"
                    class="input w-full"
                    required
-                   x-model="title_template" />
+                   x-model="title_template"
+                   x-bind:disabled="service === 'custom'" />
             <label for="body_template">
               Body Template<span class="text-error">*</span>
             </label>
@@ -205,7 +252,18 @@
                       name="body_template"
                       class="textarea w-full"
                       required
-                      x-model="body_template"></textarea>
+                      x-model="body_template"
+                      x-bind:disabled="service === 'custom'"></textarea>
+            <label for="additional_fields">
+              Additional POST fields
+              <span class="astext-xs font-mono">(JSON format, optional)</span>
+            </label>
+            <input id="additional_fields"
+                   name="additional_fields"
+                   type="text"
+                   class="input w-full"
+                   placeholder="{&quot;{eventType}&quot;: {&quot;book&quot;: &quot;{bookTitle}&quot;}}"
+                   x-model="additional_fields" />
             <button type="submit" class="btn">Update</button>
           </form>
         </template>

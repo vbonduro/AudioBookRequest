@@ -8,6 +8,8 @@ from typing import Annotated, Literal, Optional, Union
 import pydantic
 from sqlmodel import JSON, Column, DateTime, Field, SQLModel, UniqueConstraint, func
 
+from app.util import json_type
+
 
 class BaseModel(SQLModel):
     pass
@@ -198,12 +200,22 @@ class EventEnum(str, Enum):
     on_failed_download = "onFailedDownload"
 
 
+class NotificationServiceEnum(str, Enum):
+    apprise = "apprise"
+    gotify = "gotify"
+    custom = "custom"
+
+
 class Notification(BaseModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
-    apprise_url: str
+    url: str
     headers: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    additional_fields: dict[str, json_type.JSON] = Field(
+        default_factory=dict, sa_column=Column(JSON)
+    )
     event: EventEnum
+    service: NotificationServiceEnum
     title_template: str
     body_template: str
     enabled: bool
@@ -211,3 +223,7 @@ class Notification(BaseModel, table=True):
     @property
     def serialized_headers(self):
         return json.dumps(self.headers)
+
+    @property
+    def serialized_additional_fields(self):
+        return json.dumps(self.additional_fields)

@@ -1,18 +1,25 @@
+import json
 import logging
 from typing import Optional
 
 from aiohttp import ClientSession
 from sqlmodel import Session, select
 
-from app.internal.models import BookRequest, EventEnum, ManualBookRequest, Notification
+from app.internal.models import (
+    BookRequest,
+    EventEnum,
+    ManualBookRequest,
+    Notification,
+    NotificationServiceEnum,
+)
+from app.util import json_type
 from app.util.db import open_session
 
 logger = logging.getLogger(__name__)
 
 
 def replace_variables(
-    title_template: str,
-    body_template: str,
+    template: str,
     username: Optional[str] = None,
     book_title: Optional[str] = None,
     book_authors: Optional[str] = None,
@@ -20,30 +27,62 @@ def replace_variables(
     event_type: Optional[str] = None,
     other_replacements: dict[str, str] = {},
 ):
-    title = title_template
-    body = body_template
-
     if username:
-        title = title.replace("{eventUser}", username)
-        body = body.replace("{eventUser}", username)
+        template = template.replace("{eventUser}", username)
     if book_title:
-        title = title.replace("{bookTitle}", book_title)
-        body = body.replace("{bookTitle}", book_title)
+        template = template.replace("{bookTitle}", book_title)
     if book_authors:
-        title = title.replace("{bookAuthors}", book_authors)
-        body = body.replace("{bookAuthors}", book_authors)
+        template = template.replace("{bookAuthors}", book_authors)
     if book_narrators:
-        title = title.replace("{bookNarrators}", book_narrators)
-        body = body.replace("{bookNarrators}", book_narrators)
+        template = template.replace("{bookNarrators}", book_narrators)
     if event_type:
-        title = title.replace("{eventType}", event_type)
-        body = body.replace("{eventType}", event_type)
+        template = template.replace("{eventType}", event_type)
 
     for key, value in other_replacements.items():
-        title = title.replace(f"{{{key}}}", value)
-        body = body.replace(f"{{{key}}}", value)
+        template = template.replace(f"{{{key}}}", value)
 
-    return title, body
+    return template
+
+
+async def _send(
+    title: str,
+    body: str,
+    additional_fields: dict[str, json_type.JSON],
+    notification: Notification,
+    client_session: ClientSession,
+):
+    match notification.service:
+        case NotificationServiceEnum.gotify:
+            body_key = "message"
+        case NotificationServiceEnum.apprise:
+            body_key = "body"
+        case NotificationServiceEnum.custom:
+            body_key = ""
+
+    if notification.service == NotificationServiceEnum.custom:
+        json_body = {}
+    else:
+        json_body: dict[str, json_type.JSON] = {
+            "title": title,
+            body_key: body,
+        }
+
+    for key, value in additional_fields.items():
+        if key in json_body.keys():
+            logger.warning(
+                f"Key '{key}' already exists in the JSON body but is passed as additional field. Overwriting with value: {value}"
+            )
+        json_body[key] = value
+
+    print(json_body)
+
+    async with client_session.post(
+        notification.url,
+        json=json_body,
+        headers=notification.headers,
+    ) as response:
+        response.raise_for_status()
+        return await response.json()
 
 
 async def send_notification(
@@ -53,22 +92,39 @@ async def send_notification(
     book_asin: Optional[str] = None,
     other_replacements: dict[str, str] = {},
 ):
-    async with ClientSession() as client_session:
-        book_title = None
-        book_authors = None
-        book_narrators = None
-        if book_asin:
-            book = session.exec(
-                select(BookRequest).where(BookRequest.asin == book_asin)
-            ).first()
-            if book:
-                book_title = book.title
-                book_authors = ",".join(book.authors)
-                book_narrators = ",".join(book.narrators)
+    book_title = None
+    book_authors = None
+    book_narrators = None
+    if book_asin:
+        book = session.exec(
+            select(BookRequest).where(BookRequest.asin == book_asin)
+        ).first()
+        if book:
+            book_title = book.title
+            book_authors = ",".join(book.authors)
+            book_narrators = ",".join(book.narrators)
 
-        title, body = replace_variables(
-            notification.title_template,
-            notification.body_template,
+    title = replace_variables(
+        notification.title_template,
+        requester_username,
+        book_title,
+        book_authors,
+        book_narrators,
+        notification.event.value,
+        other_replacements,
+    )
+    body = replace_variables(
+        notification.body_template,
+        requester_username,
+        book_title,
+        book_authors,
+        book_narrators,
+        notification.event.value,
+        other_replacements,
+    )
+    additional_fields: dict[str, json_type.JSON] = json.loads(
+        replace_variables(
+            json.dumps(notification.additional_fields),
             requester_username,
             book_title,
             book_authors,
@@ -76,21 +132,14 @@ async def send_notification(
             notification.event.value,
             other_replacements,
         )
+    )
 
-        logger.info(
-            f"Sending notification to {notification.apprise_url} with title: '{title}', event type: {notification.event.value}"
-        )
+    logger.info(
+        f"Sending notification to {notification.url} with title: '{title}', event type: {notification.event.value}"
+    )
 
-        async with client_session.post(
-            notification.apprise_url,
-            json={
-                "title": title,
-                "body": body,
-            },
-            headers=notification.headers,
-        ) as response:
-            response.raise_for_status()
-            return await response.json()
+    async with ClientSession() as client_session:
+        return await _send(title, body, additional_fields, notification, client_session)
 
 
 async def send_all_notifications(
@@ -123,32 +172,46 @@ async def send_manual_notification(
 ):
     """Send a notification for manual book requests"""
     try:
-        async with ClientSession() as client_session:
-            title, body = replace_variables(
-                notification.title_template,
-                notification.body_template,
+        book_authors = ",".join(book.authors)
+        book_narrators = ",".join(book.narrators)
+
+        title = replace_variables(
+            notification.title_template,
+            requester_username,
+            book.title,
+            book_authors,
+            book_narrators,
+            notification.event.value,
+            other_replacements,
+        )
+        body = replace_variables(
+            notification.body_template,
+            requester_username,
+            book.title,
+            book_authors,
+            book_narrators,
+            notification.event.value,
+            other_replacements,
+        )
+        additional_fields: dict[str, json_type.JSON] = json.loads(
+            replace_variables(
+                json.dumps(notification.additional_fields),
                 requester_username,
                 book.title,
-                ",".join(book.authors),
-                ",".join(book.narrators),
+                book_authors,
+                book_narrators,
                 notification.event.value,
                 other_replacements,
             )
+        )
 
-            logger.info(
-                f"Sending manual notification to {notification.apprise_url} with title: '{title}', event type: {notification.event.value}"
-            )
+        logger.info(
+            f"Sending manual notification to {notification.url} with title: '{title}', event type: {notification.event.value}"
+        )
 
-            async with client_session.post(
-                notification.apprise_url,
-                json={
-                    "title": title,
-                    "body": body,
-                },
-                headers=notification.headers,
-            ) as response:
-                response.raise_for_status()
-                return await response.json()
+        async with ClientSession() as client_session:
+            await _send(title, body, additional_fields, notification, client_session)
+
     except Exception as e:
         logger.error("Failed to send notification", e)
         return None
