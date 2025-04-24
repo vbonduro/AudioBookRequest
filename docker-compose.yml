@@ -1,5 +1,7 @@
 services:
   web:
+    # start with `docker-compose --profile local up`
+    profiles: [local]
     build:
       context: .
       args:
@@ -8,3 +10,10 @@ services:
       - ./config:/config
     ports:
       - "8000:8000"
+
+  gotify:
+    image: gotify/server
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data/gotify/data:/app/data

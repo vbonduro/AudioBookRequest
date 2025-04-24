@@ -92,8 +92,8 @@ class ProwlarrConfig(StringConfigCache[ProwlarrConfigKey]):
 
 
 prowlarr_config = ProwlarrConfig()
-prowlarr_source_cache = SimpleCache[list[ProwlarrSource]]()
-prowlarr_indexer_cache = SimpleCache[Indexer]()
+prowlarr_source_cache = SimpleCache[list[ProwlarrSource], str]()
+prowlarr_indexer_cache = SimpleCache[Indexer, str]()
 
 
 def flush_prowlarr_cache():

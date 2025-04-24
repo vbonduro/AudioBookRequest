@@ -17,6 +17,9 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
   - [Usage](#usage)
     - [Auto download](#auto-download)
     - [Notifications](#notifications)
+      - [Apprise](#apprise)
+      - [Gotify](#gotify)
+      - [ABR](#abr)
     - [OpenID Connect](#openid-connect)
       - [Getting locked out](#getting-locked-out)
   - [Alternative Deployments](#alternative-deployments)
@@ -62,13 +65,25 @@ Auto-downloading enables requests by `Trusted` and `Admin` users to directly sta
 
 ### Notifications
 
-Notifications depend on [Apprise](https://github.com/caronc/apprise).
+Notifications depend on [Apprise](https://github.com/caronc/apprise) or [Gotify](https://gotify.net/).
+
+#### Apprise
 
 1. Ensure you have a working Apprise instance.
-2. On Apprise, create a new configuration. For example paste your Discord webhook link (`https://discord.com/api/webhooks/<channel>/<id>`) into the configuration.
-3. On Apprise, copy the notification url along the format of `https://apprise.example.com/notify/<id>`.
-4. On AudioBookRequest, head to `Settings>Notifications` and add the URL.
-5. Configure the remaining settings. **The event variables are case sensitive**.
+2. Create a new configuration. For example paste your Discord webhook link (`https://discord.com/api/webhooks/<channel>/<id>`) into the configuration.
+3. Copy the notification url along the format of `https://apprise.example.com/notify/<id>`.
+
+#### Gotify
+
+1. Create an application.
+2. Copy the token.
+
+#### ABR
+
+1. On AudioBookRequest, head to `Settings>Notifications`.
+2. Add the Apprise URL or the path to your gotify instance with `/message` appended, i.e.: `http://gotify:8080/message`.
+3. For gofity, add the API key as a header: `{"Authentication": "Bearer <your token>"}`.
+4. Configure the remaining settings. **The event variables are case sensitive**.
 
 ### OpenID Connect
 

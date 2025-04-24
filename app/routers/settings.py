@@ -20,7 +20,13 @@ from app.internal.env_settings import Settings
 from app.internal.indexers.abstract import SessionContainer
 from app.internal.indexers.configuration import indexer_configuration_cache
 from app.internal.indexers.indexer_util import IndexerContext, get_indexer_contexts
-from app.internal.models import EventEnum, GroupEnum, Notification, User
+from app.internal.models import (
+    EventEnum,
+    GroupEnum,
+    Notification,
+    NotificationServiceEnum,
+    User,
+)
 from app.internal.notifications import send_notification
 from app.internal.prowlarr.indexer_categories import indexer_categories
 from app.internal.prowlarr.prowlarr import (
@@ -489,6 +495,7 @@ def read_notifications(
 ):
     notifications = session.exec(select(Notification)).all()
     event_types = [e.value for e in EventEnum]
+    service_types = [e.value for e in NotificationServiceEnum]
     return template_response(
         "settings_page/notifications.html",
         request,
@@ -497,6 +504,7 @@ def read_notifications(
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
+            "service_types": service_types,
         },
     )
 
@@ -521,11 +529,13 @@ def _list_notifications(request: Request, session: Session, admin_user: Detailed
 
 def _upsert_notification(
     request: Request,
+    *,
     name: str,
-    apprise_url: str,
+    url: str,
     title_template: str,
     body_template: str,
     event_type: str,
+    service_type: str,
     headers: str,
     admin_user: DetailedUser,
     session: Session,
@@ -548,13 +558,19 @@ def _upsert_notification(
     except ValueError:
         raise ToastException("Invalid event type", "error")
 
+    try:
+        service_enum = NotificationServiceEnum(service_type)
+    except ValueError:
+        raise ToastException("Invalid notification service type", "error")
+
     if notification_id:
         notification = session.get(Notification, notification_id)
         if not notification:
             raise ToastException("Notification not found", "error")
         notification.name = name
-        notification.apprise_url = apprise_url
+        notification.url = url
         notification.event = event_enum
+        notification.service = service_enum
         notification.title_template = title_template
         notification.body_template = body_template
         notification.headers = headers_json
@@ -562,8 +578,9 @@ def _upsert_notification(
     else:
         notification = Notification(
             name=name,
-            apprise_url=apprise_url,
+            url=url,
             event=event_enum,
+            service=service_enum,
             title_template=title_template,
             body_template=body_template,
             headers=headers_json,
@@ -579,10 +596,11 @@ def _upsert_notification(
 def add_notification(
     request: Request,
     name: Annotated[str, Form()],
-    apprise_url: Annotated[str, Form()],
+    url: Annotated[str, Form()],
     title_template: Annotated[str, Form()],
     body_template: Annotated[str, Form()],
     event_type: Annotated[str, Form()],
+    service_type: Annotated[str, Form()],
     headers: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
@@ -592,10 +610,11 @@ def add_notification(
     return _upsert_notification(
         request=request,
         name=name,
-        apprise_url=apprise_url,
+        url=url,
         title_template=title_template,
         body_template=body_template,
         event_type=event_type,
+        service_type=service_type,
         headers=headers,
         admin_user=admin_user,
         session=session,
@@ -607,10 +626,11 @@ def update_notification(
     request: Request,
     notification_id: uuid.UUID,
     name: Annotated[str, Form()],
-    apprise_url: Annotated[str, Form()],
+    url: Annotated[str, Form()],
     title_template: Annotated[str, Form()],
     body_template: Annotated[str, Form()],
     event_type: Annotated[str, Form()],
+    service_type: Annotated[str, Form()],
     headers: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
@@ -620,10 +640,11 @@ def update_notification(
     return _upsert_notification(
         request=request,
         name=name,
-        apprise_url=apprise_url,
+        url=url,
         title_template=title_template,
         body_template=body_template,
         event_type=event_type,
+        service_type=service_type,
         headers=headers,
         admin_user=admin_user,
         session=session,
