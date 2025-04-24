@@ -35,6 +35,7 @@ from app.internal.prowlarr.prowlarr import (
     prowlarr_config,
 )
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.util import json_type
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import template_response
@@ -512,8 +513,7 @@ def read_notifications(
 def _list_notifications(request: Request, session: Session, admin_user: DetailedUser):
     notifications = session.exec(select(Notification)).all()
     event_types = [e.value for e in EventEnum]
-    notifications = session.exec(select(Notification)).all()
-    event_types = [e.value for e in EventEnum]
+    service_types = [e.value for e in NotificationServiceEnum]
     return template_response(
         "settings_page/notifications.html",
         request,
@@ -522,6 +522,7 @@ def _list_notifications(request: Request, session: Session, admin_user: Detailed
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
+            "service_types": service_types,
         },
         block_name="notfications_block",
     )
@@ -537,21 +538,32 @@ def _upsert_notification(
     event_type: str,
     service_type: str,
     headers: str,
+    additional_fields: str,
     admin_user: DetailedUser,
     session: Session,
     notification_id: Optional[uuid.UUID] = None,
 ):
-    if not headers:
-        headers = "{}"
     try:
-        headers_json = json.loads(headers)
+        headers_json = json.loads(headers or "{}")
         if not isinstance(headers_json, dict) or any(
             not isinstance(v, str) for v in cast(dict[str, Any], headers_json).values()
         ):
-            raise ValueError()
+            raise ToastException(
+                "Invalid headers JSON. Not of type object/dict", "error"
+            )
         headers_json = cast(dict[str, str], headers_json)
     except (json.JSONDecodeError, ValueError):
         raise ToastException("Invalid headers JSON", "error")
+
+    try:
+        additional_json = json.loads(additional_fields or "{}")
+        if not isinstance(additional_json, dict):
+            raise ToastException(
+                "Invalid additional fields JSON. Not of type object/dict", "error"
+            )
+        additional_json = cast(dict[str, json_type.JSON], additional_json)
+    except (json.JSONDecodeError, ValueError):
+        raise ToastException("Invalid additional fields JSON", "error")
 
     try:
         event_enum = EventEnum(event_type)
@@ -574,6 +586,7 @@ def _upsert_notification(
         notification.title_template = title_template
         notification.body_template = body_template
         notification.headers = headers_json
+        notification.additional_fields = additional_json
         notification.enabled = True
     else:
         notification = Notification(
@@ -584,6 +597,7 @@ def _upsert_notification(
             title_template=title_template,
             body_template=body_template,
             headers=headers_json,
+            additional_fields=additional_json,
             enabled=True,
         )
     session.add(notification)
@@ -597,15 +611,16 @@ def add_notification(
     request: Request,
     name: Annotated[str, Form()],
     url: Annotated[str, Form()],
-    title_template: Annotated[str, Form()],
-    body_template: Annotated[str, Form()],
     event_type: Annotated[str, Form()],
     service_type: Annotated[str, Form()],
     headers: Annotated[str, Form()],
+    additional_fields: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    title_template: Annotated[str, Form()] = "",
+    body_template: Annotated[str, Form()] = "",
 ):
     return _upsert_notification(
         request=request,
@@ -616,6 +631,7 @@ def add_notification(
         event_type=event_type,
         service_type=service_type,
         headers=headers,
+        additional_fields=additional_fields,
         admin_user=admin_user,
         session=session,
     )
@@ -627,15 +643,16 @@ def update_notification(
     notification_id: uuid.UUID,
     name: Annotated[str, Form()],
     url: Annotated[str, Form()],
-    title_template: Annotated[str, Form()],
-    body_template: Annotated[str, Form()],
     event_type: Annotated[str, Form()],
     service_type: Annotated[str, Form()],
     headers: Annotated[str, Form()],
+    additional_fields: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
+    title_template: Annotated[str, Form()] = "",
+    body_template: Annotated[str, Form()] = "",
 ):
     return _upsert_notification(
         request=request,
@@ -646,6 +663,7 @@ def update_notification(
         event_type=event_type,
         service_type=service_type,
         headers=headers,
+        additional_fields=additional_fields,
         admin_user=admin_user,
         session=session,
         notification_id=notification_id,
