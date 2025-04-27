@@ -105,7 +105,15 @@
               {% if book.subtitle %}
                 <div class="opacity-60 font-semibold text-xs" title="Subtitle">{{ book.subtitle }}</div>
               {% endif %}
-              <div class="text-xs font-semibold" title="Authors">{{ book.authors | join(", ") }}</div>
+              <div class="text-xs font-semibold" title="Authors">
+                {% for author in book.authors %}
+                  <a href="{{ base_url }}/search?q={{ author }}"
+                     title="Search for {{ author }}">
+                    {{ author }}
+                    {{- "," if loop.index < book.authors | length else "" -}}
+                  </a>
+                {% endfor %}
+              </div>
             </div>
           {% endfor %}
         </div>
