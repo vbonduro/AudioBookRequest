@@ -278,17 +278,17 @@ async def get_indexers(
             error="Missing Prowlarr base url or api key",
         )
 
-    indexers = prowlarr_indexer_cache.get_all(source_ttl).values()
-    if len(indexers) > 0:
-        return IndexerResponse(
-            indexers={indexer.id: indexer for indexer in indexers},
-            state="ok",
-        )
-
-    url = posixpath.join(base_url, "api/v1/indexer")
-    logger.info("Fetching indexers from Prowlarr: %s", url)
-
+    indexers = list(prowlarr_indexer_cache.get_all(source_ttl).values())
     try:
+        if len(indexers) > 0:
+            return IndexerResponse(
+                indexers={indexer.id: indexer for indexer in indexers},
+                state="ok",
+            )
+
+        url = posixpath.join(base_url, "api/v1/indexer")
+        logger.info("Fetching indexers from Prowlarr: %s", url)
+
         async with client_session.get(
             url,
             headers={"X-Api-Key": api_key},
