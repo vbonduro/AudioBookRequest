@@ -37,5 +37,5 @@ include:
 
 Head on over to the following sections to learn more about AudioBookRequest:
 
-- [Getting Started](/docs/getting-started/): Get started with AudioBookRequest
-- [Notifications](/docs/notifications/): Check out some example code!
+- [Getting Started](./docs/getting-started/): Get started with AudioBookRequest
+- [Notifications](./docs/tutorials/notifications/): Check out some example code!

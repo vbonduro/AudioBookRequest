@@ -51,7 +51,7 @@ Docsy has a shortcut for you:
 If you want to run your own local Hugo server to preview your changes as you
 work:
 
-1. Follow the instructions in [Getting started](/docs/getting-started/docs) to
+1. Follow the instructions in [Getting started](../getting-started/docs) to
    install Hugo and any other tools you need. You'll need at least **Hugo
    version 0.146.0** (we recommend using the most recent available version), and
    it must be the **extended** version, which supports SCSS.

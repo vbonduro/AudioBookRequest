@@ -17,7 +17,7 @@ break in the next because of a new dependency, new file structure or something
 else. {{< /alert >}}
 
 To run ABR locally without Docker, the same steps as for the
-[local development](/docs/local-development) have to be followed. First, follow
+[local development](../../local-development) have to be followed. First, follow
 the instructions to get local development working.
 
 Once local development works, there are a few adjustments that have to be made

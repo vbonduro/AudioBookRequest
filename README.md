@@ -14,7 +14,8 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
 
 - [Getting Started](#getting-started)
   - [Quick Start](#quick-start)
-  - [Usage](#usage)
+  - [Basic Usage](#basic-usage)
+  - [Documentation](#documentation)
     - [Auto download](#auto-download)
     - [Notifications](#notifications)
       - [Apprise](#apprise)
@@ -44,12 +45,16 @@ docker run -p 8000:8000 -v $(pwd)/config:/config markbeep/audiobookrequest:1
 
 Then head to http://localhost:8000.
 
-## Usage
+## Basic Usage
 
 1. Logging in the first time the login-type and root admin user has to be configured.
 2. Head to `Settings>Users` to create accounts for your friends.
 3. Any user can search for books and request them by clicking the `+` button.
 4. The admin can head to the wishlist to see all the books that have been requested.
+
+## Documentation
+
+Head to https://markbeep.github.io/AudioBookRequest/ for more detailed documentation.
 
 ### Auto download
 

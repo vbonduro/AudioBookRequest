@@ -15,5 +15,4 @@ local development, as a lot of things can change from version to version.
 
 ## Setup
 
-Head to [Running the app](/docs/getting-started/running-the-app) for
-instructions on how to run ABR.
+Head to [Running the app](./running-the-app) for instructions on how to run ABR.
