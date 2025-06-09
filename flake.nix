@@ -150,11 +150,12 @@
         devShells.default = pkgs.mkShell {
           venvDir = ".venv";
           packages = with pkgs; [
-            nodejs_23
+            nodejs_24
             sqlite
             nodePackages.browser-sync
             python312Packages.venvShellHook
             uv
+            hugo
           ];
           postShellHook = "uv sync";
         };

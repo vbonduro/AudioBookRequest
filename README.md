@@ -22,13 +22,13 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
       - [ABR](#abr)
     - [OpenID Connect](#openid-connect)
       - [Getting locked out](#getting-locked-out)
-  - [Alternative Deployments](#alternative-deployments)
     - [Environment Variables](#environment-variables)
 - [Contributing](#contributing)
   - [Local Development](#local-development)
   - [Initialize Database](#initialize-database)
   - [Running](#running)
   - [Docker Compose](#docker-compose)
+- [Docs](#docs)
 
 # Getting Started
 
@@ -104,61 +104,6 @@ Applying settings does not directly invalidate your current session. To test OID
 #### Getting locked out
 
 In the case of an OIDC misconfiguration, i.e. changing a setting like your client secret on your auth server, can cause you to be locked out. In these cases, you can head to `/login?backup=1`, where you can log in using your root admin credentials allowing you to correctly configure any settings.
-
-## Alternative Deployments
-
-Docker image is located on [dockerhub](https://hub.docker.com/r/markbeep/audiobookrequest).
-
-**NOTE:** It is not recommended to use `:latest` in case of incompatible changes that are not backwards compatible. For versioning, [SemVer](https://semver.org/) is used.
-
-For experimental builds (latest commits to `main`), the `:nightly` version can be used.
-
-**Docker compose**
-
-```yaml
-services:
-  web:
-    image: markbeep/audiobookrequest:1
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./config:/config
-```
-
-**Kubernetes**
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: audiobookrequest
-  labels:
-    app: audiobookrequest
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: audiobookrequest
-  template:
-    metadata:
-      labels:
-        app: audiobookrequest
-    spec:
-      containers:
-        - name: audiobookrequest
-          image: markbeep/audiobookrequest:1
-          imagePullPolicy: Always
-          volumeMounts:
-            - mountPath: /config
-              name: abr-config
-          ports:
-            - name: http-request
-              containerPort: 8000
-      volumes:
-        - name: abr-config
-          hostPath:
-            path: /mnt/disk/AudioBookRequest/
-```
 
 ### Environment Variables
 
@@ -237,3 +182,7 @@ The docker compose can also be used to run the app locally:
 ```bash
 docker compose up --build
 ```
+
+# Docs
+
+[Hugo](https://gohugo.io) is used to generate the docs page. It can be found in the `/docs` directory.
