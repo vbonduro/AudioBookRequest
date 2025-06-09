@@ -1,4 +1,4 @@
-baseURL: https://markbeep.github.io/
+baseURL: https://markbeep.github.io/AudioBookRequest/
 title: AudioBookRequest
 
 # cSpell:ignore goldmark github hugo readingtime docsy subdir lastmod pygments linenos catmullrom norsk gu

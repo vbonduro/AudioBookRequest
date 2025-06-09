@@ -1,7 +1,7 @@
 ---
-title: Overview
+title: Documentation
 description: Welcome to the documentation for AudioBookRequest.
-linkTitle: Overview
+linkTitle: Documentation
 menu: { main: { weight: 20 } }
 ---
 
