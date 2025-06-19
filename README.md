@@ -87,7 +87,7 @@ Notifications depend on [Apprise](https://github.com/caronc/apprise) or [Gotify]
 
 1. On AudioBookRequest, head to `Settings>Notifications`.
 2. Add the Apprise URL or the path to your gotify instance with `/message` appended, i.e.: `http://gotify:8080/message`.
-3. For gofity, add the API key as a header: `{"Authentication": "Bearer <your token>"}`.
+3. For gofity, add the API key as a header: `{"Authorization": "Bearer <your token>"}`.
 4. Configure the remaining settings. **The event variables are case sensitive**.
 5. `Additional POST fields` allow you to add extra values that are sent along in the POST request to the notification service. This allows for changing the priority for gotify notifications or changing the look of apprise notifications. **Event variables also work in keys and values!**
 
