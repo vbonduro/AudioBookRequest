@@ -1,4 +1,3 @@
-from email.policy import strict
 import json
 import uuid
 from typing import Annotated, Any, Optional, cast
@@ -553,7 +552,6 @@ def _upsert_notification(
 
     try:
         if body_type == NotificationBodyTypeEnum.json:
-            print(f"{body=}")
             json_body = json.loads(body, strict=False)
             if not isinstance(json_body, dict):
                 raise ToastException("Invalid body. Not a JSON object", "error")

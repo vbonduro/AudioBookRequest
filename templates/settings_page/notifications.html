@@ -2,9 +2,6 @@
 {% block head %}
 <title>Settings - Notifications</title>
 {% include "scripts/alpinejs.html" %}
-<script type="module" src="https://cdn.jsdelivr.net/gh/vanillawc/wc-codemirror@1/index.js"></script>
-<script type="module"
-  src="https://cdn.jsdelivr.net/gh/vanillawc/wc-codemirror@1/mode/javascript/javascript.js"></script>
 {% endblock head %}
 {% block content %}
 <div class="flex flex-col">
@@ -141,7 +138,7 @@
       </select>
 
       <label for="url-edit">
-        Apprise Notify URL / Gotify Message URL<span class="text-error">*</span>
+        Notification URL<span class="text-error">*</span>
         <br />
         <span class="text-xs font-mono">(http://.../notify/c2h3fg...)</span>
       </label>
