@@ -157,7 +157,6 @@
             uv
             hugo
           ];
-          postShellHook = "uv sync";
         };
       }
     );

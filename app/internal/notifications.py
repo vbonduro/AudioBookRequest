@@ -9,7 +9,7 @@ from app.internal.models import (
     EventEnum,
     ManualBookRequest,
     Notification,
-    NotificationServiceEnum,
+    NotificationBodyTypeEnum,
 )
 from app.util import json_type
 from app.util.db import open_session
@@ -43,46 +43,26 @@ def replace_variables(
 
 
 async def _send(
-    title: str,
-    body: str,
-    additional_fields: dict[str, json_type.JSON],
+    body: str | dict[str, json_type.JSON],
     notification: Notification,
     client_session: ClientSession,
 ):
-    match notification.service:
-        case NotificationServiceEnum.gotify:
-            body_key = "message"
-        case NotificationServiceEnum.apprise:
-            body_key = "body"
-        case NotificationServiceEnum.custom:
-            body_key = ""
-
-    if notification.service == NotificationServiceEnum.custom:
-        json_body = {}
-    else:
-        json_body: dict[str, json_type.JSON] = {
-            "title": title,
-            body_key: body,
-        }
-
-    for key, value in additional_fields.items():
-        if key in json_body.keys():
-            logger.warning(
-                "Key already exists in JSON body. Overwriting with value.",
-                key=key,
-                value=value,
-            )
-        json_body[key] = value
-
-    print(json_body)
-
-    async with client_session.post(
-        notification.url,
-        json=json_body,
-        headers=notification.headers,
-    ) as response:
-        response.raise_for_status()
-        return await response.json()
+    if notification.body_type == NotificationBodyTypeEnum.json:
+        async with client_session.post(
+            notification.url,
+            json=body,
+            headers=notification.headers,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+    elif notification.body_type == NotificationBodyTypeEnum.text:
+        async with client_session.post(
+            notification.url,
+            data=body,
+            headers=notification.headers,
+        ) as response:
+            response.raise_for_status()
+            return await response.text()
 
 
 async def send_notification(
@@ -104,17 +84,8 @@ async def send_notification(
             book_authors = ",".join(book.authors)
             book_narrators = ",".join(book.narrators)
 
-    title = replace_variables(
-        notification.title_template,
-        requester_username,
-        book_title,
-        book_authors,
-        book_narrators,
-        notification.event.value,
-        other_replacements,
-    )
     body = replace_variables(
-        notification.body_template,
+        notification.body,
         requester_username,
         book_title,
         book_authors,
@@ -122,27 +93,21 @@ async def send_notification(
         notification.event.value,
         other_replacements,
     )
-    additional_fields: dict[str, json_type.JSON] = json.loads(
-        replace_variables(
-            json.dumps(notification.additional_fields),
-            requester_username,
-            book_title,
-            book_authors,
-            book_narrators,
-            notification.event.value,
-            other_replacements,
-        )
-    )
+
+    if notification.body_type == NotificationBodyTypeEnum.json:
+        body = json.loads(body)
 
     logger.info(
         "Sending notification",
         url=notification.url,
-        title=title,
+        body=body,
         event_type=notification.event.value,
+        body_type=notification.body_type.value,
+        headers=notification.headers,
     )
 
     async with ClientSession() as client_session:
-        return await _send(title, body, additional_fields, notification, client_session)
+        return await _send(body, notification, client_session)
 
 
 async def send_all_notifications(
@@ -178,17 +143,8 @@ async def send_manual_notification(
         book_authors = ",".join(book.authors)
         book_narrators = ",".join(book.narrators)
 
-        title = replace_variables(
-            notification.title_template,
-            requester_username,
-            book.title,
-            book_authors,
-            book_narrators,
-            notification.event.value,
-            other_replacements,
-        )
         body = replace_variables(
-            notification.body_template,
+            notification.body,
             requester_username,
             book.title,
             book_authors,
@@ -196,27 +152,21 @@ async def send_manual_notification(
             notification.event.value,
             other_replacements,
         )
-        additional_fields: dict[str, json_type.JSON] = json.loads(
-            replace_variables(
-                json.dumps(notification.additional_fields),
-                requester_username,
-                book.title,
-                book_authors,
-                book_narrators,
-                notification.event.value,
-                other_replacements,
-            )
-        )
+
+        if notification.body_type == NotificationBodyTypeEnum.json:
+            body = json.loads(body)
 
         logger.info(
             "Sending manual notification",
             url=notification.url,
-            title=title,
+            body=body,
             event_type=notification.event.value,
+            body_type=notification.body_type.value,
+            headers=notification.headers,
         )
 
         async with ClientSession() as client_session:
-            await _send(title, body, additional_fields, notification, client_session)
+            return await _send(body, notification, client_session)
 
     except Exception as e:
         logger.error("Failed to send notification", error=str(e))
