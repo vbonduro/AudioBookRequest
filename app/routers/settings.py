@@ -1,3 +1,4 @@
+from email.policy import strict
 import json
 import uuid
 from typing import Annotated, Any, Optional, cast
@@ -20,10 +21,10 @@ from app.internal.indexers.abstract import SessionContainer
 from app.internal.indexers.configuration import indexer_configuration_cache
 from app.internal.indexers.indexer_util import IndexerContext, get_indexer_contexts
 from app.internal.models import (
+    NotificationBodyTypeEnum,
     EventEnum,
     GroupEnum,
     Notification,
-    NotificationServiceEnum,
     User,
 )
 from app.internal.notifications import send_notification
@@ -34,7 +35,6 @@ from app.internal.prowlarr.prowlarr import (
     prowlarr_config,
 )
 from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
-from app.util import json_type
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.log import logger
@@ -494,7 +494,7 @@ def read_notifications(
 ):
     notifications = session.exec(select(Notification)).all()
     event_types = [e.value for e in EventEnum]
-    service_types = [e.value for e in NotificationServiceEnum]
+    body_types = [e.value for e in NotificationBodyTypeEnum]
     return template_response(
         "settings_page/notifications.html",
         request,
@@ -503,7 +503,7 @@ def read_notifications(
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
-            "service_types": service_types,
+            "body_types": body_types,
         },
     )
 
@@ -511,7 +511,7 @@ def read_notifications(
 def _list_notifications(request: Request, session: Session, admin_user: DetailedUser):
     notifications = session.exec(select(Notification)).all()
     event_types = [e.value for e in EventEnum]
-    service_types = [e.value for e in NotificationServiceEnum]
+    body_types = [e.value for e in NotificationBodyTypeEnum]
     return template_response(
         "settings_page/notifications.html",
         request,
@@ -520,7 +520,7 @@ def _list_notifications(request: Request, session: Session, admin_user: Detailed
             "page": "notifications",
             "notifications": notifications,
             "event_types": event_types,
-            "service_types": service_types,
+            "body_types": body_types,
         },
         block_name="notfications_block",
     )
@@ -531,12 +531,10 @@ def _upsert_notification(
     *,
     name: str,
     url: str,
-    title_template: str,
-    body_template: str,
     event_type: str,
-    service_type: str,
+    body: str,
+    body_type: NotificationBodyTypeEnum,
     headers: str,
-    additional_fields: str,
     admin_user: DetailedUser,
     session: Session,
     notification_id: Optional[uuid.UUID] = None,
@@ -554,14 +552,14 @@ def _upsert_notification(
         raise ToastException("Invalid headers JSON", "error")
 
     try:
-        additional_json = json.loads(additional_fields or "{}")
-        if not isinstance(additional_json, dict):
-            raise ToastException(
-                "Invalid additional fields JSON. Not of type object/dict", "error"
-            )
-        additional_json = cast(dict[str, json_type.JSON], additional_json)
+        if body_type == NotificationBodyTypeEnum.json:
+            print(f"{body=}")
+            json_body = json.loads(body, strict=False)
+            if not isinstance(json_body, dict):
+                raise ToastException("Invalid body. Not a JSON object", "error")
+            body = json.dumps(json_body, indent=2)
     except (json.JSONDecodeError, ValueError):
-        raise ToastException("Invalid additional fields JSON", "error")
+        raise ToastException("Body is invalid JSON", "error")
 
     try:
         event_enum = EventEnum(event_type)
@@ -569,7 +567,7 @@ def _upsert_notification(
         raise ToastException("Invalid event type", "error")
 
     try:
-        service_enum = NotificationServiceEnum(service_type)
+        body_enum = NotificationBodyTypeEnum(body_type)
     except ValueError:
         raise ToastException("Invalid notification service type", "error")
 
@@ -580,22 +578,18 @@ def _upsert_notification(
         notification.name = name
         notification.url = url
         notification.event = event_enum
-        notification.service = service_enum
-        notification.title_template = title_template
-        notification.body_template = body_template
+        notification.body_type = body_enum
+        notification.body = body
         notification.headers = headers_json
-        notification.additional_fields = additional_json
         notification.enabled = True
     else:
         notification = Notification(
             name=name,
             url=url,
             event=event_enum,
-            service=service_enum,
-            title_template=title_template,
-            body_template=body_template,
+            body_type=body_enum,
+            body=body,
             headers=headers_json,
-            additional_fields=additional_json,
             enabled=True,
         )
     session.add(notification)
@@ -610,26 +604,22 @@ def add_notification(
     name: Annotated[str, Form()],
     url: Annotated[str, Form()],
     event_type: Annotated[str, Form()],
-    service_type: Annotated[str, Form()],
+    body_type: Annotated[NotificationBodyTypeEnum, Form()],
     headers: Annotated[str, Form()],
-    additional_fields: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
-    title_template: Annotated[str, Form()] = "",
-    body_template: Annotated[str, Form()] = "",
+    body: Annotated[str, Form()] = "{}",
 ):
     return _upsert_notification(
         request=request,
         name=name,
         url=url,
-        title_template=title_template,
-        body_template=body_template,
         event_type=event_type,
-        service_type=service_type,
+        body=body,
+        body_type=body_type,
         headers=headers,
-        additional_fields=additional_fields,
         admin_user=admin_user,
         session=session,
     )
@@ -642,29 +632,25 @@ def update_notification(
     name: Annotated[str, Form()],
     url: Annotated[str, Form()],
     event_type: Annotated[str, Form()],
-    service_type: Annotated[str, Form()],
+    body_type: Annotated[NotificationBodyTypeEnum, Form()],
     headers: Annotated[str, Form()],
-    additional_fields: Annotated[str, Form()],
     admin_user: Annotated[
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     session: Annotated[Session, Depends(get_session)],
-    title_template: Annotated[str, Form()] = "",
-    body_template: Annotated[str, Form()] = "",
+    body: Annotated[str, Form()] = "{}",
 ):
     return _upsert_notification(
+        notification_id=notification_id,
         request=request,
         name=name,
         url=url,
-        title_template=title_template,
-        body_template=body_template,
         event_type=event_type,
-        service_type=service_type,
+        body=body,
+        body_type=body_type,
         headers=headers,
-        additional_fields=additional_fields,
         admin_user=admin_user,
         session=session,
-        notification_id=notification_id,
     )
 
 

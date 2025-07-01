@@ -206,7 +206,7 @@ requires-dist = [
     { name = "rapidfuzz" },
     { name = "requests" },
     { name = "sqlmodel" },
-    { name = "structlog", specifier = ">=25.4.0" },
+    { name = "structlog" },
     { name = "terminaltables" },
     { name = "torrent-parser" },
     { name = "typer" },
