@@ -95,7 +95,7 @@ async def send_notification(
     )
 
     if notification.body_type == NotificationBodyTypeEnum.json:
-        body = json.loads(body)
+        body = json.loads(body, strict=False)
 
     logger.info(
         "Sending notification",
@@ -106,8 +106,23 @@ async def send_notification(
         headers=notification.headers,
     )
 
-    async with ClientSession() as client_session:
-        return await _send(body, notification, client_session)
+    try:
+        async with ClientSession() as client_session:
+            resp = await _send(body, notification, client_session)
+        logger.info(
+            "Notification sent successfully",
+            url=notification.url,
+            response=resp,
+        )
+        return resp
+    except Exception as e:
+        logger.error(
+            "Failed to send notification",
+            url=notification.url,
+            body=body,
+            error=str(e),
+        )
+        raise
 
 
 async def send_all_notifications(
