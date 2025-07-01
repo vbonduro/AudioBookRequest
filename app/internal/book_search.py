@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import time
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -10,8 +9,7 @@ from aiohttp import ClientSession
 from sqlmodel import Session, col, select
 
 from app.internal.models import BookRequest
-
-logger = logging.getLogger(__name__)
+from app.util.log import logger
 
 REFETCH_TTL = 60 * 60 * 24 * 7  # 1 week
 
@@ -56,7 +54,10 @@ async def _get_audnexus_book(
     ) as response:
         if not response.ok:
             logger.warning(
-                f"Failed to fetch book with ASIN {asin} from Audnexus: {response.status}: {response.reason}"
+                "Failed to fetch book from Audnexus",
+                asin=asin,
+                status=response.status,
+                reason=response.reason,
             )
             return None
         book = await response.json()
@@ -85,7 +86,10 @@ async def _get_audimeta_book(
     ) as response:
         if not response.ok:
             logger.warning(
-                f"Failed to fetch book with ASIN {asin} from Audimeta: {response.status}: {response.reason}"
+                "Failed to fetch book from Audimeta",
+                asin=asin,
+                status=response.status,
+                reason=response.reason,
             )
             return None
         book = await response.json()
@@ -112,9 +116,7 @@ async def get_book_by_asin(
     book = await _get_audnexus_book(session, asin, audible_region)
     if book:
         return book
-    logger.warning(
-        f"Failed to fetch book with ASIN {asin} from both Audnexus and Audimeta. "
-    )
+    logger.warning("Failed to fetch book", asin=asin, region=audible_region)
 
 
 class CacheQuery(pydantic.BaseModel, frozen=True):

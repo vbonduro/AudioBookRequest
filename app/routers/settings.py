@@ -1,5 +1,4 @@
 import json
-import logging
 import uuid
 from typing import Annotated, Any, Optional, cast
 
@@ -38,11 +37,10 @@ from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_conf
 from app.util import json_type
 from app.util.connection import get_connection
 from app.util.db import get_session
+from app.util.log import logger
 from app.util.templates import template_response
 from app.util.time import Minute
 from app.util.toast import ToastException
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings")
 
@@ -916,9 +914,7 @@ async def update_indexers(
             if context.type is bool:
                 value = False
             else:
-                logger.error(
-                    "Missing value for '%s' while trying to update indexer", key
-                )
+                logger.error("Value is missing for key", key=key)
                 continue
         if context.type is bool:
             indexer_configuration_cache.set_bool(session, key, value == "on")

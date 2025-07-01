@@ -1,12 +1,10 @@
-import logging
 from typing import Any, Optional
 
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.util.cache import StringConfigCache
-
-logger = logging.getLogger(__name__)
+from app.util.log import logger
 
 
 class IndexerConfiguration[T: (str, int, bool, float, None)](BaseModel):
@@ -82,7 +80,7 @@ def create_valued_configuration(
     configurations = vars(config)
     for key, _value in configurations.items():
         if not isinstance(_value, IndexerConfiguration):
-            logger.debug("Skipping %s", key)
+            logger.debug("Skipping key", key=key)
             continue
         value: IndexerConfiguration[Any] = _value  # pyright: ignore[reportUnknownVariableType]
 

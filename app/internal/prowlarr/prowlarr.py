@@ -1,5 +1,4 @@
 import json
-import logging
 import posixpath
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -21,8 +20,7 @@ from app.internal.models import (
 from app.internal.notifications import send_all_notifications
 from app.internal.prowlarr.source_metadata import edit_source_metadata
 from app.util.cache import SimpleCache, StringConfigCache
-
-logger = logging.getLogger(__name__)
+from app.util.log import logger
 
 
 class ProwlarrMisconfigured(ValueError):
@@ -115,14 +113,14 @@ async def start_download(
     assert base_url is not None and api_key is not None
 
     url = posixpath.join(base_url, "api/v1/search")
-    logger.debug("Starting download for %s", guid)
+    logger.debug("Starting download", guid=guid)
     async with client_session.post(
         url,
         json={"guid": guid, "indexerId": indexer_id},
         headers={"X-Api-Key": api_key},
     ) as response:
         if not response.ok:
-            logger.error("Failed to start download for %s: %s", guid, response)
+            logger.error("Failed to start download", guid=guid, response=response)
             await send_all_notifications(
                 EventEnum.on_failed_download,
                 requester_username,
@@ -133,7 +131,7 @@ async def start_download(
                 },
             )
         else:
-            logger.debug("Download successfully started for %s", guid)
+            logger.debug("Download successfully started", guid=guid)
             await send_all_notifications(
                 EventEnum.on_successful_download, requester_username, book_asin
             )
@@ -180,7 +178,7 @@ async def query_prowlarr(
 
     url = posixpath.join(base_url, f"api/v1/search?{urlencode(params, doseq=True)}")
 
-    logger.info("Querying prowlarr: %s", url)
+    logger.info("Querying prowlarr", url=url)
 
     async with client_session.get(
         url,
@@ -193,7 +191,7 @@ async def query_prowlarr(
         try:
             if result["protocol"] not in ["torrent", "usenet"]:
                 logger.info(
-                    "Skipping source with unknown protocol %s", result["protocol"]
+                    "Skipping source with unknown protocol", protocol=result["protocol"]
                 )
                 continue
             if result["protocol"] == "torrent":
@@ -236,7 +234,7 @@ async def query_prowlarr(
                     )
                 )
         except KeyError as e:
-            logger.error("Failed to parse source: %s. KeyError: %s", result, e)
+            logger.error("Failed to parse source", source=result, keyerror=str(e))
 
     # add additional metadata using any available indexers
     container = SessionContainer(session=session, client_session=client_session)
@@ -287,14 +285,14 @@ async def get_indexers(
             )
 
         url = posixpath.join(base_url, "api/v1/indexer")
-        logger.info("Fetching indexers from Prowlarr: %s", url)
+        logger.info("Fetching indexers from Prowlarr", url=url)
 
         async with client_session.get(
             url,
             headers={"X-Api-Key": api_key},
         ) as response:
             if not response.ok:
-                logger.error("Failed to fetch indexers: %s", response)
+                logger.error("Failed to fetch indexers", response=response)
                 return IndexerResponse(
                     state="failedFetch",
                     error=f"{response.status}: {response.reason}",
@@ -314,7 +312,7 @@ async def get_indexers(
             state="ok",
         )
     except Exception as e:
-        logger.error("Failed to access Prowlarr to fetch indexers: %s", e)
+        logger.error("Failed to access Prowlarr to fetch indexers", error=str(e))
         return IndexerResponse(
             state="failedFetch",
             error=str(e),

@@ -1,8 +1,7 @@
-import logging
 from typing import Any, cast
 
 from pydantic import BaseModel
-from app.internal.indexers.indexers import indexers
+
 from app.internal.indexers.abstract import AbstractIndexer, SessionContainer
 from app.internal.indexers.configuration import (
     ConfigurationException,
@@ -10,8 +9,8 @@ from app.internal.indexers.configuration import (
     ValuedConfigurations,
     create_valued_configuration,
 )
-
-logger = logging.getLogger(__name__)
+from app.internal.indexers.indexers import indexers
+from app.util.log import logger
 
 
 class IndexerContext(BaseModel, arbitrary_types_allowed=True):
@@ -46,7 +45,7 @@ async def get_indexer_contexts(
             if not return_disabled and not await indexer.is_active(
                 container, valued_configuration
             ):
-                logger.debug("Indexer %s is disabled", Indexer.name)
+                logger.debug("Indexer is disabled", name=Indexer.name)
                 continue
 
             contexts.append(
@@ -57,6 +56,10 @@ async def get_indexer_contexts(
                 )
             )
         except ConfigurationException as e:
-            logger.error("Failed to get configurations for %s: %s", Indexer.name, e)
+            logger.error(
+                "Failed to get configurations for Indexer",
+                name=Indexer.name,
+                error=str(e),
+            )
 
     return contexts

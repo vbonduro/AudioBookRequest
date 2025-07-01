@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 from urllib.parse import quote_plus, urlencode
 
@@ -18,19 +17,10 @@ from app.internal.env_settings import Settings
 from app.internal.models import User
 from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
+from app.util.fetch_js import fetch_scripts
 from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import templates
 from app.util.toast import ToastException
-from app.util.fetch_js import fetch_scripts
-
-logger = logging.getLogger(__name__)
-logging.getLogger("uvicorn").handlers.clear()
-stream_handler = logging.StreamHandler()
-logging.basicConfig(
-    level=Settings().app.log_level,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[stream_handler],
-)
 
 # intialize js dependencies or throw an error if not in debug mode
 fetch_scripts(Settings().app.debug)

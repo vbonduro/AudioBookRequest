@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from app.internal.auth.config import LoginTypeEnum, auth_config
 from app.internal.models import GroupEnum, User
 from app.util.db import get_session
+from app.util.log import logger
 
 
 class DetailedUser(User):
@@ -34,6 +35,11 @@ def raise_for_invalid_password(
 
     min_password_length = auth_config.get_min_password_length(session)
     if not len(password) >= min_password_length:
+        logger.warning(
+            "Password does not meet minimum length requirement",
+            min_length=min_password_length,
+            actual_length=len(password),
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Password must be at least {min_password_length} characters long",

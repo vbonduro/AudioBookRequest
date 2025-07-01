@@ -1,5 +1,4 @@
 import base64
-import logging
 import secrets
 import time
 from typing import Annotated, Optional
@@ -23,13 +22,12 @@ from app.internal.auth.oidc_config import InvalidOIDCConfiguration, oidc_config
 from app.internal.models import GroupEnum, User
 from app.util.connection import get_connection
 from app.util.db import get_session
+from app.util.log import logger
 from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import templates
 from app.util.toast import ToastException
 
 router = APIRouter(prefix="/auth")
-
-logger = logging.getLogger(__name__)
 
 
 @router.get("/login")
@@ -75,8 +73,11 @@ async def login(
     if oidc_config.get_redirect_https(session):
         auth_redirect_uri = auth_redirect_uri.replace("http:", "https:")
 
-    logger.info(f"Redirecting to OIDC login: {authorize_endpoint}")
-    logger.info(f"Redirect URI: {auth_redirect_uri}")
+    logger.info(
+        "Redirecting to OIDC login",
+        authorize_endpoint=authorize_endpoint,
+        redirect_uri=auth_redirect_uri,
+    )
 
     state = jwt.encode(  # pyright: ignore[reportUnknownMemberType]
         {"redirect_uri": redirect_uri},

@@ -24,7 +24,7 @@ RUN chmod +x /bin/tailwindcss
 COPY --from=0 /app/node_modules/ node_modules/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY uv.lock pyproject.toml /app
+COPY uv.lock pyproject.toml /app/
 RUN uv sync --frozen --no-cache
 
 COPY alembic/ alembic/

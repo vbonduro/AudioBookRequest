@@ -26,6 +26,7 @@ dependencies = [
     "rapidfuzz",
     "python-multipart",
     "requests",
+    "structlog",
 ]
 
 # setuptools by default expects a "src" folder structure

@@ -1,5 +1,4 @@
 import json
-import logging
 from typing import Optional
 
 from aiohttp import ClientSession
@@ -14,8 +13,7 @@ from app.internal.models import (
 )
 from app.util import json_type
 from app.util.db import open_session
-
-logger = logging.getLogger(__name__)
+from app.util.log import logger
 
 
 def replace_variables(
@@ -70,7 +68,9 @@ async def _send(
     for key, value in additional_fields.items():
         if key in json_body.keys():
             logger.warning(
-                f"Key '{key}' already exists in the JSON body but is passed as additional field. Overwriting with value: {value}"
+                "Key already exists in JSON body. Overwriting with value.",
+                key=key,
+                value=value,
             )
         json_body[key] = value
 
@@ -135,7 +135,10 @@ async def send_notification(
     )
 
     logger.info(
-        f"Sending notification to {notification.url} with title: '{title}', event type: {notification.event.value}"
+        "Sending notification",
+        url=notification.url,
+        title=title,
+        event_type=notification.event.value,
     )
 
     async with ClientSession() as client_session:
@@ -206,14 +209,17 @@ async def send_manual_notification(
         )
 
         logger.info(
-            f"Sending manual notification to {notification.url} with title: '{title}', event type: {notification.event.value}"
+            "Sending manual notification",
+            url=notification.url,
+            title=title,
+            event_type=notification.event.value,
         )
 
         async with ClientSession() as client_session:
             await _send(title, body, additional_fields, notification, client_session)
 
     except Exception as e:
-        logger.error("Failed to send notification", e)
+        logger.error("Failed to send notification", error=str(e))
         return None
 
 

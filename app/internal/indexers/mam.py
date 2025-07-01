@@ -1,5 +1,4 @@
 import json
-import logging
 from typing import Any
 from urllib.parse import urlencode, urljoin
 
@@ -16,8 +15,7 @@ from app.internal.models import (
     BookRequest,
     ProwlarrSource,
 )
-
-logger = logging.getLogger(__name__)
+from app.util.log import logger
 
 
 class MamConfigurations(Configurations):
@@ -86,20 +84,22 @@ class MamIndexer(AbstractIndexer[MamConfigurations]):
             url, cookies={"mam_id": session_id}
         ) as response:
             if response.status == 403:
-                logger.error("Mam: Failed to authenticate: %s", await response.text())
+                logger.error(
+                    "Mam: Failed to authenticate", response=await response.text()
+                )
                 return
             if not response.ok:
-                logger.error("Mam: Failed to query: %s", await response.text())
+                logger.error("Mam: Failed to query", response=await response.text())
                 return
             search_results = await response.json()
 
         if "error" in search_results:
-            logger.error("Mam: Error in response: %s", search_results["error"])
+            logger.error("Mam: Error in response", error=search_results["error"])
             return
 
         for result in search_results["data"]:
             self.results[str(result["id"])] = result
-        logger.info("Mam: Retrieved %d results", len(self.results))
+        logger.info("Mam: Retrieved results", results_amount=len(self.results))
 
     async def is_matching_source(
         self,
