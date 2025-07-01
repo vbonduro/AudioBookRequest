@@ -17,10 +17,6 @@ If you've heard of Overseer, Ombi, or Jellyseer; this is in the similar vein, <i
   - [Basic Usage](#basic-usage)
   - [Documentation](#documentation)
     - [Auto download](#auto-download)
-    - [Notifications](#notifications)
-      - [Apprise](#apprise)
-      - [Gotify](#gotify)
-      - [ABR](#abr)
     - [OpenID Connect](#openid-connect)
       - [Getting locked out](#getting-locked-out)
     - [Environment Variables](#environment-variables)
@@ -54,7 +50,7 @@ Then head to http://localhost:8000.
 
 ## Documentation
 
-Head to https://markbeep.github.io/AudioBookRequest/ for more detailed documentation.
+Head to https://markbeep.github.io/AudioBookRequest/ for more detailed documentation and tutorials.
 
 ### Auto download
 
@@ -67,29 +63,6 @@ Auto-downloading enables requests by `Trusted` and `Admin` users to directly sta
    1. Enable `Auto Download` at the top.
    2. The remaining heuristics determine the ranking of any sources retrieved from Prowlarr.
    3. Indexer flags allow you to add priorities to certain sources like freeleeches.
-
-### Notifications
-
-Notifications depend on [Apprise](https://github.com/caronc/apprise) or [Gotify](https://gotify.net/).
-
-#### Apprise
-
-1. Ensure you have a working Apprise instance.
-2. Create a new configuration. For example paste your Discord webhook link (`https://discord.com/api/webhooks/<channel>/<id>`) into the configuration.
-3. Copy the notification url along the format of `https://apprise.example.com/notify/<id>`.
-
-#### Gotify
-
-1. Create an application.
-2. Copy the token.
-
-#### ABR
-
-1. On AudioBookRequest, head to `Settings>Notifications`.
-2. Add the Apprise URL or the path to your gotify instance with `/message` appended, i.e.: `http://gotify:8080/message`.
-3. For gofity, add the API key as a header: `{"Authorization": "Bearer <your token>"}`.
-4. Configure the remaining settings. **The event variables are case sensitive**.
-5. `Additional POST fields` allow you to add extra values that are sent along in the POST request to the notification service. This allows for changing the priority for gotify notifications or changing the look of apprise notifications. **Event variables also work in keys and values!**
 
 ### OpenID Connect
 
