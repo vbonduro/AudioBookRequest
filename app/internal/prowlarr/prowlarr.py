@@ -147,7 +147,7 @@ async def query_prowlarr(
     force_refresh: bool = False,
     only_return_if_cached: bool = False,
 ) -> Optional[list[ProwlarrSource]]:
-    query = book_request.title
+    query = book_request.title + " " + book_request.authors[0]
 
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)
