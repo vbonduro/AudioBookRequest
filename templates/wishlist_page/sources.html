@@ -8,6 +8,29 @@
        href="{{ base_url }}/wishlist#{{ result.book.asin }}"
        class="w-fit btn btn-ghost">&lt; Back to wishlist</a>
     <h1 class="text-3xl font-bold">Sources for {{ result.book.title }}</h1>
+    
+    <!-- Search Query Input -->
+    <div class="form-control w-full max-w-lg">
+      <label class="label">
+        <span class="label-text">Search Query</span>
+      </label>
+      <div class="flex gap-2">
+        <input type="text" 
+               id="search-query" 
+               placeholder="Enter search query..." 
+               value="{{ result.query_used or '' }}"
+               class="input input-bordered flex-1" />
+        <button class="btn btn-primary"
+                hx-get="{{ base_url }}/wishlist/sources/{{ result.book.asin }}?only_body=true"
+                hx-include="#search-query"
+                hx-vals='{"query": ""}'
+                hx-target="#sources"
+                hx-swap="outerHTML"
+                hx-on:htmx:config-request="event.detail.parameters.query = document.getElementById('search-query').value">
+          Search
+        </button>
+      </div>
+    </div>
     {% if result.state.ok and not result.sources %}
       <div role="alert" class="alert">
         <span class="stroke-info h-6 w-6 shrink-0">{% include "icons/info-circle.html" %}</span>
