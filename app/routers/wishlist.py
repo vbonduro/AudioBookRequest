@@ -258,6 +258,7 @@ async def list_sources(
     session: Annotated[Session, Depends(get_session)],
     client_session: Annotated[ClientSession, Depends(get_connection)],
     only_body: bool = False,
+    query: Optional[str] = None,
 ):
     try:
         prowlarr_config.raise_if_invalid(session)
@@ -272,6 +273,7 @@ async def list_sources(
         client_session=client_session,
         requester_username=admin_user.username,
         only_return_if_cached=not only_body,  # on initial load we want to respond quickly
+        custom_query=query,
     )
 
     if only_body:

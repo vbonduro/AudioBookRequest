@@ -34,6 +34,7 @@ class QueryResult(pydantic.BaseModel):
     sources: Optional[list[ProwlarrSource]]
     book: BookRequest
     state: Literal["ok", "querying", "uncached"]
+    query_used: Optional[str] = None
 
     @property
     def ok(self) -> bool:
@@ -48,16 +49,21 @@ async def query_sources(
     force_refresh: bool = False,
     start_auto_download: bool = False,
     only_return_if_cached: bool = False,
+    custom_query: Optional[str] = None,
 ) -> QueryResult:
     book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
+
+    # Determine the query to use
+    query_to_use = custom_query if custom_query else book.title + " " + book.authors[0]
 
     if asin in querying:
         return QueryResult(
             sources=None,
             book=book,
             state="querying",
+            query_used=query_to_use,
         )
 
     with manage_queried(asin):
@@ -67,6 +73,7 @@ async def query_sources(
             session,
             client_session,
             book,
+            query_to_use,
             force_refresh=force_refresh,
             only_return_if_cached=only_return_if_cached,
             indexer_ids=prowlarr_config.get_indexers(session),
@@ -76,6 +83,7 @@ async def query_sources(
                 sources=None,
                 book=book,
                 state="uncached",
+                query_used=query_to_use,
             )
 
         ranked = await rank_sources(session, client_session, sources, book)
@@ -105,4 +113,5 @@ async def query_sources(
             sources=ranked,
             book=book,
             state="ok",
+            query_used=query_to_use,
         )

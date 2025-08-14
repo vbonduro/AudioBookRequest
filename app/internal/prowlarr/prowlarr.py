@@ -143,12 +143,11 @@ async def query_prowlarr(
     session: Session,
     client_session: ClientSession,
     book_request: BookRequest,
+    query: str,
     indexer_ids: Optional[list[int]] = None,
     force_refresh: bool = False,
     only_return_if_cached: bool = False,
 ) -> Optional[list[ProwlarrSource]]:
-    query = book_request.title + " " + book_request.authors[0]
-
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)
     assert base_url is not None and api_key is not None
