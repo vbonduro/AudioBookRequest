@@ -29,6 +29,9 @@ async def _check_wishlist_books() -> None:
         if not quality_config.get_auto_download(session):
             logger.info("Scheduler skipping: auto-download is disabled")
             return
+        if not quality_config.get_scheduler_enabled(session):
+            logger.info("Scheduler skipping: scheduler is disabled")
+            return
 
         now = datetime.now()
         books = session.exec(

@@ -41,13 +41,25 @@
                   hx-disabled-elt="#save-button"
                   hx-target="this">
                 {% if success %}<script>toast("{{success|safe}}", "success");</script>{% endif %}
-                <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
-                    <label for="auto-download">Auto Download</label>
-                    <input id="auto-download"
-                           name="auto_download"
-                           type="checkbox"
-                           class="checkbox"
-                           {% if auto_download %}checked{% endif %} />
+                <div x-data="{ autoDownload: {{ 'true' if auto_download else 'false' }} }">
+                    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+                        <label for="auto-download">Auto Download</label>
+                        <input id="auto-download"
+                               name="auto_download"
+                               type="checkbox"
+                               class="checkbox"
+                               x-model="autoDownload"
+                               {% if auto_download %}checked{% endif %} />
+                    </div>
+                    <div x-show="autoDownload"
+                         class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+                        <label for="scheduler-enabled">Scheduler Auto-Download</label>
+                        <input id="scheduler-enabled"
+                               name="scheduler_enabled"
+                               type="checkbox"
+                               class="checkbox"
+                               {% if scheduler_enabled %}checked{% endif %} />
+                    </div>
                 </div>
                 <h3 class="border-t pt-2 border-base-200">
                     Quality <span class="text-xs">(kbit/s)</span>
