@@ -349,7 +349,7 @@ async def start_auto_download(
         download_error = e.detail
 
     username = None if user.is_admin() else user.username
-    books = get_wishlist_books(session, username)
+    books = get_wishlist_books(session, username, "not_downloaded")
     if download_error:
         errored_book = [b for b in books if b.asin == asin][0]
         errored_book.download_error = download_error
@@ -358,6 +358,6 @@ async def start_auto_download(
         "wishlist_page/wishlist.html",
         request,
         user,
-        {"books": books},
+        {"books": books, "page": "wishlist"},
         block_name="book_wishlist",
     )

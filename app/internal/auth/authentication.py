@@ -90,7 +90,6 @@ class RequiresLoginException(Exception):
 class ABRAuth:
     def __init__(self):
         self.oidc_scheme: Optional[OpenIdConnect] = None
-        self.none_user: Optional[User] = None
 
     def get_authenticated_user(self, lowest_allowed_group: GroupEnum):
         async def get_user(
@@ -167,12 +166,9 @@ class ABRAuth:
 
     async def _get_none_auth(self, session: Session) -> User:
         """Treats every request as being root by returning the first admin user"""
-        if self.none_user:
-            return self.none_user
-        self.none_user = session.exec(
+        return session.exec(
             select(User).where(User.group == GroupEnum.admin).limit(1)
         ).one()
-        return self.none_user
 
 
 security = HTTPBasic()
