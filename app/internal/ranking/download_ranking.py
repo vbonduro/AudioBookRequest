@@ -49,8 +49,8 @@ class CompareSource:
             self._compare_flags,
             self._compare_indexer,
             self._compare_subtitle,
-            self._compare_seeders,
             self._compare_age,
+            self._compare_seeders,
         ]
 
     def __call__(self, a: RankSource, b: RankSource):
@@ -247,11 +247,8 @@ class CompareSource:
     def _compare_age(self, a: RankSource, b: RankSource, next_compare: int) -> int:
         if a.source.protocol != b.source.protocol:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)
-        if a.source.protocol == "usenet":
-            # With usenets: newer => better
-            return int((a.source.publish_date - b.source.publish_date).total_seconds())
-        # With torrents: older => better
-        return int((b.source.publish_date - a.source.publish_date).total_seconds())
+        # With both usenet and torrents: newer => better
+        return int((a.source.publish_date - b.source.publish_date).total_seconds())
 
 
 def fuzzy_author_narrator_match(

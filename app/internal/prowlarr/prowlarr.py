@@ -106,7 +106,8 @@ async def start_download(
     indexer_id: int,
     requester_username: str,
     book_asin: str,
-) -> ClientResponse:
+    source_title: str = "",
+) -> tuple[ClientResponse, str]:
     prowlarr_config.raise_if_invalid(session)
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)
@@ -136,7 +137,7 @@ async def start_download(
                 EventEnum.on_successful_download, requester_username, book_asin
             )
 
-        return response
+        return response, source_title
 
 
 async def query_prowlarr(
