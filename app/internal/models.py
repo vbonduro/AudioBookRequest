@@ -82,6 +82,7 @@ class BookSearchResult(BaseBook):
 class BookWishlistResult(BaseBook):
     requested_by: list[str] = []
     download_error: Optional[str] = None
+    downloaded_file: Optional[str] = None
 
     @property
     def amount_requested(self):
@@ -102,6 +103,9 @@ class BookRequest(BaseBook, table=True):
             nullable=False,
         ),
     )
+    search_attempts: int = Field(default=0)
+    next_search_at: Optional[datetime] = Field(default=None)
+    downloaded_file: Optional[str] = Field(default=None)
 
     __table_args__ = (
         UniqueConstraint("asin", "user_username", name="unique_asin_user"),

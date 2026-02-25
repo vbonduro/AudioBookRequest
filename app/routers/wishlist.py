@@ -71,6 +71,7 @@ def get_wishlist_books(
     for asin, book in distinct_books.items():
         b = BookWishlistResult.model_validate(book)
         b.requested_by = usernames[asin]
+        b.downloaded_file = book.downloaded_file
         if b.downloaded:
             downloaded.append(b)
         else:
@@ -304,7 +305,7 @@ async def download_book(
     client_session: Annotated[ClientSession, Depends(get_connection)],
 ):
     try:
-        resp = await start_download(
+        resp, _ = await start_download(
             session=session,
             client_session=client_session,
             guid=guid,
@@ -339,6 +340,7 @@ async def start_auto_download(
         await query_sources(
             asin=asin,
             start_auto_download=True,
+            reset_backoff=True,
             session=session,
             client_session=client_session,
             requester_username=user.username,

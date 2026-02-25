@@ -1,5 +1,6 @@
 # what is currently being queried
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from typing import Literal, Optional
 
 import pydantic
@@ -14,6 +15,10 @@ from app.internal.prowlarr.prowlarr import (
     start_download,
 )
 from app.internal.ranking.download_ranking import rank_sources
+from app.util.log import logger
+
+_BACKOFF_BASE_MINUTES = 15
+_BACKOFF_MAX_MINUTES = 24 * 60  # 24 hours
 
 querying: set[str] = set()
 
@@ -50,10 +55,25 @@ async def query_sources(
     start_auto_download: bool = False,
     only_return_if_cached: bool = False,
     custom_query: Optional[str] = None,
+    reset_backoff: bool = False,
 ) -> QueryResult:
     book = session.exec(select(BookRequest).where(BookRequest.asin == asin)).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
+
+    # Reset backoff if requested (e.g. manual retry)
+    if reset_backoff:
+        logger.info(
+            "Resetting backoff for book",
+            asin=asin,
+            previous_attempts=book.search_attempts,
+            previous_next_search_at=str(book.next_search_at),
+        )
+        for b in session.exec(select(BookRequest).where(BookRequest.asin == asin)).all():
+            b.search_attempts = 0
+            b.next_search_at = None
+            session.add(b)
+        session.commit()
 
     # Determine the query to use
     query_to_use = custom_query if custom_query else book.title + " " + book.authors[0]
@@ -89,25 +109,59 @@ async def query_sources(
         ranked = await rank_sources(session, client_session, sources, book)
 
         # start download if requested
-        if start_auto_download and not book.downloaded and len(ranked) > 0:
-            resp = await start_download(
-                session=session,
-                client_session=client_session,
-                guid=ranked[0].guid,
-                indexer_id=ranked[0].indexer_id,
-                requester_username=requester_username,
-                book_asin=asin,
-            )
-            if resp.ok:
-                same_books = session.exec(
+        if start_auto_download and not book.downloaded:
+            if len(ranked) > 0:
+                top = ranked[0]
+                logger.info(
+                    "Auto-download selecting top-ranked source",
+                    asin=asin,
+                    title=book.title,
+                    source_title=top.title,
+                    indexer=top.indexer,
+                    guid=top.guid,
+                    protocol=top.protocol,
+                    publish_date=str(top.publish_date),
+                    total_ranked=len(ranked),
+                )
+                resp, source_title = await start_download(
+                    session=session,
+                    client_session=client_session,
+                    guid=top.guid,
+                    indexer_id=top.indexer_id,
+                    requester_username=requester_username,
+                    book_asin=asin,
+                    source_title=top.title,
+                )
+                if resp.ok:
+                    for b in session.exec(
+                        select(BookRequest).where(BookRequest.asin == asin)
+                    ).all():
+                        b.downloaded = True
+                        b.downloaded_file = source_title
+                        session.add(b)
+                    session.commit()
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to start download")
+            else:
+                # No sources found — update backoff for all matching books
+                attempts = book.search_attempts + 1
+                interval_minutes = min(_BACKOFF_BASE_MINUTES * (2 ** attempts), _BACKOFF_MAX_MINUTES)
+                next_search_at = datetime.now() + timedelta(minutes=interval_minutes)
+                logger.info(
+                    "No sources found for auto-download, scheduling retry",
+                    asin=asin,
+                    title=book.title,
+                    attempt=attempts,
+                    next_search_at=str(next_search_at),
+                    interval_minutes=interval_minutes,
+                )
+                for b in session.exec(
                     select(BookRequest).where(BookRequest.asin == asin)
-                ).all()
-                for b in same_books:
-                    b.downloaded = True
+                ).all():
+                    b.search_attempts = attempts
+                    b.next_search_at = next_search_at
                     session.add(b)
                 session.commit()
-            else:
-                raise HTTPException(status_code=500, detail="Failed to start download")
 
         return QueryResult(
             sources=ranked,
