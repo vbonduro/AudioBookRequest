@@ -6,30 +6,51 @@ from sqlmodel import col, select
 
 from app.internal.models import BookRequest, GroupEnum, User
 from app.internal.query import query_sources
-from app.internal.ranking.quality import quality_config
 from app.util.db import open_session
 from app.util.log import logger
 
 SCHEDULER_INTERVAL_MINUTES = 15
 
+_scheduler_task: asyncio.Task[None] | None = None
+
+
+def start_scheduler() -> None:
+    global _scheduler_task
+    if _scheduler_task and not _scheduler_task.done():
+        return  # already running
+    logger.info(
+        "Starting auto-download scheduler", interval_minutes=SCHEDULER_INTERVAL_MINUTES
+    )
+    _scheduler_task = asyncio.get_event_loop().create_task(
+        run_auto_download_scheduler()
+    )
+
+
+async def stop_scheduler() -> None:
+    global _scheduler_task
+    if _scheduler_task and not _scheduler_task.done():
+        logger.info("Stopping auto-download scheduler")
+        _scheduler_task.cancel()
+        try:
+            await _scheduler_task
+        except asyncio.CancelledError:
+            pass
+    _scheduler_task = None
+
 
 async def run_auto_download_scheduler() -> None:
     """Background task that periodically searches for and downloads wishlist books."""
     while True:
+        await asyncio.sleep(SCHEDULER_INTERVAL_MINUTES * 60)
         logger.info("Scheduler woke up, checking wishlist books")
         try:
             await _check_wishlist_books()
         except Exception as e:
             logger.error("Scheduler error during wishlist check", error=str(e))
-        await asyncio.sleep(SCHEDULER_INTERVAL_MINUTES * 60)
 
 
 async def _check_wishlist_books() -> None:
     with open_session() as session:
-        if not quality_config.get_auto_download(session):
-            logger.info("Scheduler skipping: auto-download is disabled")
-            return
-
         now = datetime.now()
         books = session.exec(
             select(BookRequest)

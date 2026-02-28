@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 from urllib.parse import quote_plus, urlencode
@@ -17,11 +16,11 @@ from app.internal.auth.session_middleware import (
 )
 from app.internal.env_settings import Settings
 from app.internal.models import User
-from app.internal.scheduler import SCHEDULER_INTERVAL_MINUTES, run_auto_download_scheduler
+from app.internal.ranking.quality import quality_config
+from app.internal.scheduler import start_scheduler, stop_scheduler
 from app.routers import auth, root, search, settings, wishlist
 from app.util.db import open_session
 from app.util.fetch_js import fetch_scripts
-from app.util.log import logger
 from app.util.redirect import BaseUrlRedirectResponse
 from app.util.templates import templates
 from app.util.toast import ToastException
@@ -35,15 +34,11 @@ with open_session() as session:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting auto-download scheduler", interval_minutes=SCHEDULER_INTERVAL_MINUTES)
-    task = asyncio.create_task(run_auto_download_scheduler())
+    with open_session() as session:
+        if quality_config.get_auto_download(session):
+            start_scheduler()
     yield
-    logger.info("Stopping auto-download scheduler")
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    await stop_scheduler()
 
 
 app = FastAPI(
