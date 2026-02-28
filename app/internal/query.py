@@ -14,7 +14,7 @@ from app.internal.prowlarr.prowlarr import (
     query_prowlarr,
     start_download,
 )
-from app.internal.ranking.download_ranking import rank_sources
+from app.internal.ranking.download_ranking import CompareSource, rank_sources
 from app.util.log import logger
 
 _BACKOFF_BASE_MINUTES = 15
@@ -110,8 +110,10 @@ async def query_sources(
 
         # start download if requested
         if start_auto_download and not book.downloaded:
-            if len(ranked) > 0:
-                top = ranked[0]
+            compare = CompareSource(session, book)
+            valid_ranked = [rs for rs in ranked if compare.is_valid_quality(rs)]
+            if len(valid_ranked) > 0:
+                top = valid_ranked[0].source
                 logger.info(
                     "Auto-download selecting top-ranked source",
                     asin=asin,
@@ -122,6 +124,7 @@ async def query_sources(
                     protocol=top.protocol,
                     publish_date=str(top.publish_date),
                     total_ranked=len(ranked),
+                    valid_ranked=len(valid_ranked),
                 )
                 resp, source_title = await start_download(
                     session=session,
@@ -143,7 +146,7 @@ async def query_sources(
                 else:
                     raise HTTPException(status_code=500, detail="Failed to start download")
             else:
-                # No sources found — update backoff for all matching books
+                # No valid sources found — update backoff for all matching books
                 attempts = book.search_attempts + 1
                 interval_minutes = min(_BACKOFF_BASE_MINUTES * (2 ** attempts), _BACKOFF_MAX_MINUTES)
                 next_search_at = datetime.now() + timedelta(minutes=interval_minutes)
@@ -164,7 +167,7 @@ async def query_sources(
                 session.commit()
 
         return QueryResult(
-            sources=ranked,
+            sources=[rs.source for rs in ranked],
             book=book,
             state="ok",
             query_used=query_to_use,

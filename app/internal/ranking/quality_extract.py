@@ -115,8 +115,15 @@ async def extract_qualities(
         file_format = "flac"
     elif "m4b" in source.title.lower():
         file_format = "m4b"
+    elif "epub" in source.title.lower():
+        file_format = "epub"
     elif "audiobook" in source.title.lower():
         file_format = "unknown-audio"
+
+    if source.book_metadata.filetype:
+        normalized = source.book_metadata.filetype.lower()
+        if normalized in ("flac", "m4b", "mp3", "epub", "unknown-audio", "unknown"):
+            file_format = normalized  # type: ignore[assignment]
 
     return [
         Quality(kbits=8 * source.size / book_seconds / 1000, file_format=file_format)
