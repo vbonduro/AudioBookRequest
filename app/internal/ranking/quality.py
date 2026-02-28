@@ -19,7 +19,6 @@ QualityConfigKey = (
     QualityFormatKey
     | Literal[
         "quality_auto_download",
-        "quality_scheduler_enabled",
         "quality_indexer_flags",
         "quality_format_order",
         "quality_indexer_order",
@@ -86,12 +85,6 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
 
     def set_auto_download(self, session: Session, auto_download: bool):
         self.set_int(session, "quality_auto_download", int(auto_download))
-
-    def get_scheduler_enabled(self, session: Session) -> bool:
-        return bool(self.get_int(session, "quality_scheduler_enabled", 0))
-
-    def set_scheduler_enabled(self, session: Session, enabled: bool) -> None:
-        self.set_int(session, "quality_scheduler_enabled", int(enabled))
 
     def get_range(self, session: Session, key: QualityFormatKey) -> QualityRange:
         range = self.get(session, key)

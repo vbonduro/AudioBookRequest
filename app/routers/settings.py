@@ -39,6 +39,7 @@ from app.internal.ranking.quality import (
     QualityRange,
     quality_config,
 )
+from app.internal.scheduler import start_scheduler, stop_scheduler
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.log import logger
@@ -343,7 +344,6 @@ def read_download(
     ],
 ):
     auto_download = quality_config.get_auto_download(session)
-    scheduler_enabled = quality_config.get_scheduler_enabled(session)
     flac_range = quality_config.get_range(session, "quality_flac")
     m4b_range = quality_config.get_range(session, "quality_m4b")
     mp3_range = quality_config.get_range(session, "quality_mp3")
@@ -362,7 +362,6 @@ def read_download(
         {
             "page": "download",
             "auto_download": auto_download,
-            "scheduler_enabled": scheduler_enabled,
             "flac_range": flac_range,
             "m4b_range": m4b_range,
             "mp3_range": mp3_range,
@@ -379,7 +378,7 @@ def read_download(
 
 
 @router.post("/download")
-def update_download(
+async def update_download(
     request: Request,
     flac_from: Annotated[float, Form()],
     flac_to: Annotated[float, Form()],
@@ -402,8 +401,6 @@ def update_download(
     allowed_formats: Annotated[list[FileFormat], Form()] = [],
     scheduler_enabled: Annotated[bool, Form()] = False,
 ):
-    if not auto_download:
-        scheduler_enabled = False
     flac = QualityRange(from_kbits=flac_from, to_kbits=flac_to)
     m4b = QualityRange(from_kbits=m4b_from, to_kbits=m4b_to)
     mp3 = QualityRange(from_kbits=mp3_from, to_kbits=mp3_to)
@@ -413,7 +410,10 @@ def update_download(
     unknown = QualityRange(from_kbits=unknown_from, to_kbits=unknown_to)
 
     quality_config.set_auto_download(session, auto_download)
-    quality_config.set_scheduler_enabled(session, scheduler_enabled)
+    if auto_download:
+        start_scheduler()
+    else:
+        await stop_scheduler()
     quality_config.set_range(session, "quality_flac", flac)
     quality_config.set_range(session, "quality_m4b", m4b)
     quality_config.set_range(session, "quality_mp3", mp3)
@@ -432,7 +432,6 @@ def update_download(
             "page": "download",
             "success": "Settings updated",
             "auto_download": auto_download,
-            "scheduler_enabled": scheduler_enabled,
             "flac_range": flac,
             "m4b_range": m4b,
             "mp3_range": mp3,
