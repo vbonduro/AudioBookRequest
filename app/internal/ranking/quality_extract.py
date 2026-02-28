@@ -12,6 +12,7 @@ from sqlmodel import Session
 from app.internal.models import BookRequest, ProwlarrSource
 from app.internal.prowlarr.prowlarr import prowlarr_config
 from app.internal.ranking.quality import FileFormat
+from app.util.log import logger
 
 # HACK: Disabled because it doesn't work well with ratelimiting
 # We instead completely rely on the title and size of the complete torrent
@@ -125,9 +126,17 @@ async def extract_qualities(
         if normalized in ("flac", "m4b", "mp3", "epub", "unknown-audio", "unknown"):
             file_format = normalized  # type: ignore[assignment]
 
-    return [
-        Quality(kbits=8 * source.size / book_seconds / 1000, file_format=file_format)
-    ]
+    kbits = 8 * source.size / book_seconds / 1000
+    logger.debug(
+        "Extracted quality",
+        source_title=source.title,
+        file_format=file_format,
+        kbits=kbits,
+        size=source.size,
+        book_seconds=book_seconds,
+        filetype_from_metadata=source.book_metadata.filetype,
+    )
+    return [Quality(kbits=kbits, file_format=file_format)]
 
 
 def get_torrent_info(data: bytes, book_seconds: int) -> list[Quality]:

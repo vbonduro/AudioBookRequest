@@ -10,6 +10,7 @@ from sqlmodel import Session
 from app.internal.models import BookRequest, ProwlarrSource
 from app.internal.ranking.quality import quality_config
 from app.internal.ranking.quality_extract import Quality, extract_qualities
+from app.util.log import logger
 
 
 class RankSource(pydantic.BaseModel):
@@ -72,7 +73,24 @@ class CompareSource:
     def is_valid_quality(self, a: RankSource) -> bool:
         allowed_formats = quality_config.get_allowed_formats(self.session)
         if allowed_formats and a.quality.file_format not in allowed_formats:
+            logger.debug(
+                "Source rejected: format not in allowed formats",
+                source_title=a.source.title,
+                file_format=a.quality.file_format,
+                allowed_formats=allowed_formats,
+            )
             return False
+
+        # epub is an ebook format — bitrate is meaningless, skip the kbits check
+        if a.quality.file_format == "epub":
+            logger.debug(
+                "Source quality check",
+                source_title=a.source.title,
+                file_format=a.quality.file_format,
+                kbits_check="skipped (epub)",
+                valid=True,
+            )
+            return True
 
         match a.quality.file_format:
             case "flac":
@@ -81,10 +99,6 @@ class CompareSource:
                 quality_range = quality_config.get_range(self.session, "quality_m4b")
             case "mp3":
                 quality_range = quality_config.get_range(self.session, "quality_mp3")
-            case "epub":
-                quality_range = quality_config.get_range(
-                    self.session, "quality_unknown"
-                )
             case "unknown-audio":
                 quality_range = quality_config.get_range(
                     self.session, "quality_unknown_audio"
@@ -94,7 +108,26 @@ class CompareSource:
                     self.session, "quality_unknown"
                 )
 
-        return quality_range.from_kbits < a.quality.kbits < quality_range.to_kbits
+        valid = quality_range.from_kbits < a.quality.kbits < quality_range.to_kbits
+        logger.debug(
+            "Source quality check",
+            source_title=a.source.title,
+            file_format=a.quality.file_format,
+            kbits=a.quality.kbits,
+            range_from=quality_range.from_kbits,
+            range_to=quality_range.to_kbits,
+            valid=valid,
+        )
+        if a.source.protocol == "torrent":
+            min_seeders = quality_config.get_min_seeders(self.session)
+            if valid and a.source.seeders < min_seeders:
+                logger.debug(
+                    "Source rejected: insufficient seeders",
+                    source_title=a.source.title,
+                    seeders=a.source.seeders,
+                    min_seeders=min_seeders,
+                )
+        return valid
 
     def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
         """Filter out any reasons that make it not valid"""

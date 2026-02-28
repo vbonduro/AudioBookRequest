@@ -112,6 +112,17 @@ async def query_sources(
         if start_auto_download and not book.downloaded:
             compare = CompareSource(session, book)
             valid_ranked = [rs for rs in ranked if compare.is_valid_quality(rs)]
+            logger.info(
+                "Auto-download ranking complete",
+                asin=asin,
+                title=book.title,
+                total_ranked=len(ranked),
+                valid_ranked=len(valid_ranked),
+                sources=[
+                    {"title": rs.source.title, "format": rs.quality.file_format, "kbits": rs.quality.kbits}
+                    for rs in ranked
+                ],
+            )
             if len(valid_ranked) > 0:
                 top = valid_ranked[0].source
                 logger.info(
