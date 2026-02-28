@@ -22,18 +22,18 @@ async def rank_sources(
     client_session: ClientSession,
     sources: list[ProwlarrSource],
     book: BookRequest,
-) -> list[ProwlarrSource]:
+) -> list[RankSource]:
     async def get_qualities(source: ProwlarrSource):
         qualities = await extract_qualities(session, client_session, source, book)
         return [RankSource(source=source, quality=q) for q in qualities]
 
     coros = [get_qualities(source) for source in sources]
-    rank_sources = [x for y in await asyncio.gather(*coros) for x in y]
+    ranked = [x for y in await asyncio.gather(*coros) for x in y]
 
     compare = CompareSource(session, book)
-    rank_sources.sort(key=cmp_to_key(compare))
+    ranked.sort(key=cmp_to_key(compare))
 
-    return [rs.source for rs in rank_sources]
+    return ranked
 
 
 class CompareSource:
@@ -69,7 +69,11 @@ class CompareSource:
             return self.compare_order[index]
         return default_compare
 
-    def _is_valid_quality(self, a: RankSource) -> bool:
+    def is_valid_quality(self, a: RankSource) -> bool:
+        allowed_formats = quality_config.get_allowed_formats(self.session)
+        if allowed_formats and a.quality.file_format not in allowed_formats:
+            return False
+
         match a.quality.file_format:
             case "flac":
                 quality_range = quality_config.get_range(self.session, "quality_flac")
@@ -77,6 +81,10 @@ class CompareSource:
                 quality_range = quality_config.get_range(self.session, "quality_m4b")
             case "mp3":
                 quality_range = quality_config.get_range(self.session, "quality_mp3")
+            case "epub":
+                quality_range = quality_config.get_range(
+                    self.session, "quality_unknown"
+                )
             case "unknown-audio":
                 quality_range = quality_config.get_range(
                     self.session, "quality_unknown_audio"
@@ -91,18 +99,18 @@ class CompareSource:
     def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
         """Filter out any reasons that make it not valid"""
         if a.source.protocol == "torrent":
-            a_valid = self._is_valid_quality(
+            a_valid = self.is_valid_quality(
                 a
             ) and a.source.seeders >= quality_config.get_min_seeders(self.session)
         else:
-            a_valid = self._is_valid_quality(a)
+            a_valid = self.is_valid_quality(a)
 
         if b.source.protocol == "torrent":
-            b_valid = self._is_valid_quality(
+            b_valid = self.is_valid_quality(
                 b
             ) and b.source.seeders >= quality_config.get_min_seeders(self.session)
         else:
-            b_valid = self._is_valid_quality(b)
+            b_valid = self.is_valid_quality(b)
 
         if a_valid == b_valid:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)

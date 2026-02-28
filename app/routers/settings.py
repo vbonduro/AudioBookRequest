@@ -33,13 +33,20 @@ from app.internal.prowlarr.prowlarr import (
     get_indexers,
     prowlarr_config,
 )
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.internal.ranking.quality import (
+    FileFormat,
+    IndexerFlag,
+    QualityRange,
+    quality_config,
+)
 from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.log import logger
 from app.util.templates import template_response
 from app.util.time import Minute
 from app.util.toast import ToastException
+
+_all_formats: list[FileFormat] = ["flac", "m4b", "mp3", "epub", "unknown-audio", "unknown"]
 
 router = APIRouter(prefix="/settings")
 
@@ -345,6 +352,7 @@ def read_download(
     name_ratio = quality_config.get_name_exists_ratio(session)
     title_ratio = quality_config.get_title_exists_ratio(session)
     flags = quality_config.get_indexer_flags(session)
+    allowed_formats = quality_config.get_allowed_formats(session)
 
     return template_response(
         "settings_page/download.html",
@@ -362,6 +370,8 @@ def read_download(
             "name_ratio": name_ratio,
             "title_ratio": title_ratio,
             "indexer_flags": flags,
+            "allowed_formats": allowed_formats,
+            "all_formats": _all_formats,
         },
     )
 
@@ -387,6 +397,7 @@ def update_download(
         DetailedUser, Depends(get_authenticated_user(GroupEnum.admin))
     ],
     auto_download: Annotated[bool, Form()] = False,
+    allowed_formats: Annotated[list[FileFormat], Form()] = [],
 ):
     flac = QualityRange(from_kbits=flac_from, to_kbits=flac_to)
     m4b = QualityRange(from_kbits=m4b_from, to_kbits=m4b_to)
@@ -405,6 +416,7 @@ def update_download(
     quality_config.set_min_seeders(session, min_seeders)
     quality_config.set_name_exists_ratio(session, name_ratio)
     quality_config.set_title_exists_ratio(session, title_ratio)
+    quality_config.set_allowed_formats(session, allowed_formats)
 
     return template_response(
         "settings_page/download.html",
@@ -422,6 +434,8 @@ def update_download(
             "min_seeders": min_seeders,
             "name_ratio": name_ratio,
             "title_ratio": title_ratio,
+            "allowed_formats": allowed_formats,
+            "all_formats": _all_formats,
         },
         block_name="form",
     )

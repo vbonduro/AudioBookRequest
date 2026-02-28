@@ -25,9 +25,10 @@ QualityConfigKey = (
         "quality_name_exists_ratio",
         "quality_title_exists_ratio",
         "quality_min_seeders",
+        "quality_allowed_formats",
     ]
 )
-FileFormat = Literal["flac", "m4b", "mp3", "unknown-audio", "unknown"]
+FileFormat = Literal["flac", "m4b", "mp3", "epub", "unknown-audio", "unknown"]
 
 
 class QualityRange(pydantic.BaseModel):
@@ -74,6 +75,7 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
             "quality_name_exists_ratio",
             "quality_title_exists_ratio",
             "quality_min_seeders",
+            "quality_allowed_formats",
         ]
         for key in keys:
             self.delete(session, key)
@@ -107,7 +109,7 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
     def get_format_order(self, session: Session) -> list[FileFormat]:
         format_order = self.get(session, "quality_format_order")
         if not format_order:
-            return ["flac", "m4b", "mp3", "unknown-audio", "unknown"]
+            return ["flac", "m4b", "mp3", "unknown-audio", "epub", "unknown"]
         return json.loads(format_order)
 
     def set_format_order(self, session: Session, format_order: list[FileFormat]):
@@ -143,6 +145,15 @@ class QualityProfile(StringConfigCache[QualityConfigKey]):
 
     def set_min_seeders(self, session: Session, min_seeders: int):
         self.set_int(session, "quality_min_seeders", min_seeders)
+
+    def get_allowed_formats(self, session: Session) -> list[FileFormat]:
+        allowed_formats = self.get(session, "quality_allowed_formats")
+        if not allowed_formats:
+            return []
+        return json.loads(allowed_formats)
+
+    def set_allowed_formats(self, session: Session, formats: list[FileFormat]):
+        self.set(session, "quality_allowed_formats", json.dumps(formats))
 
     def calculate_quality_rank(self, session: Session, file_format: FileFormat) -> int:
         format_order = self.get_format_order(session)
