@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional
 from urllib.parse import urlencode
 
 import pydantic
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 from sqlmodel import Session, col, select
 
 from app.internal.env_settings import Settings
@@ -118,13 +118,24 @@ async def get_book_by_asin(
     asin: str,
     audible_region: audible_region_type = get_region_from_settings(),
 ) -> Optional[BookRequest]:
-    book = await _get_audimeta_book(session, asin, audible_region)
-    if book:
-        return book
-    book = await _get_audnexus_book(session, asin, audible_region)
-    if book:
-        return book
+    for provider, fetch_book in (
+        ("Audimeta", _get_audimeta_book),
+        ("Audnexus", _get_audnexus_book),
+    ):
+        try:
+            book = await fetch_book(session, asin, audible_region)
+        except (ClientError, asyncio.TimeoutError) as exc:
+            logger.warning(
+                "Failed to connect to book metadata provider",
+                provider=provider,
+                asin=asin,
+                error=str(exc),
+            )
+            continue
+        if book:
+            return book
     logger.warning("Failed to fetch book", asin=asin, region=audible_region)
+    return None
 
 
 class CacheQuery(pydantic.BaseModel, frozen=True):
