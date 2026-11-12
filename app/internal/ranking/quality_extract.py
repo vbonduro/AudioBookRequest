@@ -70,6 +70,41 @@ audio_file_formats = [
 ]
 
 
+_known_file_formats: tuple[FileFormat, ...] = (
+    "flac",
+    "m4b",
+    "mp3",
+    "epub",
+    "unknown-audio",
+    "unknown",
+)
+
+
+def detect_file_format(source: ProwlarrSource) -> FileFormat:
+    """Guess the format from the source title, preferring the indexer's own filetype."""
+    title = source.title.lower()
+    file_format: FileFormat = "unknown"
+    if "mp3" in title:
+        file_format = "mp3"
+    elif "flac" in title:
+        file_format = "flac"
+    elif "m4b" in title:
+        file_format = "m4b"
+    elif "epub" in title:
+        file_format = "epub"
+    elif "audiobook" in title:
+        file_format = "unknown-audio"
+
+    filetype = source.book_metadata.filetype
+    if filetype:
+        normalized = filetype.lower()
+        for known in _known_file_formats:
+            if normalized == known:
+                file_format = known
+                break
+    return file_format
+
+
 async def extract_qualities(
     session: Session,
     client_session: ClientSession,
@@ -82,6 +117,12 @@ async def extract_qualities(
 
     if isinstance(book, ManualBookRequest):
         return [Quality(kbits=0, file_format="unknown")]
+
+    file_format = detect_file_format(source)
+    if file_format == "epub":
+        # An ebook has no runtime, so no bitrate can be derived from its size
+        return [Quality(kbits=0, file_format="epub")]
+
     book_seconds = book.runtime_length_min * 60
     if book_seconds == 0:
         return []
@@ -108,16 +149,6 @@ async def extract_qualities(
             return get_torrent_info(data, book_seconds)
 
     # TODO: use the magnet url to fetch the file information
-
-    file_format: FileFormat = "unknown"
-    if "mp3" in source.title.lower():
-        file_format = "mp3"
-    elif "flac" in source.title.lower():
-        file_format = "flac"
-    elif "m4b" in source.title.lower():
-        file_format = "m4b"
-    elif "audiobook" in source.title.lower():
-        file_format = "unknown-audio"
 
     return [
         Quality(kbits=8 * source.size / book_seconds / 1000, file_format=file_format)

@@ -206,6 +206,8 @@ async def start_download(
             ).all()
             for b in same_books:
                 b.fulfilled = True
+                if prowlarr_source:
+                    b.downloaded_file = prowlarr_source.title
                 session.add(b)
             session.commit()
 
@@ -254,8 +256,9 @@ async def query_prowlarr(
     indexer_ids: list[int] | None = None,
     force_refresh: bool = False,
     only_return_if_cached: bool = False,
+    query: str | None = None,
 ) -> list[ProwlarrSource] | None:
-    query = book.title
+    query = query or book.title
 
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)

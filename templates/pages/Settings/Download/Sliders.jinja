@@ -8,6 +8,8 @@
     min_seeders: int,
     name_ratio: int,
     title_ratio: int,
+    allowed_formats: list[str],
+    all_formats: list[str],
 #}
 
 <form class="flex flex-col gap-2"
@@ -203,6 +205,26 @@
                class="input"
                placeholder="90"
                value="{{ title_ratio }}" />
+    </div>
+    <div class="w-full border-t pt-2 border-base-200">
+        <label class="block mb-1">
+            Allowed Formats
+        </label>
+        <p class="text-xs opacity-60 mb-2">
+            Leave all unchecked to allow any format.
+        </p>
+        <div class="flex flex-wrap gap-3">
+            {% for fmt in all_formats %}
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox"
+                           name="allowed_formats"
+                           value="{{ fmt }}"
+                           class="checkbox checkbox-sm"
+                           {% if fmt in allowed_formats %}checked{% endif %} />
+                    <span>{{ fmt }}</span>
+                </label>
+            {% endfor %}
+        </div>
     </div>
     <button id="save-button" type="submit" class="btn btn-primary">
         Save

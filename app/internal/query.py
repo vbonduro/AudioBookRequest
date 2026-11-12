@@ -1,5 +1,6 @@
 import uuid
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 import aiohttp
@@ -20,9 +21,12 @@ from app.internal.prowlarr.prowlarr import (
     start_download,
 )
 from app.internal.prowlarr.util import prowlarr_config
-from app.internal.ranking.download_ranking import rank_sources
+from app.internal.ranking.download_ranking import CompareSource, rank_sources
 from app.util.db import get_session
 from app.util.log import logger
+
+BACKOFF_BASE_MINUTES = 15
+BACKOFF_MAX_MINUTES = 24 * 60
 
 querying: set[str] = set()
 
@@ -39,11 +43,49 @@ def manage_queried(asin_or_uuid: str):
             pass
 
 
+def build_search_query(
+    book: Audiobook | ManualBookRequest, custom_query: str | None = None
+) -> str:
+    """The text sent to Prowlarr: the user's own query, else title plus first author."""
+    if custom_query and custom_query.strip():
+        return custom_query.strip()
+    if book.authors:
+        return f"{book.title} {book.authors[0]}"
+    return book.title
+
+
+def backoff_delay(attempts: int) -> timedelta:
+    """Exponential delay before the next automatic search, capped at a day."""
+    minutes = min(BACKOFF_BASE_MINUTES * (1 << attempts), BACKOFF_MAX_MINUTES)
+    return timedelta(minutes=minutes)
+
+
+def reset_backoff(session: Session, book: Audiobook):
+    book.search_attempts = 0
+    book.next_search_at = None
+    session.add(book)
+    session.commit()
+
+
+def schedule_retry(session: Session, book: Audiobook):
+    book.search_attempts += 1
+    book.next_search_at = datetime.now(UTC) + backoff_delay(book.search_attempts)
+    session.add(book)
+    session.commit()
+    logger.info(
+        "No suitable source found, scheduling retry",
+        asin=book.asin,
+        attempt=book.search_attempts,
+        next_search_at=str(book.next_search_at),
+    )
+
+
 class QueryResult(pydantic.BaseModel):
     sources: list[ProwlarrSource] | None
     book: Audiobook | ManualBookRequest
     state: Literal["ok", "querying", "uncached"]
     error_message: str | None = None
+    query_used: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -57,6 +99,8 @@ async def query_sources(
     force_refresh: bool = False,
     start_auto_download: bool = False,
     only_return_if_cached: bool = False,
+    custom_query: str | None = None,
+    reset_retry: bool = False,
 ) -> QueryResult:
     # First check if the asin_or_uuid is a UUID (manual request)
     try:
@@ -68,11 +112,14 @@ async def query_sources(
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
+    query = build_search_query(book, custom_query)
+
     if asin_or_uuid in querying:
         return QueryResult(
             sources=None,
             book=book,
             state="querying",
+            query_used=query,
         )
 
     with manage_queried(asin_or_uuid):
@@ -106,6 +153,9 @@ async def query_sources(
 
         prowlarr_config.raise_if_invalid(session)
 
+        if reset_retry and isinstance(book, Audiobook):
+            reset_backoff(session, book)
+
         sources = await query_prowlarr(
             session,
             client_session,
@@ -113,42 +163,56 @@ async def query_sources(
             force_refresh=force_refresh,
             only_return_if_cached=only_return_if_cached,
             indexer_ids=prowlarr_config.get_indexers(session),
+            query=query,
         )
         if sources is None:
             return QueryResult(
                 sources=None,
                 book=book,
                 state="uncached",
+                query_used=query,
             )
 
         is_manual = isinstance(book, ManualBookRequest)
         ranked = await rank_sources(session, client_session, sources, book, is_manual)
 
-        # start download if requested
-        if start_auto_download and not book.fulfilled and len(ranked) > 0:
-            try:
-                await start_download(
-                    session=session,
-                    client_session=client_session,
-                    guid=ranked[0].guid,
-                    indexer_id=ranked[0].indexer_id,
-                    asin_or_uuid=asin_or_uuid,
-                    prowlarr_source=ranked[0],
-                )
-            except DownloadFailed as e:
-                raise HTTPException(status_code=500, detail=e.message) from e
+        # start download if requested; only a source that passes every check is taken
+        if start_auto_download and not book.fulfilled:
+            compare = CompareSource(session, book, is_manual)
+            chosen = next((rs.source for rs in ranked if compare.is_valid(rs)), None)
+            if chosen is not None:
+                try:
+                    await start_download(
+                        session=session,
+                        client_session=client_session,
+                        guid=chosen.guid,
+                        indexer_id=chosen.indexer_id,
+                        asin_or_uuid=asin_or_uuid,
+                        prowlarr_source=chosen,
+                    )
+                except DownloadFailed as e:
+                    raise HTTPException(status_code=500, detail=e.message) from e
 
-            # Try to trigger an ABS scan to pick up new media
-            try:
-                if abs_config.is_valid(session):
-                    await abs_trigger_scan(session, client_session)
-            except Exception:
-                logger.error("Failed to trigger ABS scan after starting download")
+                # Try to trigger an ABS scan to pick up new media
+                try:
+                    if abs_config.is_valid(session):
+                        await abs_trigger_scan(session, client_session)
+                except Exception:
+                    logger.error("Failed to trigger ABS scan after starting download")
+            else:
+                logger.info(
+                    "No suitable source for auto-download",
+                    asin_or_uuid=asin_or_uuid,
+                    sources=len(ranked),
+                )
+                if isinstance(book, Audiobook):
+                    schedule_retry(session, book)
 
         return QueryResult(
-            sources=ranked,
+            sources=[rs.source for rs in ranked],
             book=book,
             state="ok",
+            query_used=query,
         )
 
 

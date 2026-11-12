@@ -6,7 +6,12 @@ from sqlmodel import Session
 
 from app.internal.auth.authentication import AnyAuth, DetailedUser
 from app.internal.models import GroupEnum
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.internal.ranking.quality import (
+    FileFormat,
+    IndexerFlag,
+    QualityRange,
+    quality_config,
+)
 from app.util.db import get_session
 
 router = APIRouter(prefix="/download")
@@ -22,6 +27,7 @@ class DownloadSettings(BaseModel):
     min_seeders: int
     name_ratio: int
     title_ratio: int
+    allowed_formats: list[FileFormat]
     indexer_flags: list[IndexerFlag]
 
 
@@ -40,6 +46,7 @@ def get_download_settings(
         min_seeders=quality_config.get_min_seeders(session),
         name_ratio=quality_config.get_name_exists_ratio(session),
         title_ratio=quality_config.get_title_exists_ratio(session),
+        allowed_formats=quality_config.get_allowed_formats(session),
         indexer_flags=quality_config.get_indexer_flags(session),
     )
 
@@ -54,6 +61,8 @@ class UpdateDownloadSettings(BaseModel):
     min_seeders: int
     name_ratio: int
     title_ratio: int
+    allowed_formats: list[FileFormat] | None = None
+    """Formats that may be auto-downloaded; empty allows any. Omit to leave unchanged."""
 
 
 @router.patch("", status_code=204)
@@ -71,5 +80,7 @@ def update_download_settings(
     quality_config.set_min_seeders(session, body.min_seeders)
     quality_config.set_name_exists_ratio(session, body.name_ratio)
     quality_config.set_title_exists_ratio(session, body.title_ratio)
+    if body.allowed_formats is not None:
+        quality_config.set_allowed_formats(session, body.allowed_formats)
 
     return Response(status_code=204)

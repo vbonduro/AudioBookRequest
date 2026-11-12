@@ -12,6 +12,20 @@
     <h1 class="text-2xl sm:text-3xl font-bold break-words">
         Sources for {{ result.book.title }}
     </h1>
+    <form class="flex w-full max-w-lg gap-2"
+          hx-get="{{ base_url }}/wishlist/sources/{{ book_id }}?only_body=true"
+          hx-target="#sources"
+          hx-swap="outerHTML">
+        <input type="text"
+               name="query"
+               aria-label="Search query"
+               placeholder="Search query"
+               value="{{ (result.query_used or '')|e }}"
+               class="input input-bordered flex-1" />
+        <button type="submit" class="btn btn-primary">
+            Search
+        </button>
+    </form>
     {% if result.ok and not result.sources %}
         <div role="alert" class="alert">
             <span class="stroke-info h-6 w-6 shrink-0">
@@ -24,7 +38,7 @@
     {% elif not result.ok %}
         <div role="alert"
              class="alert"
-             hx-get="{{ base_url }}/wishlist/sources/{{ book_id }}?only_body=true"
+             hx-get="{{ base_url }}/wishlist/sources/{{ book_id }}?only_body=true&query={{ (result.query_used or '')|urlencode }}"
              hx-trigger="load"
              hx-target="#sources"
              hx-swap="outerHTML">

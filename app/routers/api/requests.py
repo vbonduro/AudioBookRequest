@@ -1,7 +1,8 @@
 import uuid
 from typing import Annotated, Literal
 
-from aiohttp import ClientSession
+import aiohttp
+from aiohttp import ClientResponseError, ClientSession
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -68,6 +69,18 @@ def _resolve_filter(
             return "not_fulfilled"
         case _:
             return "all"
+
+
+def _is_audible_outage(error: Exception) -> bool:
+    """Whether a failed lookup says Audible is down, not that the book doesn't exist.
+
+    Audible answers an unknown ASIN with a stub product that fails validation, so
+    anything that isn't a connection problem, timeout, rate limit or server error
+    means the book was not found.
+    """
+    if isinstance(error, ClientResponseError):
+        return error.status >= 500 or error.status == 429
+    return isinstance(error, aiohttp.ClientError | TimeoutError)
 
 
 class DownloadSourceBody(BaseModel):
@@ -150,6 +163,10 @@ async def create_request(
                 asin=asin_or_uuid,
                 error=str(e),
             )
+            if _is_audible_outage(e):
+                raise HTTPException(
+                    status_code=502, detail="Audible is unavailable"
+                ) from e
         if not book:
             raise HTTPException(status_code=404, detail="Book not found")
 
@@ -432,6 +449,10 @@ async def refresh_source(
     force_refresh: Annotated[
         bool, Query(description="Ignore cached sources and query Prowlarr again.")
     ] = False,
+    query: Annotated[
+        str | None,
+        Query(description="Search text for Prowlarr. Defaults to title and author."),
+    ] = None,
 ):
     _ = user
     if get_download_backend(session) == "chaptarr":
@@ -445,6 +466,7 @@ async def refresh_source(
         session=session,
         client_session=client_session,
         force_refresh=force_refresh,
+        custom_query=query,
     )
     return Response(status_code=202)
 
@@ -458,6 +480,10 @@ async def list_sources(
     only_cached: Annotated[
         bool, Query(description="Return cached sources without querying Prowlarr.")
     ] = False,
+    query: Annotated[
+        str | None,
+        Query(description="Search text for Prowlarr. Defaults to title and author."),
+    ] = None,
 ):
     _ = admin_user
     if get_download_backend(session) == "chaptarr":
@@ -475,6 +501,7 @@ async def list_sources(
         session=session,
         client_session=client_session,
         only_return_if_cached=only_cached,
+        custom_query=query,
     )
     return result
 
@@ -524,8 +551,38 @@ async def start_auto_download_endpoint(
     await query_sources(
         asin_or_uuid=asin_or_uuid,
         start_auto_download=True,
+        reset_retry=True,
         session=session,
         client_session=client_session,
     )
 
     return Response(status_code=204)
+
+
+@router.get(
+    "/{asin}",
+    response_model=AudiobookWishlistResult,
+    description=(
+        "Status of one requested book: whether it was fulfilled, its release date, "
+        "and how many automatic searches have failed and when the next one is due. "
+        "Non-admins only see books they requested themselves."
+    ),
+)
+async def get_request(
+    asin: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: Annotated[DetailedUser, Security(AnyAuth())],
+):
+    book = session.get(Audiobook, asin)
+    requests = (
+        [
+            r
+            for r in book.requests
+            if user.is_admin() or r.user_username == user.username
+        ]
+        if book
+        else []
+    )
+    if not book or not requests:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return AudiobookWishlistResult(book=book, requests=requests)

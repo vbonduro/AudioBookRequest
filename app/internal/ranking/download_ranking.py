@@ -25,18 +25,18 @@ async def rank_sources(
     sources: list[ProwlarrSource],
     book: Audiobook | ManualBookRequest,
     is_manual: bool = False,
-) -> list[ProwlarrSource]:
+) -> list[RankSource]:
     async def get_qualities(source: ProwlarrSource):
         qualities = await extract_qualities(session, client_session, source, book)
         return [RankSource(source=source, quality=q) for q in qualities]
 
     coros = [get_qualities(source) for source in sources]
-    rank_sources = [x for y in await asyncio.gather(*coros) for x in y]
+    ranked = [x for y in await asyncio.gather(*coros) for x in y]
 
     compare = CompareSource(session, book, is_manual)
-    rank_sources.sort(key=cmp_to_key(compare))
+    ranked.sort(key=cmp_to_key(compare))
 
-    return [rs.source for rs in rank_sources]
+    return ranked
 
 
 @final
@@ -84,7 +84,16 @@ class CompareSource:
         if self.is_manual:
             return True
 
+        allowed_formats = quality_config.get_allowed_formats(self.session)
+        if allowed_formats and a.quality.file_format not in allowed_formats:
+            return False
+
         match a.quality.file_format:
+            case "epub":
+                # An ebook has no bitrate to range-check, so it is only accepted when
+                # explicitly allowed; otherwise an audiobook request could be
+                # fulfilled with an epub.
+                return "epub" in allowed_formats
             case "flac":
                 quality_range = quality_config.get_range(self.session, "quality_flac")
             case "m4b":
@@ -158,26 +167,21 @@ class CompareSource:
         # Require at least one author OR one narrator match
         return author_score > 0 or narrator_score > 0
 
-    def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
-        """Filter out any reasons that make it not valid"""
+    def is_valid(self, a: RankSource) -> bool:
+        """Whether a source is good enough to be downloaded without anyone looking."""
+        valid = self._is_valid_quality(a)
         if a.source.protocol == "torrent":
-            a_valid = self._is_valid_quality(
-                a
-            ) and a.source.seeders >= quality_config.get_min_seeders(self.session)
-        else:
-            a_valid = self._is_valid_quality(a)
-
-        if b.source.protocol == "torrent":
-            b_valid = self._is_valid_quality(
-                b
-            ) and b.source.seeders >= quality_config.get_min_seeders(self.session)
-        else:
-            b_valid = self._is_valid_quality(b)
-
+            valid = valid and a.source.seeders >= quality_config.get_min_seeders(
+                self.session
+            )
         # Check if the source has a reasonable match with the book
         # Require either title match OR (author/narrator match)
-        a_valid = a_valid and self._has_minimum_match(a)
-        b_valid = b_valid and self._has_minimum_match(b)
+        return valid and self._has_minimum_match(a)
+
+    def _compare_valid(self, a: RankSource, b: RankSource, next_compare: int) -> int:
+        """Filter out any reasons that make it not valid"""
+        a_valid = self.is_valid(a)
+        b_valid = self.is_valid(b)
 
         if a_valid == b_valid:
             return self._get_next_compare(next_compare)(a, b, next_compare + 1)

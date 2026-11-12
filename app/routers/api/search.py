@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from sqlmodel import Session
 
 from app.internal.audible.search import (
+    AudibleUnavailable,
     get_search_suggestions,
     search_audible_books,
     upsert_books,
@@ -44,13 +45,17 @@ async def search_books(
     if audible_regions.get(region) is None:
         raise HTTPException(status_code=400, detail="Invalid region")
     if query:
-        results = await search_audible_books(
-            client_session=client_session,
-            query=query,
-            num_results=num_results,
-            page=page,
-            audible_region=region,
-        )
+        try:
+            results = await search_audible_books(
+                client_session=client_session,
+                query=query,
+                num_results=num_results,
+                page=page,
+                audible_region=region,
+                raise_on_error=True,
+            )
+        except AudibleUnavailable as e:
+            raise HTTPException(status_code=502, detail="Audible is unavailable") from e
     else:
         results = []
 

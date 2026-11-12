@@ -129,18 +129,26 @@ async def get_search_suggestions(
     return titles
 
 
+class AudibleUnavailable(Exception):
+    """Audible could not be reached or answered with an error."""
+
+
 async def search_audible_books(
     client_session: ClientSession,
     query: str,
     num_results: int = 20,
     page: int = 0,
     audible_region: audible_region_type | None = None,
+    raise_on_error: bool = False,
 ) -> list[Audiobook]:
     """
     https://audible.readthedocs.io/en/latest/misc/external_api.html#get--1.0-catalog-products
 
     Use the audible API to fetch all the books. We get all the required metadata by using
     the 'media' response group.
+
+    A failed request gives no results, unless `raise_on_error` is set, in which case
+    `AudibleUnavailable` is raised so callers can tell an outage from an empty search.
     """
     if audible_region is None:
         audible_region = get_region_from_settings()
@@ -182,6 +190,8 @@ async def search_audible_books(
             region=audible_region,
             error=e,
         )
+        if raise_on_error:
+            raise AudibleUnavailable(str(e)) from e
         return []
 
     # do not fetch book results we already have locally

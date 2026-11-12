@@ -81,6 +81,12 @@ class Audiobook(BaseSQLModel, table=True):
     )
     admin_note: str | None = Field(default=None, sa_column=Column(Text))
     fulfilled: bool = False
+    search_attempts: int = Field(default=0)
+    """Failed automatic searches since the last success or manual reset."""
+    next_search_at: datetime | None = Field(default=None)
+    """Earliest time the scheduler may search again; None means any time."""
+    downloaded_file: str | None = Field(default=None)
+    """Title of the source that was sent to the download client."""
 
     @computed_field
     @property

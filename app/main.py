@@ -22,6 +22,7 @@ from app.internal.auth.session_middleware import (
 from app.internal.env_settings import Settings
 from app.internal.models import User
 from app.internal.prowlarr.util import ProwlarrMisconfigured
+from app.internal.scheduler import lifespan
 from app.routers import api, pages
 from app.util.db import get_session
 from app.util.fetch_js import fetch_scripts
@@ -49,6 +50,7 @@ app = FastAPI(
         Middleware(GZipMiddleware),
     ],
     redirect_slashes=False,
+    lifespan=lifespan,
 )
 
 app.include_router(pages.router, include_in_schema=False)

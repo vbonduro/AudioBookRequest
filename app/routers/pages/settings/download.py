@@ -1,11 +1,16 @@
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import APIRouter, Depends, Form, Response, Security
 from sqlmodel import Session
 
 from app.internal.auth.authentication import ABRAuth, DetailedUser
 from app.internal.models import GroupEnum
-from app.internal.ranking.quality import IndexerFlag, QualityRange, quality_config
+from app.internal.ranking.quality import (
+    FileFormat,
+    IndexerFlag,
+    QualityRange,
+    quality_config,
+)
 from app.routers.api.settings.download import (
     UpdateDownloadSettings,
 )
@@ -16,6 +21,8 @@ from app.util.db import get_session
 from app.util.templates import catalog_response, catalog_response_toast
 
 router = APIRouter(prefix="/download")
+
+all_formats: list[FileFormat] = list(get_args(FileFormat))
 
 
 @router.get("")
@@ -33,6 +40,7 @@ def read_download(
     name_ratio = quality_config.get_name_exists_ratio(session)
     title_ratio = quality_config.get_title_exists_ratio(session)
     flags = quality_config.get_indexer_flags(session)
+    allowed_formats = quality_config.get_allowed_formats(session)
 
     return catalog_response(
         "Settings.Download.Index",
@@ -46,6 +54,8 @@ def read_download(
         min_seeders=min_seeders,
         name_ratio=name_ratio,
         title_ratio=title_ratio,
+        allowed_formats=allowed_formats,
+        all_formats=all_formats,
         indexer_flags=flags,
     )
 
@@ -68,7 +78,10 @@ def update_download(
     session: Annotated[Session, Depends(get_session)],
     admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
     auto_download: Annotated[bool, Form()] = False,
+    allowed_formats: Annotated[list[FileFormat] | None, Form()] = None,
 ):
+    # an unchecked box list is not submitted at all, which means "any format"
+    allowed_formats = allowed_formats or []
     flac = QualityRange(from_kbits=flac_from, to_kbits=flac_to)
     m4b = QualityRange(from_kbits=m4b_from, to_kbits=m4b_to)
     mp3 = QualityRange(from_kbits=mp3_from, to_kbits=mp3_to)
@@ -88,6 +101,7 @@ def update_download(
             min_seeders=min_seeders,
             name_ratio=name_ratio,
             title_ratio=title_ratio,
+            allowed_formats=allowed_formats,
         ),
         session,
         admin_user,
@@ -106,6 +120,8 @@ def update_download(
         min_seeders=min_seeders,
         name_ratio=name_ratio,
         title_ratio=title_ratio,
+        allowed_formats=allowed_formats,
+        all_formats=all_formats,
     )
 
 

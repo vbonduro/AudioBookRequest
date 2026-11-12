@@ -25,6 +25,7 @@ async def list_sources(
     client_session: Annotated[ClientSession, Depends(get_connection)],
     admin_user: Annotated[DetailedUser, Security(ABRAuth(GroupEnum.admin))],
     only_body: bool = False,
+    query: str | None = None,
 ):
     if get_download_backend(session) == "chaptarr":
         return BaseUrlRedirectResponse("/wishlist", status_code=302)
@@ -36,6 +37,7 @@ async def list_sources(
             client_session,
             admin_user,
             only_cached=not only_body,
+            query=query,
         )
     except HTTPException as e:
         if e.detail == "Prowlarr misconfigured":
